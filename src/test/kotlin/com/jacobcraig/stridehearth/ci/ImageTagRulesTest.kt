@@ -167,6 +167,33 @@ class ImageTagRulesTest {
     }
 
     @Test
+    fun `a stray higher tag off the Release lines cannot freeze the floating tags`() {
+        val base = initRepo()
+        git("checkout", "-q", "-b", "experiment")
+        tag("v9.0.0", commit("experiment"))
+        git("checkout", "-q", "main")
+        val v020 = commit("next")
+        remoteBranch("main", v020)
+        tag("v0.2.0", v020)
+        // A tag named for one line but sitting on another line's release branch is refused too, so it doesn't count.
+        git("checkout", "-q", "-b", "release/0.1.x", base)
+        val misplaced = commit("fix")
+        remoteBranch("release/0.1.x", misplaced)
+        tag("v0.2.7", misplaced)
+
+        assertRules(
+            listOf(
+                "type=semver,pattern={{version}}",
+                "type=semver,pattern={{major}}.{{minor}}",
+                "type=semver,pattern={{major}}",
+                "type=raw,value=latest",
+            ),
+            "refs/tags/v0.2.0",
+            v020,
+        )
+    }
+
+    @Test
     fun `a Release tag on any other branch is refused`() {
         val base = initRepo()
         remoteBranch("main", base)
