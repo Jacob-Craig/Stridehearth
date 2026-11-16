@@ -3,7 +3,7 @@
 # Without a profile the backend needs SPRING_DATASOURCE_* and SPRING_DATA_REDIS_HOST from its environment (ADR-0009).
 services:
   postgres:
-    image: 'postgis/postgis:16-3.4'
+    image: 'postgis/postgis:18-3.6'
     platform: linux/amd64
     environment:
       - 'POSTGRES_DB=run_db'
