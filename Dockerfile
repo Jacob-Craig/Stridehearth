@@ -17,9 +17,12 @@ RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
 WORKDIR /workspace
 COPY . .
 # CI has already run the checks that bootJar depends on (frontendCheck), so only the production bundle is built here.
+# The copy fails, naming what it found, unless build/libs holds exactly one jar besides the plain one.
 RUN --mount=type=cache,target=/root/.gradle \
     ./gradlew --no-daemon bootJar -x frontendCheck \
-    && cp "$(ls build/libs/*.jar | grep -v -- '-plain\.jar$')" application.jar \
+    && set -- $(find build/libs -maxdepth 1 -name '*.jar' ! -name '*-plain.jar') \
+    && if [ "$#" -ne 1 ]; then echo "Expected one Boot jar in build/libs, found $#: $*" >&2; exit 1; fi \
+    && cp "$1" application.jar \
     && java -Djarmode=tools -jar application.jar extract --layers --destination extracted
 
 # ---- Runtime ----
