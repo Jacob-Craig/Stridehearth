@@ -36,7 +36,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("org.springframework.boot:spring-boot-starter-validation")
-    testImplementation("org.mockito.kotlin:mockito-kotlin:5.4.0") // Use latest 5.x version
+    testImplementation("org.mockito.kotlin:mockito-kotlin:6.4.0") // Use latest 5.x version
     implementation("org.flywaydb:flyway-database-postgresql")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
