@@ -112,6 +112,15 @@ class ContainerImageTest {
     }
 
     @Test
+    fun `a local build and a CI build declare the same licences`() {
+        // CI's metadata-action label overrides the Dockerfile's, so the two copies must not drift apart.
+        val labels = runtimeStage().filter { it.keyword == "LABEL" }.joinToString(" ") { it.arguments }
+        val dockerfileLicences = Regex("org\\.opencontainers\\.image\\.licenses=\"([^\"]*)\"").find(labels)?.groupValues?.get(1)
+        val ciEnv = Yaml().load<Map<String, Any>>(File(root, ".github/workflows/ci.yml").readText())["env"] as Map<*, *>
+        assertEquals(ciEnv["IMAGE_LICENSES"], dockerfileLicences, "The Dockerfile's licences label must match ci.yml's IMAGE_LICENSES")
+    }
+
+    @Test
     fun `the image carries no configuration secrets`() {
         val settings = instructions().filter { it.keyword == "ENV" || it.keyword == "ARG" }.map { it.arguments }
         val secretLike = Regex("(?i)password|secret|token|datasource|redis")
