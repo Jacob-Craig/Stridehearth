@@ -53,7 +53,7 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     // Source: https://mvnrepository.com/artifact/com.garmin/fit
     implementation("com.garmin:fit:21.217.0")
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:2.8.6")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:3.2.0")
 }
 
 kotlin {
