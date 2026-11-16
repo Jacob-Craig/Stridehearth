@@ -1,0 +1,23 @@
+# 0001. Asynchronous Bulk FIT File Ingestion via Redis Task Queue and PostgreSQL
+
+Bulk activity imports (100s of .FIT files or compressed ZIP archives) are processed asynchronously using temporary disk staging, a Redis task queue for decoupled worker dispatch, and per-file isolated transactions in PostgreSQL. This architecture prevents HTTP request timeouts, protects JVM heap memory from exhaustion, isolates individual file corruption or duplicate conflicts from failing the overall batch, and enables real-time progress polling.
+
+## Considered Options
+
+- **Synchronous Ingestion**: Processing all files within a single blocking HTTP POST. Rejected because decoding hundreds of binary FIT files and inserting tens of thousands of telemetry rows takes minutes, leading to gateway/browser timeouts, thread starvation, and potential JVM OutOfMemoryErrors.
+- **In-JVM Thread Pool without Message Broker**: Dispatching tasks via Spring `ThreadPoolTaskExecutor` within the application. Rejected in favor of Redis because Redis is already present in `docker-compose.yml` and `build.gradle.kts`, and an external queue decouples web ingestion from worker consumers, allowing future horizontal scaling and independent worker lifecycle.
+- **RabbitMQ Message Broker**: Rejected because it introduces unnecessary operational complexity and additional containers when Redis is already part of the stack.
+
+## Consequences
+
+- **Storage & Disk Guardrails**: Uploaded files and extracted archive entries are staged via the `StorageService` abstraction to a dedicated configurable directory (`stridehearth.storage.temp-dir`, defaulting to `./temp-batches`). Pre-extraction disk checks reject uploads if `usableSpace < uncompressedSize + 500MB`. Servlet multipart buffering is explicitly redirected to this ephemeral mount via `spring.servlet.multipart.location` with 500MB request caps to shield the container root filesystem. Shutdown hooks and startup cleanup ensure temporary files are purged under all crash conditions.
+- **Queue Semantics, Dual-Write Consistency & Poison Pills**: Redis Streams (`XADD`, `XREADGROUP`, `XACK`, `XAUTOCLAIM`) manage worker dispatch with consumer groups. Post-commit `XADD` is paired with a lightweight periodic reconciliation scheduler (re-enqueueing `PENDING` items older than 60s) and worker idempotency checks. Tasks exceeding 3 failed delivery attempts are moved to `import-batches-dlq`, marked `FAILED`, and acknowledged, with a 60-second idle threshold preventing race conditions with slow parsing.
+- **Memory & Parsing**: Garmin FIT decoding streams directly from disk via `Decode` + `MesgBroadcaster` listeners into primitive telemetry arrays. Ephemeral JVM array boxing is tracked via automated load testing assertions.
+- **Transaction Scoping & Concurrency**: File decoding runs outside the database connection. Persistence (`Activity` save, `activity_details` upsert, and `ImportBatchItem` status update) runs in a single atomic transaction (<15ms lease) via `TransactionTemplate`. Worker concurrency defaults to 6 parallel workers (`stridehearth.import.concurrency: 6`) with HikariCP `maximum-pool-size` set to 20.
+- **Atomic Finalization & Directory Cleanup Mutex**: Batch finalization and directory cleanup are coordinated via an atomic conditional update (a compare-and-set: complete the batch only while it is active and none of its items is in flight), owned by `ImportBatchLifecycle.finalise`. Its affected-row count acts as a distributed mutex so that exactly one worker executes final directory cleanup.
+- **Persistence Model & Spatial Safety**: Retains the single-row-per-activity LZ4-compressed array schema in `activity_details` (75 parameters per statement, far below the 65,535 JDBC limit) and server-side PostGIS `ST_MakeLine` construction guarded by `cardinality >= 2`, avoiding client-side JTS dependencies.
+- **Fault Isolation & Auditing**: Each file commits in an isolated transaction. Corrupted or duplicate files are recorded per-item (`FAILED` / `DUPLICATE`) without failing valid activities.
+- **Schema & Migration**: A new Flyway migration (`V6__create_import_batch_tables.sql`) tracks `import_batch` and `import_batch_item` tables for auditability, crash recovery, and running counters.
+- **Ultra-Lightweight Polling & UI**: Dedicated UI at `/activities/import` with real-time polling progress, cancellation support, an `/activities/import/history` audit view, and an `ApplicationReadyEvent` listener to cleanly finalize interrupted batches upon startup. 1-second client polling hits an ultra-lightweight summary projection (`ImportBatchSummaryDTO`) reading running counters on `import_batch` (<1ms lease, ~200B JSON) without entity graph hydration overhead.
+
+

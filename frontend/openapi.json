@@ -1,0 +1,3241 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "title" : "OpenAPI definition",
+    "version" : "v0"
+  },
+  "servers" : [ {
+    "url" : "http://localhost",
+    "description" : "Generated server url"
+  } ],
+  "paths" : {
+    "/api/activities/{id}" : {
+      "get" : {
+        "tags" : [ "activity-api-controller" ],
+        "operationId" : "getActivity",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The Activity with its Laps, Activity History Entries and Best Efforts",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ActivityDetailDTO"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such Activity for this athlete",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "activity-api-controller" ],
+        "operationId" : "updateActivity",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ActivityUpdateRequestDTO"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "The updated Activity",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ActivitySummaryDTO"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Validation failed, including any attempt to edit Protected Metrics",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such Activity for this athlete",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "activity-api-controller" ],
+        "operationId" : "deleteActivity",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Deleted; Personal Records recalibrated"
+          },
+          "404" : {
+            "description" : "No such Activity for this athlete",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/invites" : {
+      "get" : {
+        "tags" : [ "invite-api-controller" ],
+        "operationId" : "listPendingInvites",
+        "responses" : {
+          "200" : {
+            "description" : "The pending Invites",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/InviteDTO"
+                  }
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The signed-in account is not the Administrator",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "invite-api-controller" ],
+        "operationId" : "createInvite",
+        "responses" : {
+          "201" : {
+            "description" : "The Invite was created",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CreatedInviteDTO"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The signed-in account is not the Administrator",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/register" : {
+      "post" : {
+        "tags" : [ "auth-api-controller" ],
+        "operationId" : "register",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UserFormDTO"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Successfully registered",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserResponseDTO"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Validation or duplicate error",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The Server's Registration Mode does not allow this sign-up",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429" : {
+            "description" : "Too many sign-up attempts from this source; see Retry-After",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/logout" : {
+      "post" : {
+        "tags" : [ "auth-api-controller" ],
+        "operationId" : "logout",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/api/auth/login" : {
+      "post" : {
+        "tags" : [ "auth-api-controller" ],
+        "operationId" : "login",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoginRequestDTO"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "Successfully authenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserResponseDTO"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Authentication failed",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429" : {
+            "description" : "Too many failed sign-ins from this source or against this username; see Retry-After",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/invites/{token}/redeem" : {
+      "post" : {
+        "tags" : [ "auth-api-controller" ],
+        "operationId" : "redeemInvite",
+        "parameters" : [ {
+          "name" : "token",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UserFormDTO"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Successfully registered with the Invite",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserResponseDTO"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Validation or duplicate error",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "410" : {
+            "description" : "The Invite is unknown, used, expired or revoked",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429" : {
+            "description" : "Too many sign-up attempts from this source; see Retry-After",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/activities" : {
+      "get" : {
+        "tags" : [ "activity-api-controller" ],
+        "operationId" : "listActivities",
+        "parameters" : [ {
+          "name" : "q",
+          "in" : "query",
+          "description" : "Case-insensitive substring of the Activity title",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "sport",
+          "in" : "query",
+          "description" : "Only Activities of this sport",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "RUN", "WALK", "HIKE", "RIDE", "SWIM", "WORKOUT" ]
+          }
+        }, {
+          "name" : "source",
+          "in" : "query",
+          "description" : "Only Activities from this Activity Source",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "MANUAL", "STRAVA", "GARMIN", "FIT_UPLOAD" ]
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "description" : "Zero-based page index (ignored when size is 'all')",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "description" : "Page size from 1 to 100, or 'all' for every matching Activity in one page",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "20",
+            "example" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "One page of the athlete's matching Activities, newest first",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PagedResponseDTOActivitySummaryDTO"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Unsupported page size",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "activity-api-controller" ],
+        "operationId" : "createActivity",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ActivityCreateRequestDTO"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "The created MANUAL Activity",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ActivitySummaryDTO"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Validation failed",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/activities/upload" : {
+      "post" : {
+        "tags" : [ "single-file-upload-api-controller" ],
+        "operationId" : "uploadActivityFile",
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : {
+                  "file" : {
+                    "type" : "string",
+                    "format" : "binary"
+                  }
+                },
+                "required" : [ "file" ]
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "The outcome of importing the file",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SingleFileUploadResponseDTO"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "The file could not be read as an activity (kind INVALID_ACTIVITY_FILE)",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/activities/import" : {
+      "post" : {
+        "tags" : [ "import-batch-api-controller" ],
+        "operationId" : "submitImportBatch",
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : {
+                  "files" : {
+                    "type" : "array",
+                    "items" : {
+                      "type" : "string",
+                      "format" : "binary"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses" : {
+          "202" : {
+            "description" : "The Import Batch was staged and queued for ingestion",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportBatchReceiptDTO"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "No files, no valid .fit entries, or an archive failed validation",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/activities/import/batches/{id}/cancel" : {
+      "post" : {
+        "tags" : [ "import-batch-api-controller" ],
+        "operationId" : "cancelImportBatch",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The Import Batch after cancellation; batches already in a terminal status are unchanged",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportBatchSummaryDTO"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No Import Batch with this id belongs to the athlete",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/activities/batch-delete" : {
+      "post" : {
+        "tags" : [ "activity-batch-api-controller" ],
+        "operationId" : "batchDelete",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BatchDeleteRequestDTO"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "description" : "No Activities selected",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "A selected Activity is missing or belongs to another athlete; nothing was deleted",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "The Activities were deleted; Personal Records recalibrated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BatchMutationResultDTO"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/activities/backfill-best-efforts" : {
+      "post" : {
+        "tags" : [ "activity-batch-api-controller" ],
+        "operationId" : "backfillBestEfforts",
+        "responses" : {
+          "200" : {
+            "description" : "Best Efforts detected for historical Activities that lack them; Personal Records updated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BestEffortBackfillResultDTO"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/activities/batch" : {
+      "patch" : {
+        "tags" : [ "activity-batch-api-controller" ],
+        "operationId" : "batchUpdate",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BatchUpdateRequestDTO"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "description" : "No Activities selected, or neither a title nor a sport given",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "A selected Activity is missing or belongs to another athlete; nothing was changed",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "200" : {
+            "description" : "The Activities were updated, with BATCH_EDITED history recorded",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BatchMutationResultDTO"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/heatmap/years" : {
+      "get" : {
+        "tags" : [ "heatmap-api-controller" ],
+        "summary" : "The years with an Activity on the Heatmap, in the browser's timezone, for the year shortcuts",
+        "operationId" : "getHeatmapYears",
+        "parameters" : [ {
+          "name" : "timeZone",
+          "in" : "query",
+          "description" : "IANA timezone the years are counted in, e.g. Europe/London",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          },
+          "example" : "Europe/London"
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The years, newest first",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/HeatmapYearsDTO"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Unknown timezone",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/heatmap/tiles/{rendering}/{revision}/{z}/{x}/{y}" : {
+      "get" : {
+        "tags" : [ "heatmap-api-controller" ],
+        "summary" : "One tile of the athlete's Heatmap at a revision",
+        "operationId" : "getHeatmapTile",
+        "parameters" : [ {
+          "name" : "rendering",
+          "in" : "path",
+          "description" : "The renderer and its look, from the renderer descriptor's tile URL template",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "revision",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "z",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "x",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "y",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "description" : "Inclusive lower bound on the Activity start time",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "description" : "Exclusive upper bound on the Activity start time",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "sports",
+          "in" : "query",
+          "description" : "Sports to include; all sports when absent",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "RUN", "WALK", "HIKE", "RIDE", "SWIM", "WORKOUT" ]
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The tile, in the active renderer's media type",
+            "content" : {
+              "image/png" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "No such tile",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/heatmap/starting-view" : {
+      "get" : {
+        "tags" : [ "heatmap-api-controller" ],
+        "summary" : "Where the Heatmap opens: the bounds of the busiest area of the routes the Heatmap Filter matches, or none",
+        "description" : "The area holding the most Activities under the Heatmap Filter, so an athlete who has trained on two continents opens on where they train most rather than the whole world. Bounds are null when the filter matches no routes.",
+        "operationId" : "getHeatmapStartingView",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "sports",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "RUN", "WALK", "HIKE", "RIDE", "SWIM", "WORKOUT" ]
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The starting view",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/HeatmapStartingViewDTO"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/heatmap/revision" : {
+      "get" : {
+        "tags" : [ "heatmap-api-controller" ],
+        "summary" : "The athlete's heatmap revision, which changes whenever their heatmap routes do",
+        "operationId" : "getHeatmapRevision",
+        "responses" : {
+          "200" : {
+            "description" : "The heatmap revision",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/HeatmapRevisionDTO"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/heatmap/renderer" : {
+      "get" : {
+        "tags" : [ "heatmap-api-controller" ],
+        "summary" : "The active Heatmap tile renderer and its tile URL template",
+        "operationId" : "getHeatmapRenderer",
+        "responses" : {
+          "200" : {
+            "description" : "The renderer descriptor",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/HeatmapRendererDTO"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard" : {
+      "get" : {
+        "tags" : [ "dashboard-api-controller" ],
+        "operationId" : "getDashboard",
+        "responses" : {
+          "200" : {
+            "description" : "The authenticated athlete's running Personal Records",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DashboardResponseDTO"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/registration" : {
+      "get" : {
+        "tags" : [ "auth-api-controller" ],
+        "operationId" : "registrationStatus",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RegistrationStatusDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/me" : {
+      "get" : {
+        "tags" : [ "auth-api-controller" ],
+        "operationId" : "me",
+        "responses" : {
+          "200" : {
+            "description" : "Current authenticated user profile",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserResponseDTO"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/invites/{token}" : {
+      "get" : {
+        "tags" : [ "auth-api-controller" ],
+        "operationId" : "inviteStatus",
+        "parameters" : [ {
+          "name" : "token",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The Invite is pending",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PendingInviteDTO"
+                }
+              }
+            }
+          },
+          "410" : {
+            "description" : "The Invite is unknown, used, expired or revoked",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/activities/{id}/telemetry" : {
+      "get" : {
+        "tags" : [ "activity-telemetry-controller" ],
+        "summary" : "The Activity Details and Best Effort windows of an Activity",
+        "operationId" : "getActivityTelemetry",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The Activity Details",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ActivityTelemetryResponseDTO"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such Activity with Activity Details for this athlete",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/activities/import/history" : {
+      "get" : {
+        "tags" : [ "import-batch-api-controller" ],
+        "operationId" : "getImportHistory",
+        "responses" : {
+          "200" : {
+            "description" : "The athlete's Import Batches, newest first",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ImportBatchSummaryDTO"
+                  }
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/activities/import/batches/{id}" : {
+      "get" : {
+        "tags" : [ "import-batch-api-controller" ],
+        "operationId" : "getImportBatch",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Running counters for the Import Batch",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportBatchSummaryDTO"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No Import Batch with this id belongs to the athlete",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/invites/{inviteId}" : {
+      "delete" : {
+        "tags" : [ "invite-api-controller" ],
+        "operationId" : "revokeInvite",
+        "parameters" : [ {
+          "name" : "inviteId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "The Invite was revoked"
+          },
+          "404" : {
+            "description" : "No pending Invite has this id",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403" : {
+            "description" : "The signed-in account is not the Administrator",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "ActivityUpdateRequestDTO" : {
+        "type" : "object",
+        "properties" : {
+          "title" : {
+            "type" : "string",
+            "maxLength" : 255,
+            "minLength" : 1
+          },
+          "sport" : {
+            "type" : "string",
+            "enum" : [ "RUN", "WALK", "HIKE", "RIDE", "SWIM", "WORKOUT" ]
+          },
+          "startedAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          },
+          "distance" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Distance in kilometers",
+            "minimum" : 0
+          },
+          "timeTakenSeconds" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "minimum" : 0
+          },
+          "averagePaceKmh" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Average speed in km/h",
+            "minimum" : 0
+          },
+          "averageHeartRate" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "minimum" : 0
+          },
+          "calories" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "sport", "title" ]
+      },
+      "ApiErrorResponse" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "VALIDATION_FAILED", "DUPLICATE_RESOURCE", "INVALID_ACTIVITY_FILE", "RESOURCE_NOT_FOUND", "BAD_REQUEST", "UNAUTHORIZED", "REGISTRATION_CLOSED", "TOO_MANY_ATTEMPTS", "INVITE_UNUSABLE", "ADMINISTRATOR_ONLY", "CONCURRENT_CHANGE" ]
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "fieldErrors" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "ActivitySummaryDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "sport" : {
+            "type" : "string",
+            "enum" : [ "RUN", "WALK", "HIKE", "RIDE", "SWIM", "WORKOUT" ]
+          },
+          "startedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "distance" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "Distance in kilometers"
+          },
+          "timeTakenSeconds" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "averagePaceKmh" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Average speed in km/h"
+          },
+          "averageHeartRate" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "calories" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "source" : {
+            "type" : "string",
+            "enum" : [ "MANUAL", "STRAVA", "GARMIN", "FIT_UPLOAD" ]
+          },
+          "hasProtectedMetrics" : {
+            "type" : "boolean",
+            "description" : "True when the Protected Metrics are immutable and only title and sport may be edited"
+          }
+        },
+        "required" : [ "averageHeartRate", "averagePaceKmh", "calories", "distance", "hasProtectedMetrics", "id", "source", "sport", "startedAt", "timeTakenSeconds", "title" ]
+      },
+      "CreatedInviteDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "token" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "createdAt", "expiresAt", "id", "token" ]
+      },
+      "UserFormDTO" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "password" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "username" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "firstName" : {
+            "type" : "string"
+          },
+          "lastName" : {
+            "type" : "string"
+          }
+        }
+      },
+      "UserResponseDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "username" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "firstName" : {
+            "type" : "string"
+          },
+          "lastName" : {
+            "type" : "string"
+          },
+          "administrator" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "LoginRequestDTO" : {
+        "type" : "object",
+        "properties" : {
+          "username" : {
+            "type" : "string"
+          },
+          "password" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ActivityCreateRequestDTO" : {
+        "type" : "object",
+        "properties" : {
+          "title" : {
+            "type" : "string",
+            "maxLength" : 255,
+            "minLength" : 1
+          },
+          "sport" : {
+            "type" : "string",
+            "enum" : [ "RUN", "WALK", "HIKE", "RIDE", "SWIM", "WORKOUT" ]
+          },
+          "startedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "distance" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "Distance in kilometers",
+            "minimum" : 0
+          },
+          "timeTakenSeconds" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 0
+          },
+          "averagePaceKmh" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Average speed in km/h",
+            "minimum" : 0
+          },
+          "averageHeartRate" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "minimum" : 0
+          },
+          "calories" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "distance", "sport", "startedAt", "timeTakenSeconds", "title" ]
+      },
+      "CreatedUploadResponseDTO" : {
+        "type" : "object",
+        "properties" : {
+          "activityId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "CREATED" ]
+          }
+        },
+        "required" : [ "activityId", "kind" ]
+      },
+      "DuplicateUploadResponseDTO" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "DUPLICATE" ]
+          }
+        },
+        "required" : [ "kind" ]
+      },
+      "MultiProcessedUploadResponseDTO" : {
+        "type" : "object",
+        "properties" : {
+          "processedCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "MULTI_PROCESSED" ]
+          }
+        },
+        "required" : [ "kind", "processedCount" ]
+      },
+      "SingleFileUploadResponseDTO" : {
+        "type" : "object",
+        "discriminator" : {
+          "propertyName" : "kind",
+          "mapping" : {
+            "CREATED" : "#/components/schemas/CreatedUploadResponseDTO",
+            "UPGRADED" : "#/components/schemas/UpgradedUploadResponseDTO",
+            "MULTI_PROCESSED" : "#/components/schemas/MultiProcessedUploadResponseDTO",
+            "DUPLICATE" : "#/components/schemas/DuplicateUploadResponseDTO"
+          }
+        },
+        "oneOf" : [ {
+          "$ref" : "#/components/schemas/CreatedUploadResponseDTO"
+        }, {
+          "$ref" : "#/components/schemas/UpgradedUploadResponseDTO"
+        }, {
+          "$ref" : "#/components/schemas/MultiProcessedUploadResponseDTO"
+        }, {
+          "$ref" : "#/components/schemas/DuplicateUploadResponseDTO"
+        } ],
+        "properties" : {
+          "kind" : {
+            "type" : "string"
+          }
+        }
+      },
+      "UpgradedUploadResponseDTO" : {
+        "type" : "object",
+        "properties" : {
+          "activityId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "UPGRADED" ]
+          }
+        },
+        "required" : [ "activityId", "kind" ]
+      },
+      "ImportBatchReceiptDTO" : {
+        "type" : "object",
+        "properties" : {
+          "batchId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "PROCESSING", "COMPLETED", "CANCELLED", "INTERRUPTED", "FAILED" ]
+          },
+          "totalFiles" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "batchId", "status", "totalFiles" ]
+      },
+      "ActivityChangeDTO" : {
+        "type" : "object",
+        "discriminator" : {
+          "propertyName" : "kind",
+          "mapping" : {
+            "CREATED" : "#/components/schemas/CreatedChangeDTO",
+            "EDITED" : "#/components/schemas/EditedChangeDTO",
+            "BATCH_EDITED" : "#/components/schemas/BatchEditedChangeDTO",
+            "UPGRADED" : "#/components/schemas/UpgradedChangeDTO",
+            "LEGACY" : "#/components/schemas/LegacyChangeDTO"
+          }
+        },
+        "oneOf" : [ {
+          "$ref" : "#/components/schemas/CreatedChangeDTO"
+        }, {
+          "$ref" : "#/components/schemas/EditedChangeDTO"
+        }, {
+          "$ref" : "#/components/schemas/BatchEditedChangeDTO"
+        }, {
+          "$ref" : "#/components/schemas/UpgradedChangeDTO"
+        }, {
+          "$ref" : "#/components/schemas/LegacyChangeDTO"
+        } ],
+        "properties" : {
+          "kind" : {
+            "type" : "string"
+          }
+        }
+      },
+      "AverageHeartRateChangeDTO" : {
+        "type" : "object",
+        "properties" : {
+          "from" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "to" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "AVERAGE_HEART_RATE" ]
+          }
+        },
+        "required" : [ "from", "kind", "to" ]
+      },
+      "AveragePaceChangeDTO" : {
+        "type" : "object",
+        "properties" : {
+          "from" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Average speed in km/h"
+          },
+          "to" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Average speed in km/h"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "AVERAGE_PACE" ]
+          }
+        },
+        "required" : [ "from", "kind", "to" ]
+      },
+      "BackfilledDetailsDTO" : {
+        "type" : "object",
+        "properties" : {
+          "parserVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "BACKFILLED" ]
+          }
+        },
+        "required" : [ "kind", "parserVersion" ]
+      },
+      "BackfilledLapsDTO" : {
+        "type" : "object",
+        "properties" : {
+          "count" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "BACKFILLED" ]
+          }
+        },
+        "required" : [ "count", "kind" ]
+      },
+      "BatchEditedChangeDTO" : {
+        "type" : "object",
+        "properties" : {
+          "fields" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldChangeDTO"
+            }
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "BATCH_EDITED" ]
+          }
+        },
+        "required" : [ "fields", "kind" ]
+      },
+      "CaloriesChangeDTO" : {
+        "type" : "object",
+        "properties" : {
+          "from" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "to" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "CALORIES" ]
+          }
+        },
+        "required" : [ "from", "kind", "to" ]
+      },
+      "CreatedChangeDTO" : {
+        "type" : "object",
+        "properties" : {
+          "source" : {
+            "type" : "string",
+            "enum" : [ "MANUAL", "STRAVA", "GARMIN", "FIT_UPLOAD" ]
+          },
+          "parserVersion" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "lapCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "CREATED" ]
+          }
+        },
+        "required" : [ "kind", "lapCount", "parserVersion", "source" ]
+      },
+      "DetailsUpgradeDTO" : {
+        "type" : "object",
+        "discriminator" : {
+          "propertyName" : "kind",
+          "mapping" : {
+            "BACKFILLED" : "#/components/schemas/BackfilledDetailsDTO",
+            "PARSER_VERSION_UPGRADED" : "#/components/schemas/ParserVersionUpgradedDetailsDTO",
+            "DISTANCE_BACKFILLED" : "#/components/schemas/DistanceBackfilledDetailsDTO"
+          }
+        },
+        "oneOf" : [ {
+          "$ref" : "#/components/schemas/BackfilledDetailsDTO"
+        }, {
+          "$ref" : "#/components/schemas/ParserVersionUpgradedDetailsDTO"
+        }, {
+          "$ref" : "#/components/schemas/DistanceBackfilledDetailsDTO"
+        } ],
+        "properties" : {
+          "kind" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DistanceBackfilledDetailsDTO" : {
+        "type" : "object",
+        "properties" : {
+          "parserVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "DISTANCE_BACKFILLED" ]
+          }
+        },
+        "required" : [ "kind", "parserVersion" ]
+      },
+      "DistanceChangeDTO" : {
+        "type" : "object",
+        "properties" : {
+          "from" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Distance in kilometers"
+          },
+          "to" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Distance in kilometers"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "DISTANCE" ]
+          }
+        },
+        "required" : [ "from", "kind", "to" ]
+      },
+      "EditedChangeDTO" : {
+        "type" : "object",
+        "properties" : {
+          "fields" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldChangeDTO"
+            }
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "EDITED" ]
+          }
+        },
+        "required" : [ "fields", "kind" ]
+      },
+      "FieldChangeDTO" : {
+        "type" : "object",
+        "discriminator" : {
+          "propertyName" : "kind",
+          "mapping" : {
+            "TITLE" : "#/components/schemas/TitleChangeDTO",
+            "SPORT" : "#/components/schemas/SportChangeDTO",
+            "STARTED_AT" : "#/components/schemas/StartedAtChangeDTO",
+            "DISTANCE" : "#/components/schemas/DistanceChangeDTO",
+            "TIME_TAKEN" : "#/components/schemas/TimeTakenChangeDTO",
+            "AVERAGE_PACE" : "#/components/schemas/AveragePaceChangeDTO",
+            "AVERAGE_HEART_RATE" : "#/components/schemas/AverageHeartRateChangeDTO",
+            "CALORIES" : "#/components/schemas/CaloriesChangeDTO"
+          }
+        },
+        "oneOf" : [ {
+          "$ref" : "#/components/schemas/TitleChangeDTO"
+        }, {
+          "$ref" : "#/components/schemas/SportChangeDTO"
+        }, {
+          "$ref" : "#/components/schemas/StartedAtChangeDTO"
+        }, {
+          "$ref" : "#/components/schemas/DistanceChangeDTO"
+        }, {
+          "$ref" : "#/components/schemas/TimeTakenChangeDTO"
+        }, {
+          "$ref" : "#/components/schemas/AveragePaceChangeDTO"
+        }, {
+          "$ref" : "#/components/schemas/AverageHeartRateChangeDTO"
+        }, {
+          "$ref" : "#/components/schemas/CaloriesChangeDTO"
+        } ],
+        "properties" : {
+          "kind" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ImportBatchItemErrorDTO" : {
+        "type" : "object",
+        "properties" : {
+          "filename" : {
+            "type" : "string"
+          },
+          "errorMessage" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "errorMessage", "filename" ]
+      },
+      "ImportBatchItemUpgradeDTO" : {
+        "type" : "object",
+        "properties" : {
+          "filename" : {
+            "type" : "string"
+          },
+          "changes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ActivityChangeDTO"
+            }
+          }
+        },
+        "required" : [ "changes", "filename" ]
+      },
+      "ImportBatchSummaryDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "PROCESSING", "COMPLETED", "CANCELLED", "INTERRUPTED", "FAILED" ]
+          },
+          "totalFiles" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "processedFiles" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "successfulFiles" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "duplicateFiles" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "upgradedFiles" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "failedFiles" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "errorMessage" : {
+            "type" : [ "string", "null" ]
+          },
+          "itemErrors" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ImportBatchItemErrorDTO"
+            }
+          },
+          "itemUpgrades" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ImportBatchItemUpgradeDTO"
+            }
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "completedAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "completedAt", "createdAt", "duplicateFiles", "errorMessage", "failedFiles", "id", "itemErrors", "itemUpgrades", "processedFiles", "status", "successfulFiles", "totalFiles", "upgradedFiles" ]
+      },
+      "LapsUpgradeDTO" : {
+        "type" : "object",
+        "discriminator" : {
+          "propertyName" : "kind",
+          "mapping" : {
+            "BACKFILLED" : "#/components/schemas/BackfilledLapsDTO",
+            "REPLACED" : "#/components/schemas/ReplacedLapsDTO"
+          }
+        },
+        "oneOf" : [ {
+          "$ref" : "#/components/schemas/BackfilledLapsDTO"
+        }, {
+          "$ref" : "#/components/schemas/ReplacedLapsDTO"
+        } ],
+        "properties" : {
+          "count" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "kind" : {
+            "type" : "string"
+          }
+        }
+      },
+      "LegacyChangeDTO" : {
+        "type" : "object",
+        "properties" : {
+          "changeType" : {
+            "type" : "string",
+            "enum" : [ "CREATED", "EDITED", "UPGRADED", "BATCH_EDITED" ]
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "LEGACY" ]
+          }
+        },
+        "required" : [ "changeType", "description", "kind" ]
+      },
+      "ParserVersionUpgradedDetailsDTO" : {
+        "type" : "object",
+        "properties" : {
+          "from" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "to" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "PARSER_VERSION_UPGRADED" ]
+          }
+        },
+        "required" : [ "from", "kind", "to" ]
+      },
+      "ReplacedLapsDTO" : {
+        "type" : "object",
+        "properties" : {
+          "count" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "REPLACED" ]
+          }
+        },
+        "required" : [ "count", "kind" ]
+      },
+      "SportChangeDTO" : {
+        "type" : "object",
+        "properties" : {
+          "from" : {
+            "type" : "string",
+            "enum" : [ "RUN", "WALK", "HIKE", "RIDE", "SWIM", "WORKOUT" ]
+          },
+          "to" : {
+            "type" : "string",
+            "enum" : [ "RUN", "WALK", "HIKE", "RIDE", "SWIM", "WORKOUT" ]
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "SPORT" ]
+          }
+        },
+        "required" : [ "from", "kind", "to" ]
+      },
+      "StartedAtChangeDTO" : {
+        "type" : "object",
+        "properties" : {
+          "from" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          },
+          "to" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "STARTED_AT" ]
+          }
+        },
+        "required" : [ "from", "kind", "to" ]
+      },
+      "TimeTakenChangeDTO" : {
+        "type" : "object",
+        "properties" : {
+          "from" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "Elapsed seconds"
+          },
+          "to" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "Elapsed seconds"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "TIME_TAKEN" ]
+          }
+        },
+        "required" : [ "from", "kind", "to" ]
+      },
+      "TitleChangeDTO" : {
+        "type" : "object",
+        "properties" : {
+          "from" : {
+            "type" : "string"
+          },
+          "to" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "TITLE" ]
+          }
+        },
+        "required" : [ "from", "kind", "to" ]
+      },
+      "UpgradedChangeDTO" : {
+        "type" : "object",
+        "properties" : {
+          "details" : {
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/DetailsUpgradeDTO"
+          },
+          "laps" : {
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/LapsUpgradeDTO"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "UPGRADED" ]
+          }
+        },
+        "required" : [ "details", "kind", "laps" ]
+      },
+      "BatchDeleteRequestDTO" : {
+        "type" : "object",
+        "properties" : {
+          "activityIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            },
+            "minItems" : 1
+          }
+        },
+        "required" : [ "activityIds" ]
+      },
+      "BatchMutationResultDTO" : {
+        "type" : "object",
+        "properties" : {
+          "affectedCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "matchedCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "affectedCount", "matchedCount" ]
+      },
+      "BestEffortBackfillResultDTO" : {
+        "type" : "object",
+        "properties" : {
+          "activitiesProcessed" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "bestEffortsCreated" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        },
+        "required" : [ "activitiesProcessed", "bestEffortsCreated" ]
+      },
+      "BatchUpdateRequestDTO" : {
+        "type" : "object",
+        "properties" : {
+          "activityIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            },
+            "minItems" : 1
+          },
+          "title" : {
+            "type" : [ "string", "null" ],
+            "maxLength" : 255,
+            "minLength" : 0
+          },
+          "sport" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "RUN", "WALK", "HIKE", "RIDE", "SWIM", "WORKOUT" ]
+          }
+        },
+        "required" : [ "activityIds" ]
+      },
+      "InviteDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "createdAt", "expiresAt", "id" ]
+      },
+      "HeatmapYearsDTO" : {
+        "type" : "object",
+        "properties" : {
+          "years" : {
+            "type" : "array",
+            "example" : [ 2026, 2025 ],
+            "items" : {
+              "type" : "integer",
+              "format" : "int32"
+            }
+          }
+        },
+        "required" : [ "years" ]
+      },
+      "GeoBoundsDTO" : {
+        "type" : "object",
+        "properties" : {
+          "west" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "south" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "east" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "north" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        },
+        "required" : [ "east", "north", "south", "west" ]
+      },
+      "HeatmapStartingViewDTO" : {
+        "type" : "object",
+        "properties" : {
+          "bounds" : {
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/GeoBoundsDTO"
+          }
+        },
+        "required" : [ "bounds" ]
+      },
+      "HeatmapRevisionDTO" : {
+        "type" : "object",
+        "properties" : {
+          "revision" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "revision" ]
+      },
+      "HeatmapRendererDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "example" : "raster-density"
+          },
+          "tileUrlTemplate" : {
+            "type" : "string",
+            "description" : "Tile URL with {revision}, {z}, {x} and {y} placeholders, carrying the renderer and its version; Heatmap Filter parameters are appended",
+            "example" : "/api/heatmap/tiles/raster-density-v3/{revision}/{z}/{x}/{y}"
+          },
+          "maxZoom" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The most detailed zoom tiles are generated at"
+          }
+        },
+        "required" : [ "id", "maxZoom", "tileUrlTemplate" ]
+      },
+      "DashboardResponseDTO" : {
+        "type" : "object",
+        "properties" : {
+          "personalRecordSlots" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PersonalRecordSlotDTO"
+            }
+          }
+        },
+        "required" : [ "personalRecordSlots" ]
+      },
+      "PersonalRecordDTO" : {
+        "type" : "object",
+        "properties" : {
+          "bestEffortId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "activityId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "activityTitle" : {
+            "type" : "string"
+          },
+          "activityStartedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "elapsedTimeSeconds" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        },
+        "required" : [ "activityId", "activityStartedAt", "activityTitle", "bestEffortId", "elapsedTimeSeconds" ]
+      },
+      "PersonalRecordSlotDTO" : {
+        "type" : "object",
+        "properties" : {
+          "benchmarkDistance" : {
+            "type" : "string",
+            "enum" : [ "FOUR_HUNDRED_METERS", "ONE_KILOMETER", "ONE_MILE", "FIVE_KILOMETERS", "TEN_KILOMETERS", "HALF_MARATHON" ]
+          },
+          "benchmarkName" : {
+            "type" : "string"
+          },
+          "distanceMeters" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "personalRecord" : {
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/PersonalRecordDTO"
+          }
+        },
+        "required" : [ "benchmarkDistance", "benchmarkName", "distanceMeters", "personalRecord" ]
+      },
+      "RegistrationStatusDTO" : {
+        "type" : "object",
+        "properties" : {
+          "acceptsSignUps" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "acceptsSignUps" ]
+      },
+      "PendingInviteDTO" : {
+        "type" : "object",
+        "properties" : {
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "expiresAt" ]
+      },
+      "PagedResponseDTOActivitySummaryDTO" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ActivitySummaryDTO"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "hasNext" : {
+            "type" : "boolean"
+          },
+          "hasPrevious" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "hasNext", "hasPrevious", "items", "page", "size", "totalElements", "totalPages" ]
+      },
+      "ActivityBestEffortDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "benchmarkDistance" : {
+            "type" : "string",
+            "enum" : [ "FOUR_HUNDRED_METERS", "ONE_KILOMETER", "ONE_MILE", "FIVE_KILOMETERS", "TEN_KILOMETERS", "HALF_MARATHON" ]
+          },
+          "benchmarkName" : {
+            "type" : "string"
+          },
+          "distanceMeters" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "elapsedTimeSeconds" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "window" : {
+            "$ref" : "#/components/schemas/EffortWindowDTO"
+          }
+        },
+        "required" : [ "benchmarkDistance", "benchmarkName", "distanceMeters", "elapsedTimeSeconds", "id", "window" ]
+      },
+      "ActivityDetailDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "sport" : {
+            "type" : "string",
+            "enum" : [ "RUN", "WALK", "HIKE", "RIDE", "SWIM", "WORKOUT" ]
+          },
+          "startedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "distance" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "Distance in kilometers"
+          },
+          "timeTakenSeconds" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "averagePaceKmh" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Average speed in km/h"
+          },
+          "averageHeartRate" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "calories" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "source" : {
+            "type" : "string",
+            "enum" : [ "MANUAL", "STRAVA", "GARMIN", "FIT_UPLOAD" ]
+          },
+          "hasProtectedMetrics" : {
+            "type" : "boolean",
+            "description" : "True when the Protected Metrics are immutable and only title and sport may be edited"
+          },
+          "ownerUsername" : {
+            "type" : "string"
+          },
+          "laps" : {
+            "type" : "array",
+            "description" : "Device-recorded Laps in lap order",
+            "items" : {
+              "$ref" : "#/components/schemas/ActivityLapDTO"
+            }
+          },
+          "history" : {
+            "type" : "array",
+            "description" : "Activity History Entries, oldest first",
+            "items" : {
+              "$ref" : "#/components/schemas/ActivityHistoryEntryDTO"
+            }
+          },
+          "bestEfforts" : {
+            "type" : "array",
+            "description" : "Best Efforts, shortest Benchmark Distance first",
+            "items" : {
+              "$ref" : "#/components/schemas/ActivityBestEffortDTO"
+            }
+          }
+        },
+        "required" : [ "averageHeartRate", "averagePaceKmh", "bestEfforts", "calories", "distance", "hasProtectedMetrics", "history", "id", "laps", "ownerUsername", "source", "sport", "startedAt", "timeTakenSeconds", "title" ]
+      },
+      "ActivityHistoryEntryDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "change" : {
+            "$ref" : "#/components/schemas/ActivityChangeDTO"
+          }
+        },
+        "required" : [ "change", "createdAt", "id" ]
+      },
+      "ActivityLapDTO" : {
+        "type" : "object",
+        "properties" : {
+          "lapNumber" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "startedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "distance" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "Distance in kilometers"
+          },
+          "timeTakenSeconds" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "averagePaceKmh" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Average speed in km/h"
+          },
+          "averageHeartRate" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "elevationGainMeters" : {
+            "type" : [ "number", "null" ],
+            "format" : "double"
+          }
+        },
+        "required" : [ "averageHeartRate", "averagePaceKmh", "distance", "elevationGainMeters", "lapNumber", "startedAt", "timeTakenSeconds" ]
+      },
+      "EffortWindowDTO" : {
+        "type" : "object",
+        "properties" : {
+          "startIndex" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "endIndex" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "startTimeSeconds" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "endTimeSeconds" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "startDistanceMeters" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "endDistanceMeters" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        },
+        "required" : [ "endDistanceMeters", "endIndex", "endTimeSeconds", "startDistanceMeters", "startIndex", "startTimeSeconds" ]
+      },
+      "ActivityTelemetryBestEffortDTO" : {
+        "type" : "object",
+        "properties" : {
+          "benchmarkDistance" : {
+            "type" : "string",
+            "enum" : [ "FOUR_HUNDRED_METERS", "ONE_KILOMETER", "ONE_MILE", "FIVE_KILOMETERS", "TEN_KILOMETERS", "HALF_MARATHON" ]
+          },
+          "elapsedTimeSeconds" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "startIndex" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "endIndex" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "startTimeSeconds" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "endTimeSeconds" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "startDistanceMeters" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "endDistanceMeters" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        },
+        "required" : [ "benchmarkDistance", "elapsedTimeSeconds", "endDistanceMeters", "endIndex", "endTimeSeconds", "startDistanceMeters", "startIndex", "startTimeSeconds" ]
+      },
+      "ActivityTelemetryResponseDTO" : {
+        "type" : "object",
+        "properties" : {
+          "activityId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "sport" : {
+            "type" : "string",
+            "enum" : [ "RUN", "WALK", "HIKE", "RIDE", "SWIM", "WORKOUT" ]
+          },
+          "route" : {
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/GeoJsonLineStringDTO",
+            "description" : "Every recorded GPS fix in order, or null when fewer than two were recorded"
+          },
+          "bestEfforts" : {
+            "type" : "array",
+            "description" : "Best Efforts, shortest Benchmark Distance first",
+            "items" : {
+              "$ref" : "#/components/schemas/ActivityTelemetryBestEffortDTO"
+            }
+          },
+          "telemetry" : {
+            "$ref" : "#/components/schemas/ActivityTelemetryStreamsDTO"
+          }
+        },
+        "required" : [ "activityId", "bestEfforts", "route", "sport", "telemetry" ]
+      },
+      "ActivityTelemetryStreamsDTO" : {
+        "type" : "object",
+        "properties" : {
+          "t" : {
+            "type" : "array",
+            "description" : "Elapsed seconds since the start of each sample",
+            "items" : {
+              "type" : "integer",
+              "format" : "int32"
+            }
+          },
+          "routeIndex" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "heartRate" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "power" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "cadence" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "altitude" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "speed" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "distance" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "verticalOscillation" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "stanceTime" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "stanceTimePercent" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "stanceTimeBalance" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "stepLength" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "verticalRatio" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "enhancedSpeed" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "enhancedAltitude" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "enhancedRespirationRate" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "respirationRate" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "temperature" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "coreTemperature" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "fractionalCadence" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "calories" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "currentStress" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "batterySoc" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "gpsAccuracy" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "verticalSpeed" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "grade" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "resistance" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "timeFromCourse" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "cycleLength" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "cycles" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "totalCycles" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "accumulatedPower" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "leftRightBalance" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "leftTorqueEffectiveness" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "rightTorqueEffectiveness" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "leftPedalSmoothness" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "rightPedalSmoothness" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "combinedPedalSmoothness" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "time128" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "zone" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "ballSpeed" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "cadence256" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "deviceIndex" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "leftPco" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "rightPco" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "motorPower" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "cycleLength16" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "strokeType" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "absolutePressure" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "depth" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "nextStopDepth" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "nextStopTime" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "timeToSurface" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "ndlTime" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "cnsLoad" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "n2Load" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "airTimeRemaining" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "pressureSac" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "volumeSac" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "rmv" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "ascentRate" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "po2" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "grit" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "flow" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "ebikeTravelRange" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "ebikeBatteryLevel" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "ebikeAssistMode" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "ebikeAssistLevelPercent" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "integer", "null" ]
+            }
+          },
+          "totalHemoglobinConc" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "totalHemoglobinConcMin" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "totalHemoglobinConcMax" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "saturatedHemoglobinPercent" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "saturatedHemoglobinPercentMin" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          },
+          "saturatedHemoglobinPercentMax" : {
+            "type" : [ "array", "null" ],
+            "items" : {
+              "type" : [ "number", "null" ]
+            }
+          }
+        },
+        "required" : [ "absolutePressure", "accumulatedPower", "airTimeRemaining", "altitude", "ascentRate", "ballSpeed", "batterySoc", "cadence", "cadence256", "calories", "cnsLoad", "combinedPedalSmoothness", "coreTemperature", "currentStress", "cycleLength", "cycleLength16", "cycles", "depth", "deviceIndex", "distance", "ebikeAssistLevelPercent", "ebikeAssistMode", "ebikeBatteryLevel", "ebikeTravelRange", "enhancedAltitude", "enhancedRespirationRate", "enhancedSpeed", "flow", "fractionalCadence", "gpsAccuracy", "grade", "grit", "heartRate", "leftPco", "leftPedalSmoothness", "leftRightBalance", "leftTorqueEffectiveness", "motorPower", "n2Load", "ndlTime", "nextStopDepth", "nextStopTime", "po2", "power", "pressureSac", "resistance", "respirationRate", "rightPco", "rightPedalSmoothness", "rightTorqueEffectiveness", "rmv", "routeIndex", "saturatedHemoglobinPercent", "saturatedHemoglobinPercentMax", "saturatedHemoglobinPercentMin", "speed", "stanceTime", "stanceTimeBalance", "stanceTimePercent", "stepLength", "strokeType", "t", "temperature", "time128", "timeFromCourse", "timeToSurface", "totalCycles", "totalHemoglobinConc", "totalHemoglobinConcMax", "totalHemoglobinConcMin", "verticalOscillation", "verticalRatio", "verticalSpeed", "volumeSac", "zone" ]
+      },
+      "GeoJsonLineStringDTO" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string",
+            "enum" : [ "LineString" ]
+          },
+          "coordinates" : {
+            "type" : "array",
+            "description" : "[longitude, latitude] positions",
+            "items" : {
+              "type" : "array",
+              "items" : {
+                "type" : "number",
+                "format" : "double"
+              }
+            }
+          }
+        },
+        "required" : [ "coordinates", "type" ]
+      }
+    }
+  }
+}

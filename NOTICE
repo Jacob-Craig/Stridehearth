@@ -1,0 +1,28 @@
+Stridehearth
+Copyright 2026 The Stridehearth contributors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+-------------------------------------------------------------------------------
+Third-party software
+-------------------------------------------------------------------------------
+
+Garmin FIT SDK (com.garmin:fit)
+https://developer.garmin.com/fit/overview/
+
+Stridehearth decodes activity files with the Garmin FIT SDK. The SDK is NOT
+covered by the Apache License. It is licensed by Garmin International, Inc.
+under the Flexible and Interoperable Data Transfer (FIT) Protocol License
+Agreement:
+https://github.com/garmin/fit-java-sdk/blob/main/LICENSE.txt
+
+The SDK is not included in this source repository; the build downloads the
+unmodified com.garmin:fit artifact from Maven Central. Built application jars
+and container images contain that unmodified jar. Anyone who uses, modifies or
+redistributes Stridehearth builds that contain the SDK must comply with the
+FIT Protocol License Agreement for that part.
+
+FIT and Garmin are trademarks of Garmin Ltd. or its subsidiaries.
+
+Other third-party libraries are resolved from Maven Central and npm and are
+covered by their own licences, which ship inside their packages.

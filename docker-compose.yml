@@ -1,0 +1,17 @@
+# Local development databases. Run the backend against them with the `dev` profile, whose settings match these:
+#   ./gradlew bootRun --args='--spring.profiles.active=dev'
+# Without a profile the backend needs SPRING_DATASOURCE_* and SPRING_DATA_REDIS_HOST from its environment (ADR-0009).
+services:
+  postgres:
+    image: 'postgis/postgis:16-3.4'
+    platform: linux/amd64
+    environment:
+      - 'POSTGRES_DB=run_db'
+      - 'POSTGRES_PASSWORD=secret'
+      - 'POSTGRES_USER=run_db_user'
+    ports:
+      - '5432:5432'
+  redis:
+    image: 'redis:latest'
+    ports:
+      - '6379:6379'

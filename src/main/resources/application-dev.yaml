@@ -1,0 +1,22 @@
+# Local development defaults, enabled with the `dev` profile: `./gradlew bootRun --args='--spring.profiles.active=dev'`
+# (or SPRING_PROFILES_ACTIVE=dev in an IDE run configuration). They match docker-compose.yml.
+# Never enable `dev` on a Server: it carries a known password and serves the OpenAPI docs (ADR-0009).
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/run_db
+    username: run_db_user
+    password: secret
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  jpa:
+    show-sql: true
+
+springdoc:
+  api-docs:
+    enabled: true
+
+stridehearth:
+  # Anyone may create an account locally (ADR-0011). A Server defaults to closed.
+  registration-mode: open

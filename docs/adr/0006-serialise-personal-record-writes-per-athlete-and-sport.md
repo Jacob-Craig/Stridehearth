@@ -1,0 +1,21 @@
+# 0006. Serialise Personal Record Writes per Athlete and Sport
+
+Status: accepted. Supersedes the "Concurrent Ingestion" claim in ADR-0003 that atomic `INSERT ... ON CONFLICT` alone removes lost updates.
+
+Every Personal Record write takes a PostgreSQL transaction-scoped advisory lock (`pg_advisory_xact_lock`) for each athlete and sport it may change, before any Best Effort or Personal Record write of its own, and holds it until commit. ADR-0003's atomic `ON CONFLICT` writes are safe for two incremental "upsert if faster" updates, but not for a full recalibration: it picks its winners from a READ COMMITTED statement snapshot that cannot see a concurrent import's uncommitted faster Best Effort, waits on that import's row lock, then overwrites the committed faster Personal Record with its slower winner (issue #74). Holding one lock per athlete and sport makes the second writer wait until the first commits, so its next statement sees the committed Best Efforts.
+
+## Considered Options
+
+- **Recalibrate again after commit**: Rejected. It needs after-commit hooks and a second transaction for every write, and leaves a window in which the Dashboard shows the wrong Personal Record.
+- **SERIALIZABLE isolation for Personal Record writes**: Rejected. Every caller (imports, edits, deletes, the backfill) would need to retry on serialisation failures, for a conflict that is rare in practice.
+- **Make the recalibration's `DO UPDATE` conditional**: Rejected. A recalibration must be able to replace a Personal Record with a slower one after a delete, an upgrade or a reclassification, so "only if faster" cannot apply to it.
+- **Lock the Personal Record rows (`SELECT ... FOR UPDATE`)**: Rejected. A Personal Record that does not exist yet has no row to lock.
+
+## Consequences
+
+- The lock is taken inside the Best Effort refresh module only; callers never take it. Keys are taken in a fixed order (athlete, then sport) so that a refresh covering several athletes or sports cannot deadlock with another. The lock is re-entrant within a transaction, so a multi-activity import that refreshes several times does not wait on itself.
+- The refresh works out its keys before it takes the lock: it reads the sports of each Activity's existing Best Efforts, and uses that read (with whether the Activity still exists, read after the lock) to choose between the incremental update and a full recalibration. A concurrent writer for the *same Activity* could change those Best Efforts while the refresh waits, which makes the choice stale. This is accepted: the realistic case is two refreshes of the same Activity Details, which produce the same Best Efforts either way.
+- Each key is a 64-bit hash of a namespaced name (`personal_record:<athlete>:<sport>`), so any future advisory lock that hashes a name under its own prefix stays distinct; a hash collision only costs extra serialisation, never correctness.
+- Writes for one athlete and sport now run one at a time, even across parallel Import Batch workers. Different athletes, and different sports for one athlete, still run in parallel.
+- The refresh takes the lock before it flushes the caller's pending changes, so every writer takes the advisory lock before any row lock on `activity`, `activity_best_effort` or `user_personal_record` for that athlete and sport; a delete's cascade to its Best Efforts and Personal Records no longer deadlocks with a concurrent recalibration (issue #98). Callers must not flush between the change and the refresh. Whether each Activity still exists is read after the flush, once the lock is held. An edit records its Activity History Entry after the refresh, because that insert takes a key-share lock on the Activity's row. A writer that must lock the Activity's own row before the change (an import Upgrade locks it while it stores Activity Details) asks the refresh module to take the lock beforehand, then looks the Activity up again: if a delete committed while it waited, the file is imported as a new Activity, as if the delete had run first (issue #102). Duplicate re-imports of an existing Activity therefore also wait briefly on the lock.
+- The Best Effort backfill commits each page separately, so it holds one page's locks at a time and a rerun resumes after a failure (issue #99).

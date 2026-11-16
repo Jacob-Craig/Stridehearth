@@ -1,0 +1,61 @@
+spring:
+  application:
+    name: Stridehearth
+
+  servlet:
+    multipart:
+      location: ${stridehearth.storage.temp-dir:./temp-batches}
+      max-file-size: 500MB
+      max-request-size: 500MB
+
+  # No connection settings here (ADR-0009): a Server supplies SPRING_DATASOURCE_URL, SPRING_DATASOURCE_USERNAME,
+  # SPRING_DATASOURCE_PASSWORD and SPRING_DATA_REDIS_HOST through its environment, or the `dev` profile does.
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+
+  jpa:
+    hibernate:
+      # This ensures Hibernate verifies the schema matches Kotlin entity
+      # but prevents it from trying to auto-create tables, which conflicts with Flyway.
+      ddl-auto: validate
+    show-sql: false
+
+# The OpenAPI docs (and Swagger UI, if it is ever added) are served only with the `dev` profile.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+stridehearth:
+  storage:
+    temp-dir: ./temp-batches
+  import:
+    concurrency: 6
+    stream: stridehearth-import-stream
+    group: stridehearth-import-workers
+    reconciliation-threshold: PT60S
+    idle-threshold: PT60S
+  # The Throttle: how many failed sign-ins and sign-up attempts one source (and, for sign-in, one username) may make
+  # in a fixed window before the Server refuses more with 429 TOO_MANY_ATTEMPTS until the window ends. Counts live
+  # in Redis, so every app instance shares them. Successful sign-ins are never counted.
+  # A source is the request's remote address (an IPv6 address's /64). Behind a reverse proxy, set
+  # SERVER_FORWARD_HEADERS_STRATEGY=native so it is the client's address from X-Forwarded-For rather than the proxy's;
+  # without it every athlete shares the proxy's budget. With it, X-Forwarded-For is believed from any private-network
+  # address (server.tomcat.remoteip.internal-proxies), so leave it unset when clients can reach the Server directly,
+  # or they can pick their own source.
+  throttle:
+    sign-in-per-source:
+      max-attempts: 10
+      window: PT15M
+    sign-in-per-username:
+      max-attempts: 20
+      window: PT15M
+    sign-up-per-source:
+      max-attempts: 10
+      window: PT1H
+  fit:
+    # optional path to Garmin's ActivityRepairTool.jar (github.com/garmin/fit-sdk-tools); empty disables FIT repair
+    repair-tool-path: ${FIT_REPAIR_TOOL_PATH:}

@@ -1,0 +1,22 @@
+# Where activity files and media may live.
+#
+# .github/scripts/check-activity-files.sh fails CI when a guarded file is in the
+# tree, or is added by any commit of a pull request, outside these paths.
+# Guarded files are activity files (.fit .gpx .tcx .kml .kmz, also gzipped, and
+# .zip archives, which bulk import accepts), images and videos. The full list of
+# extensions is GUARDED_EXTENSIONS in the script.
+#
+# Why: the repository must never again publish a real recorded run or media of
+# its route (ADR-0012). Only synthetic fixtures and docs images belong here.
+#
+# One shell glob per line, matched against the repository-relative path.
+# `*` also matches `/`, so `dir/*` covers everything below dir/.
+# Blank lines and lines starting with # are ignored.
+
+# Activity-file test fixtures (synthetic only, see ADR-0012).
+src/test/resources/runs/*
+
+# Documentation images. Strip EXIF/GPS metadata before committing one
+# (docs/release/going-public-checklist.md shows how to check).
+docs/images/*
+docs/*/images/*

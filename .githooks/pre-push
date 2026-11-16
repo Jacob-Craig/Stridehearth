@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -e
+
+REMOTE_NAME="$1"
+REMOTE_URL="$2"
+
+# 1. Read all push lines from stdin
+STDIN_DATA=$(cat)
+
+# 2. Inspect target branches for main/master protection
+if [ -n "$STDIN_DATA" ]; then
+    while IFS=' ' read -r local_ref local_oid remote_ref remote_oid; do
+        if [ "$remote_ref" = "refs/heads/main" ] || [ "$remote_ref" = "refs/heads/master" ]; then
+            echo "" >&2
+            echo "======================================================================" >&2
+            echo "PUSH REJECTED: Direct pushes to '$remote_ref' are strictly prohibited." >&2
+            echo "All changes must be submitted via feature branch pull requests." >&2
+            echo "======================================================================" >&2
+            echo "" >&2
+            exit 1
+        fi
+    done <<< "$STDIN_DATA"
+fi
+
+# 3. Fast Mechanical Verification (Kotlin + TypeScript gates)
+# Runs without daemon and without booting Docker Testcontainers:
+#   Kotlin:     ktlintCheck, testClasses (compiles main & test)
+#   TypeScript: frontendCheck = biome check, tsc --noEmit, vitest run, codegen freshness, vite build
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+cd "$REPO_ROOT"
+
+echo "--> Running pre-push fast verification (ktlintCheck testClasses frontendCheck)..."
+if ! ./gradlew --no-daemon ktlintCheck testClasses frontendCheck; then
+    echo "" >&2
+    echo "======================================================================" >&2
+    echo "PUSH REJECTED: Pre-push verification failed." >&2
+    echo "Fix ktlint, compilation, Biome, tsc, Vitest or codegen errors before pushing." >&2
+    echo "======================================================================" >&2
+    echo "" >&2
+    exit 1
+fi
+
+echo "--> Pre-push verification passed successfully."
+exit 0

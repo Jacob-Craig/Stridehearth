@@ -1,0 +1,155 @@
+/**
+ * Pure display formatters for canonical domain primitives returned by `/api/**`.
+ * The API never pre-formats values; every human-readable string is produced here.
+ */
+
+import type { ActivitySummaryDto } from '../api/generated/types.gen';
+
+export type ActivitySport = ActivitySummaryDto['sport'];
+
+/** How every formatter shows an absent value. */
+export const MISSING = '—';
+
+export const pad2 = (value: number): string => value.toString().padStart(2, '0');
+
+/** Formats elapsed seconds as `MM:SS`, or `HH:MM:SS` once an hour or more has elapsed. */
+export function formatDuration(elapsedSeconds: number): string {
+  if (!Number.isFinite(elapsedSeconds) || elapsedSeconds < 0) return MISSING;
+  const total = Math.round(elapsedSeconds);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  return hours > 0
+    ? `${pad2(hours)}:${pad2(minutes)}:${pad2(seconds)}`
+    : `${pad2(minutes)}:${pad2(seconds)}`;
+}
+
+/** Average speed in km/h for covering `distanceMeters` in `elapsedSeconds`. */
+export function averageSpeedKmh(distanceMeters: number, elapsedSeconds: number): number {
+  if (elapsedSeconds <= 0) return 0;
+  return distanceMeters / 1000 / (elapsedSeconds / 3600);
+}
+
+/** Formats a speed in km/h as a running pace, e.g. `04:00 /km`. */
+export function formatPacePerKm(speedKmh: number | null): string {
+  if (speedKmh === null || !Number.isFinite(speedKmh) || speedKmh <= 0) return MISSING;
+  const secondsPerKm = Math.round(3600 / speedKmh);
+  return `${pad2(Math.floor(secondsPerKm / 60))}:${pad2(secondsPerKm % 60)} /km`;
+}
+
+const kilometersFormat = new Intl.NumberFormat('en-GB', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/** Formats a distance in kilometers to two decimal places, e.g. `21.10 km`. */
+export function formatDistanceKm(kilometers: number): string {
+  return `${kilometersFormat.format(kilometers)} km`;
+}
+
+const metersFormat = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 3 });
+
+/** Formats a distance in meters without trailing zeros, e.g. `1,609.344 m`. */
+export function formatDistanceMeters(meters: number): string {
+  return `${metersFormat.format(meters)} m`;
+}
+
+const LOCAL_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Formats an ISO-8601 local date (`2026-03-01`) or instant (`2026-04-10T09:00:00Z`) as `1 Mar 2026`.
+ * Local dates are calendar days and never shift; instants are rendered in `timeZone`
+ * (the viewer's zone when omitted).
+ */
+export function formatDate(iso: string, timeZone?: string): string {
+  const isLocalDate = LOCAL_DATE.test(iso);
+  const date = new Date(isLocalDate ? `${iso}T00:00:00Z` : iso);
+  if (Number.isNaN(date.getTime())) return MISSING;
+  return formatInstant(date, {}, isLocalDate ? 'UTC' : timeZone);
+}
+
+/** Formats `date` as `1 Mar 2026` plus any `extra` fields, in `timeZone` (the viewer's when omitted). */
+function formatInstant(date: Date, extra: Intl.DateTimeFormatOptions, timeZone?: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    ...extra,
+    ...(timeZone ? { timeZone } : {}),
+  }).format(date);
+}
+
+const SPORT_LABELS: Readonly<Record<ActivitySport, string>> = {
+  RUN: 'Run',
+  WALK: 'Walk',
+  HIKE: 'Hike',
+  RIDE: 'Ride',
+  SWIM: 'Swim',
+  WORKOUT: 'Workout',
+};
+
+/** Every sport, in display order. */
+export const ACTIVITY_SPORTS = Object.keys(SPORT_LABELS) as readonly ActivitySport[];
+
+/** The human-readable name of a sport, e.g. `Run`. */
+export function formatSport(sport: ActivitySport): string {
+  return SPORT_LABELS[sport];
+}
+
+/** Formats an optional measurement with its unit, e.g. `152 bpm`, or `—` when absent. */
+export function formatOptional(value: number | null | undefined, unit: string): string {
+  return value === null || value === undefined ? MISSING : `${value} ${unit}`;
+}
+
+export type ActivitySource = ActivitySummaryDto['source'];
+
+const SOURCE_LABELS: Readonly<Record<ActivitySource, string>> = {
+  MANUAL: 'Manual',
+  FIT_UPLOAD: 'FIT Upload',
+  GARMIN: 'Garmin',
+  STRAVA: 'Strava',
+};
+
+/** Every **Activity Source**, in display order. */
+export const ACTIVITY_SOURCES = Object.keys(SOURCE_LABELS) as readonly ActivitySource[];
+
+/** The human-readable name of an **Activity Source**, e.g. `FIT Upload`. */
+export function formatSource(source: ActivitySource): string {
+  return SOURCE_LABELS[source];
+}
+
+const countFormat = new Intl.NumberFormat('en-GB');
+
+/** Formats a whole number with digit grouping, e.g. `2,000`. */
+export function formatInteger(count: number): string {
+  return countFormat.format(count);
+}
+
+/** Formats a count with its noun, pluralising as needed, e.g. `1 activity`, `2,000 activities`. */
+export function formatCount(count: number, singular: string, plural: string): string {
+  return `${formatInteger(count)} ${count === 1 ? singular : plural}`;
+}
+
+const elevationFormat = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 1 });
+
+/** Formats an elevation gain in meters, e.g. `+12.5 m`, or `—` when absent. */
+export function formatElevationGain(meters: number | null): string {
+  return meters === null ? MISSING : `+${elevationFormat.format(meters)} m`;
+}
+
+/** Formats an ISO-8601 instant as a date and 24-hour time, e.g. `1 Mar 2026, 09:00`, in `timeZone`. */
+export function formatDateTime(iso: string, timeZone?: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return MISSING;
+  return formatInstant(date, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }, timeZone);
+}
+
+/** Formats a span of cumulative distance given in meters as kilometers, e.g. `0.12 – 1.12 km`. */
+export function formatDistanceRangeKm(startMeters: number, endMeters: number): string {
+  return `${kilometersFormat.format(startMeters / 1000)} – ${formatDistanceKm(endMeters / 1000)}`;
+}
+
+/** Formats a span of elapsed seconds, e.g. `00:10 – 04:10`. */
+export function formatDurationRange(startSeconds: number, endSeconds: number): string {
+  return `${formatDuration(startSeconds)} – ${formatDuration(endSeconds)}`;
+}
