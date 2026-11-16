@@ -86,6 +86,9 @@ tasks.withType<Test> {
         "frontend/package.json",
         ".github/workflows/ci.yml",
         ".githooks/pre-push",
+        "Dockerfile",
+        ".dockerignore",
+        ".github/scripts/image-tag-rules.sh",
     )
 }
 

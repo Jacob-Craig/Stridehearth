@@ -17,10 +17,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
-# Least privilege: every job inherits a read-only GITHUB_TOKEN. No job writes to the
-# repository, issues or pull requests (artifact upload uses its own runtime token).
+# Least privilege: every job inherits a read-only GITHUB_TOKEN. No job writes code, issues or
+# pull requests (artifact upload uses its own runtime token).
 # If a job ever needs more, give that job its own `permissions` block; never widen this one.
-# Only the image jobs do: they push to GHCR and sign the build provenance attestation (ADR-0009).
+# Only the image jobs do: they push to GHCR, and publish-image signs the build provenance
+# attestation and stores it on the repository (ADR-0009).
 permissions:
   contents: read
 
