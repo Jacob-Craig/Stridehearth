@@ -333,7 +333,7 @@ class GitHubActionsWorkflowTest {
     fun `each architecture is built natively after every check passes on a push`() {
         val image = job("image")
         assertEquals("github.event_name == 'push'", image["if"], "Images are built for pushes to main and tags, never for pull requests")
-        assertEquals(CHECK_JOBS, (image["needs"] as List<*>).toSet(), "image must wait for every check")
+        assertEquals(CHECK_JOBS + "image-tags", (image["needs"] as List<*>).toSet(), "image must wait for every check")
         assertEquals("\${{ matrix.runner }}", image["runs-on"])
 
         @Suppress("UNCHECKED_CAST")
@@ -351,46 +351,43 @@ class GitHubActionsWorkflowTest {
     }
 
     @Test
-    fun `a release tag is built only from a commit on main`() {
-        val image = steps("image")
-        val checkout = image.first { (it["uses"] as? String).orEmpty().startsWith("actions/checkout") }
-        assertEquals(0, (checkout["with"] as Map<*, *>)["fetch-depth"], "The tag check needs main's history")
+    fun `image-tags decides the tags from the full history with the tested script`() {
+        val imageTags = job("image-tags")
+        assertEquals("github.event_name == 'push'", imageTags["if"])
+        val steps = steps("image-tags")
+        val checkout = steps.first { (it["uses"] as? String).orEmpty().startsWith("actions/checkout") }
+        assertEquals(0, (checkout["with"] as Map<*, *>)["fetch-depth"], "The script needs every branch and tag (ImageTagRulesTest)")
         assertTrue(
-            image.any { (it["run"] as? String).orEmpty().contains("git merge-base --is-ancestor \"\$GITHUB_SHA\" origin/main") },
-            "image must refuse a tag that is not on main",
+            steps.any { (it["run"] as? String).orEmpty().contains(".github/scripts/image-tag-rules.sh") },
+            "image-tags must run .github/scripts/image-tag-rules.sh",
         )
+        assertEquals("\${{ steps.rules.outputs.rules }}", (imageTags["outputs"] as Map<*, *>)["rules"])
     }
 
     @Test
-    fun `main publishes edge and a release tag publishes X Y Z, X Y, X and latest`() {
-        val publish = job("publish-image")
-        assertEquals(listOf("image"), publish["needs"])
+    fun `both image jobs publish exactly the tags image-tags decided`() {
+        assertEquals(setOf("image-tags", "image"), (job("publish-image")["needs"] as List<*>).toSet())
         val metadata = step("publish-image", "docker/metadata-action")
         assertEquals("\${{ env.IMAGE }}", metadata["images"])
         assertEquals("ghcr.io/jacob-craig/stridehearth", workflowEnv()["IMAGE"])
-        assertEquals(
-            listOf(
-                "type=edge,branch=main",
-                "type=semver,pattern={{version}}",
-                "type=semver,pattern={{major}}.{{minor}}",
-                "type=semver,pattern={{major}}",
-            ),
-            workflowEnv()["IMAGE_TAGS"]
-                .toString()
-                .lines()
-                .map { it.trim() }
-                .filter { it.isNotEmpty() },
-        )
-        // Both jobs read the same rules, so each platform image's version label matches the published tag.
+        // Same rules in both jobs, so each platform image's version label matches the published tag. `latest` is
+        // one of those rules, never metadata-action's own latest=auto, which would move it back on a hotfix.
         listOf("image", "publish-image").forEach { job ->
-            assertEquals("\${{ env.IMAGE_TAGS }}", step(job, "docker/metadata-action")["tags"], "$job must use env.IMAGE_TAGS")
+            val inputs = step(job, "docker/metadata-action")
+            assertEquals("\${{ needs.image-tags.outputs.rules }}", inputs["tags"], "$job must use image-tags' rules")
+            assertEquals("latest=false", inputs["flavor"], "$job must leave `latest` to image-tags")
         }
-        // `latest` follows the newest semver tag (metadata-action's `flavor: latest=auto` default), never `edge`.
-        assertNull(metadata["flavor"], "Keep metadata-action's default latest=auto")
         assertTrue(
             steps("publish-image").any { (it["run"] as? String).orEmpty().contains("docker buildx imagetools create") },
             "publish-image must join the platform digests into one multi-arch tag set",
         )
+    }
+
+    @Test
+    fun `pull requests into a hotfix branch run the checks too`() {
+        @Suppress("UNCHECKED_CAST")
+        val on = loadCiWorkflow().let { it["on"] ?: it[true] } as Map<String, Map<String, List<String>>>
+        assertTrue(on["pull_request"]!!["branches"]!!.contains("release/**"), "release/X.Y.x branches need CI (ADR-0009)")
     }
 
     @Test

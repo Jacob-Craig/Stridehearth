@@ -4,12 +4,14 @@ on:
   push:
     branches:
       - main
-    # A Release (ADR-0009): the maintainer pushes a vX.Y.Z tag on main.
+    # A Release (ADR-0009): the maintainer pushes a vX.Y.Z tag on main, or on release/X.Y.x for a hotfix.
     tags:
       - 'v*.*.*'
   pull_request:
     branches:
       - main
+      # Hotfix branches for an older Release (ADR-0009).
+      - 'release/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -26,13 +28,6 @@ env:
   IMAGE: ghcr.io/jacob-craig/stridehearth
   # Stridehearth's own code is Apache-2.0; the bundled Garmin FIT SDK keeps its own licence (NOTICE).
   IMAGE_LICENSES: Apache-2.0 AND LicenseRef-Garmin-FIT-Protocol-License
-  # metadata-action tag rules, shared by both image jobs so each platform image's version label matches its tag.
-  # `latest` comes from metadata-action's default `latest=auto`: it follows the semver tags, never `edge`.
-  IMAGE_TAGS: |
-    type=edge,branch=main
-    type=semver,pattern={{version}}
-    type=semver,pattern={{major}}.{{minor}}
-    type=semver,pattern={{major}}
 
 # Third-party actions are pinned to full commit SHAs; Dependabot (.github/dependabot.yml)
 # bumps the SHA and the version comment together.
@@ -185,11 +180,37 @@ jobs:
           fi
 
   # Container images (ADR-0009). A push to main publishes the Edge Build as `edge`; a vX.Y.Z tag publishes
-  # the Release as X.Y.Z, X.Y, X and latest. Each architecture builds on its own native runner and is pushed
-  # by digest; publish-image then joins the digests under the tags and attests the result.
+  # the Release as X.Y.Z, and as X.Y, X and latest while it is the highest Release in each range.
+  # image-tags decides the tags, each architecture builds on its own native runner and is pushed by digest,
+  # and publish-image joins the digests under the tags and attests the result.
+  image-tags:
+    name: Decide Image Tags
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      rules: ${{ steps.rules.outputs.rules }}
+    steps:
+      - name: Checkout repository (full history and tags)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Refuses a Release tag that is not on main or its release/X.Y.x branch (tested by ImageTagRulesTest).
+      - name: Tag rules for this push
+        id: rules
+        run: |
+          rules=$(.github/scripts/image-tag-rules.sh)
+          printf '%s\n' "$rules"
+          {
+            echo "rules<<EOF"
+            echo "$rules"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
   image:
     name: Build Image (${{ matrix.platform }})
-    needs: [lint, frontend, test, gitleaks, activity-file-guard]
+    needs: [lint, frontend, test, gitleaks, activity-file-guard, image-tags]
     if: github.event_name == 'push'
     runs-on: ${{ matrix.runner }}
     permissions:
@@ -203,26 +224,18 @@ jobs:
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
     steps:
-      - name: Checkout repository (full history)
+      - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          fetch-depth: 0
           persist-credentials: false
-
-      - name: Refuse a release tag that is not on main
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
-            echo "::error::$GITHUB_REF_NAME is not on main; Releases are tagged on main (ADR-0009)."
-            exit 1
-          fi
 
       - name: Image labels
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.IMAGE }}
-          tags: ${{ env.IMAGE_TAGS }}
+          tags: ${{ needs.image-tags.outputs.rules }}
+          flavor: latest=false
           labels: |
             org.opencontainers.image.licenses=${{ env.IMAGE_LICENSES }}
 
@@ -269,7 +282,7 @@ jobs:
 
   publish-image:
     name: Publish Image
-    needs: [image]
+    needs: [image-tags, image]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -292,7 +305,8 @@ jobs:
           DOCKER_METADATA_ANNOTATIONS_LEVELS: index
         with:
           images: ${{ env.IMAGE }}
-          tags: ${{ env.IMAGE_TAGS }}
+          tags: ${{ needs.image-tags.outputs.rules }}
+          flavor: latest=false
           labels: |
             org.opencontainers.image.licenses=${{ env.IMAGE_LICENSES }}
 
