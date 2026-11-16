@@ -1,6 +1,6 @@
 # 0002. Continuous Integration Pipeline, Mechanical Code Linting, and Multi-LLM Push Guardrails
 
-Status: superseded in part by ADR-0005. The agent push-governance decisions below (the `CONFIRM_PUSH`/TTY guard in `.githooks/pre-push` and the Claude Code hook blocking every `git push`) are replaced by [ADR-0005](0005-agents-may-push-feature-branches.md). The CI pipeline, ktlint, pre-push verification, main/master rejection, and automated hook registration decisions still stand.
+Status: superseded in part by ADR-0005. The agent push-governance decisions below (the `CONFIRM_PUSH`/TTY guard in `.githooks/pre-push` and the Claude Code hook blocking every `git push`) are replaced by [ADR-0005](0005-agents-may-push-feature-branches.md). The CI pipeline, ktlint, pre-push verification, main/master rejection, and automated hook registration decisions still stand. The 7-day Boot jar artifact archived from `main` is replaced by the container images of [ADR-0009](0009-trunk-based-releases-pulled-from-a-registry.md) (#19).
 
 Mechanical code style linting, multi-layered agent push guardrails, and parallel GitHub Actions continuous integration are implemented together to preserve repository health, eliminate subjective code style debate, prevent accidental pushes of broken or unverified code, and enforce safety boundaries for autonomous AI coding agents without impeding developer velocity.
 

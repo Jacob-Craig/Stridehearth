@@ -22,6 +22,16 @@ spring:
       ddl-auto: validate
     show-sql: false
 
+# Actuator exposes only the health endpoint, without details, for the container image's HEALTHCHECK (ADR-0009).
+# It reports DOWN while PostgreSQL or Redis is unreachable.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+      discovery:
+        enabled: false
+
 # The OpenAPI docs (and Swagger UI, if it is ever added) are served only with the `dev` profile.
 springdoc:
   api-docs:

@@ -35,10 +35,10 @@ updates:
       npm-minor-and-patch:
         update-types: [minor, patch]
 
-  # Dockerfiles. /.github/gitleaks pins the CI secret-scanner image.
-  # Add "/" here when the release Dockerfile (ADR-0009) lands at the repository root.
+  # Dockerfiles. "/" is the release image (ADR-0009); /.github/gitleaks pins the CI secret-scanner image.
   - package-ecosystem: docker
     directories:
+      - /
       - /.github/gitleaks
     schedule:
       interval: weekly

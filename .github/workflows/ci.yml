@@ -4,19 +4,31 @@ on:
   push:
     branches:
       - main
+    # A Release (ADR-0009): the maintainer pushes a vX.Y.Z tag on main, or on release/X.Y.x for a hotfix.
+    tags:
+      - 'v*.*.*'
   pull_request:
     branches:
       - main
+      # Hotfix branches for an older Release (ADR-0009).
+      - 'release/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
-# Least privilege: every job inherits a read-only GITHUB_TOKEN. No job writes to the
-# repository, issues or pull requests (artifact upload uses its own runtime token).
+# Least privilege: every job inherits a read-only GITHUB_TOKEN. No job writes code, issues or
+# pull requests (artifact upload uses its own runtime token).
 # If a job ever needs more, give that job its own `permissions` block; never widen this one.
+# Only the image jobs do: they push to GHCR, and publish-image signs the build provenance
+# attestation and stores it on the repository (ADR-0009).
 permissions:
   contents: read
+
+env:
+  IMAGE_REPOSITORY: ghcr.io/jacob-craig/stridehearth
+  # Stridehearth's own code is Apache-2.0; the bundled Garmin FIT SDK keeps its own licence (NOTICE).
+  IMAGE_LICENSES: Apache-2.0 AND LicenseRef-Garmin-FIT-Protocol-License
 
 # Third-party actions are pinned to full commit SHAs; Dependabot (.github/dependabot.yml)
 # bumps the SHA and the version comment together.
@@ -123,9 +135,14 @@ jobs:
 
       # Pull requests: every commit the PR adds, so a secret added then deleted still fails.
       # Pushes to main: the pushed commits. A first push (no "before") scans all history.
+      # Release tags: GitHub sends no "before" for a new tag, which would scan all history on every Release and let
+      # an old finding block it. The tagged commit already passed this scan on its way to main or release/X.Y.x
+      # (image-tags refuses a Release tagged anywhere else), so only that commit is scanned again.
       - name: Scan the commits
         env:
           EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          TAGGED_SHA: ${{ github.sha }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PUSH_BEFORE: ${{ github.event.before }}
@@ -133,6 +150,8 @@ jobs:
         run: |
           if [ "$EVENT_NAME" = "pull_request" ]; then
             range="$PR_BASE_SHA..$PR_HEAD_SHA"
+          elif [ "$REF_TYPE" = "tag" ]; then
+            range="$TAGGED_SHA^!"
           elif [ -n "$PUSH_BEFORE" ] && [ "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ]; then
             range="$PUSH_BEFORE..$PUSH_AFTER"
           else
@@ -151,10 +170,13 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # Allowed folders: .github/activity-file-allowlist.txt
+      # Allowed folders: .github/activity-file-allowlist.txt. The tree is always checked; the commit range is chosen
+      # as in gitleaks above, so a Release tag checks only the files its tagged commit added.
       - name: Reject activity files, images and videos outside the allowlist
         env:
           EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          TAGGED_SHA: ${{ github.sha }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PUSH_BEFORE: ${{ github.event.before }}
@@ -162,43 +184,176 @@ jobs:
         run: |
           if [ "$EVENT_NAME" = "pull_request" ]; then
             .github/scripts/check-activity-files.sh "$PR_BASE_SHA..$PR_HEAD_SHA"
+          elif [ "$REF_TYPE" = "tag" ]; then
+            .github/scripts/check-activity-files.sh "$TAGGED_SHA^!"
           elif [ -n "$PUSH_BEFORE" ] && [ "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ]; then
             .github/scripts/check-activity-files.sh "$PUSH_BEFORE..$PUSH_AFTER"
           else
             .github/scripts/check-activity-files.sh
           fi
 
-  build-artifact:
-    name: Package Production Artifact
-    needs: [lint, frontend, test, gitleaks, activity-file-guard]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  # Container images (ADR-0009). A push to main publishes the Edge Build as `edge`; a vX.Y.Z tag publishes
+  # the Release as X.Y.Z, and as X.Y, X and latest while it is the highest Release in each range.
+  # image-tags decides the tags, each architecture builds on its own native runner and is pushed by digest,
+  # and publish-image joins the digests under the tags and attests the result.
+  image-tags:
+    name: Decide Image Tags
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    outputs:
+      rules: ${{ steps.rules.outputs.rules }}
+    steps:
+      - name: Checkout repository (full history and tags)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Refuses a Release tag that is not on main or its release/X.Y.x branch (tested by ImageTagRulesTest).
+      - name: Tag rules for this push
+        id: rules
+        run: |
+          rules=$(.github/scripts/image-tag-rules.sh)
+          printf '%s\n' "$rules"
+          {
+            echo "rules<<EOF"
+            echo "$rules"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  image:
+    name: Build Image (${{ matrix.platform }})
+    needs: [lint, frontend, test, gitleaks, activity-file-guard, image-tags]
+    if: github.event_name == 'push'
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write # push the per-architecture image to GHCR
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+      - name: Image labels
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'gradle'
+          images: ${{ env.IMAGE_REPOSITORY }}
+          tags: ${{ needs.image-tags.outputs.rules }}
+          flavor: latest=false
+          labels: |
+            org.opencontainers.image.licenses=${{ env.IMAGE_LICENSES }}
 
-      - name: Set up Node
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
-          node-version-file: 'frontend/.nvmrc'
-          cache: 'npm'
-          cache-dependency-path: 'frontend/package-lock.json'
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Boot JAR
-        run: ./gradlew bootJar
+      # GitHub's attestation in publish-image is the provenance, so BuildKit adds none of its own.
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=${{ env.IMAGE_REPOSITORY }},push-by-digest=true,name-canonical=true,push=true
+          provenance: false
+          sbom: false
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
 
-      - name: Upload Spring Boot JAR
+      - name: Record the digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+          echo "PLATFORM_PAIR=${PLATFORM//\//-}" >> "$GITHUB_ENV"
+
+      - name: Upload the digest
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: stridehearth-app
-          path: build/libs/Stridehearth-*.jar
-          retention-days: 7
+          name: digest-${{ env.PLATFORM_PAIR }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish-image:
+    name: Publish Image
+    needs: [image-tags, image]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # add the tags and push the attestation to GHCR
+      id-token: write # sign the attestation with Sigstore
+      attestations: write # store the attestation on the repository
+    steps:
+      - name: Download the digests
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digest-*
+          merge-multiple: true
+
+      # The index annotations are what the GHCR package page shows (source, description, licences).
+      - name: Image tags and annotations
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: index
+        with:
+          images: ${{ env.IMAGE_REPOSITORY }}
+          tags: ${{ needs.image-tags.outputs.rules }}
+          flavor: latest=false
+          labels: |
+            org.opencontainers.image.licenses=${{ env.IMAGE_LICENSES }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create the multi-arch tags
+        id: index
+        working-directory: ${{ runner.temp }}/digests
+        env:
+          METADATA: ${{ steps.meta.outputs.json }}
+        run: |
+          mapfile -t tags < <(jq -r '.tags[] | "--tag=" + .' <<< "$METADATA")
+          mapfile -t annotations < <(jq -r '.annotations[] | "--annotation=" + .' <<< "$METADATA")
+          sources=()
+          for digest in *; do sources+=("$IMAGE_REPOSITORY@sha256:$digest"); done
+          docker buildx imagetools create "${tags[@]}" "${annotations[@]}" "${sources[@]}"
+          first_tag=$(jq -r '.tags[0]' <<< "$METADATA")
+          index=$(docker buildx imagetools inspect "$first_tag" --format '{{json .Manifest}}')
+          jq . <<< "$index"
+          echo "digest=$(jq -er .digest <<< "$index")" >> "$GITHUB_OUTPUT"
+
+      # A personal account's repository cannot hold artifact storage records, so none is created.
+      - name: Attest build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE_REPOSITORY }}
+          subject-digest: ${{ steps.index.outputs.digest }}
+          push-to-registry: true
+          create-storage-record: false
