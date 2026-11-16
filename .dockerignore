@@ -1,0 +1,17 @@
+# Keep the build context to source: no git history, local secrets, build output or installed packages.
+.git
+.env
+*.env
+.gradle
+.kotlin
+build
+temp-batches
+frontend/node_modules
+frontend/dist
+frontend/.vite
+.idea
+.vscode
+.claude
+.agents
+*.iml
+**/.DS_Store

@@ -218,63 +218,6 @@ class GitHubActionsWorkflowTest {
     }
 
     @Test
-    fun `build-artifact job depends on lint and test runs bootJar and uploads artifact with retention 7`() {
-        val workflow = loadCiWorkflow()
-
-        @Suppress("UNCHECKED_CAST")
-        val jobs = workflow["jobs"] as Map<String, Any>
-        assertTrue(jobs.containsKey("build-artifact"), "jobs must include 'build-artifact' job")
-
-        @Suppress("UNCHECKED_CAST")
-        val buildJob = jobs["build-artifact"] as Map<String, Any>
-
-        val needs = buildJob["needs"]
-        assertNotNull(needs, "build-artifact job must declare 'needs' dependencies")
-        val needsList =
-            when (needs) {
-                is List<*> -> needs.map { it.toString() }
-                is String -> listOf(needs)
-                else -> emptyList()
-            }
-        assertTrue(needsList.contains("lint"), "build-artifact needs must include 'lint'")
-        assertTrue(needsList.contains("test"), "build-artifact needs must include 'test'")
-        assertTrue(needsList.contains("frontend"), "build-artifact needs must include 'frontend'")
-
-        val condition = buildJob["if"] as? String
-        assertEquals(
-            "github.event_name == 'push' && github.ref == 'refs/heads/main'",
-            condition,
-            "build-artifact must only run on main push",
-        )
-
-        assertEquals("ubuntu-latest", buildJob["runs-on"], "build-artifact must run on ubuntu-latest")
-
-        @Suppress("UNCHECKED_CAST")
-        val steps = buildJob["steps"] as List<Map<String, Any>>
-
-        val hasBootJar =
-            steps.any { step ->
-                val run = step["run"] as? String ?: ""
-                run.trim() == "./gradlew bootJar"
-            }
-        assertTrue(hasBootJar, "build-artifact job must run ./gradlew bootJar")
-
-        val hasArtifactUpload =
-            steps.any { step ->
-                val uses = step["uses"] as? String ?: ""
-                val with = step["with"] as? Map<*, *>
-                uses.startsWith("actions/upload-artifact") &&
-                    with?.get("name")?.toString() == "stridehearth-app" &&
-                    with["path"]?.toString() == "build/libs/Stridehearth-*.jar" &&
-                    with["retention-days"]?.toString() == "7"
-            }
-        assertTrue(
-            hasArtifactUpload,
-            "build-artifact job must upload stridehearth-app with retention-days 7 and path build/libs/Stridehearth-*.jar",
-        )
-    }
-
-    @Test
     fun `frontend job sets up Node and runs biome check, tsc --noEmit, vitest run and the codegen freshness check`() {
         val steps = steps("frontend")
         assertConfiguresNode(steps, "frontend")
@@ -297,7 +240,7 @@ class GitHubActionsWorkflowTest {
 
     @Test
     fun `gradle jobs that build the frontend set up Node`() {
-        listOf("test", "build-artifact").forEach { job -> assertConfiguresNode(steps(job), job) }
+        assertConfiguresNode(steps("test"), "test")
     }
 
     @Test
@@ -319,10 +262,15 @@ class GitHubActionsWorkflowTest {
             val jobs = workflow["jobs"] as Map<String, Map<String, Any>>
             jobs.forEach { (name, job) ->
                 val permissions = job["permissions"] as? Map<*, *> ?: return@forEach
-                assertTrue(
-                    permissions.values.none { it == "write" },
-                    "${file.name} job $name widens the token; record why in ADR-0012 and update this test",
-                )
+                val allowed = if (file.name == "ci.yml") IMAGE_JOB_PERMISSIONS[name] else null
+                if (allowed != null) {
+                    assertEquals(allowed, permissions, "${file.name} job $name may widen the token only as far as publishing needs")
+                } else {
+                    assertTrue(
+                        permissions.values.none { it == "write" },
+                        "${file.name} job $name widens the token; record why in ADR-0009 or ADR-0012 and update this test",
+                    )
+                }
             }
         }
     }
@@ -361,9 +309,126 @@ class GitHubActionsWorkflowTest {
     }
 
     @Test
-    fun `build-artifact waits for the repository guards`() {
+    fun `pushing a version tag runs the workflow`() {
         @Suppress("UNCHECKED_CAST")
-        val needs = (jobs()["build-artifact"] as Map<String, Any>)["needs"] as List<String>
-        assertTrue(needs.containsAll(listOf("gitleaks", "activity-file-guard")), "build-artifact needs: $needs")
+        val push = (loadCiWorkflow()["on"] ?: loadCiWorkflow()[true]) as Map<String, Map<String, List<String>>>
+        assertEquals(listOf("v*.*.*"), push["push"]!!["tags"], "A vX.Y.Z tag must trigger the Release build (ADR-0009)")
+    }
+
+    @Test
+    fun `the jar-only artifact upload is gone`() {
+        assertNull(jobs()["build-artifact"], "Images replace the jar artifact (#19)")
+        jobs().keys.forEach { job ->
+            assertTrue(
+                steps(job).none {
+                    (it["uses"] as? String).orEmpty().startsWith("actions/upload-artifact") &&
+                        it["with"].toString().contains(".jar")
+                },
+                "$job must not upload a jar",
+            )
+        }
+    }
+
+    @Test
+    fun `each architecture is built natively after every check passes on a push`() {
+        val image = job("image")
+        assertEquals("github.event_name == 'push'", image["if"], "Images are built for pushes to main and tags, never for pull requests")
+        assertEquals(CHECK_JOBS, (image["needs"] as List<*>).toSet(), "image must wait for every check")
+        assertEquals("\${{ matrix.runner }}", image["runs-on"])
+
+        @Suppress("UNCHECKED_CAST")
+        val include = ((image["strategy"] as Map<String, Any>)["matrix"] as Map<String, Any>)["include"] as List<Map<String, String>>
+        assertEquals(
+            setOf("linux/amd64" to "ubuntu-24.04", "linux/arm64" to "ubuntu-24.04-arm"),
+            include.map { it["platform"] to it["runner"] }.toSet(),
+            "amd64 and arm64 must each build on a native runner",
+        )
+
+        val build = step("image", "docker/build-push-action")
+        assertEquals("\${{ matrix.platform }}", build["platforms"])
+        assertEquals("\${{ steps.meta.outputs.labels }}", build["labels"], "Each platform image carries the OCI labels")
+        assertTrue(build["outputs"].toString().contains("push-by-digest=true"), "Platform images are pushed by digest: ${build["outputs"]}")
+    }
+
+    @Test
+    fun `a release tag is built only from a commit on main`() {
+        val image = steps("image")
+        val checkout = image.first { (it["uses"] as? String).orEmpty().startsWith("actions/checkout") }
+        assertEquals(0, (checkout["with"] as Map<*, *>)["fetch-depth"], "The tag check needs main's history")
+        assertTrue(
+            image.any { (it["run"] as? String).orEmpty().contains("git merge-base --is-ancestor \"\$GITHUB_SHA\" origin/main") },
+            "image must refuse a tag that is not on main",
+        )
+    }
+
+    @Test
+    fun `main publishes edge and a release tag publishes X Y Z, X Y, X and latest`() {
+        val publish = job("publish-image")
+        assertEquals(listOf("image"), publish["needs"])
+        val metadata = step("publish-image", "docker/metadata-action")
+        assertEquals("\${{ env.IMAGE }}", metadata["images"])
+        assertEquals("ghcr.io/jacob-craig/stridehearth", (loadCiWorkflow()["env"] as Map<*, *>)["IMAGE"])
+        assertEquals(
+            listOf(
+                "type=edge,branch=main",
+                "type=semver,pattern={{version}}",
+                "type=semver,pattern={{major}}.{{minor}}",
+                "type=semver,pattern={{major}}",
+            ),
+            metadata["tags"]
+                .toString()
+                .lines()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() },
+        )
+        // `latest` follows the newest semver tag (metadata-action's `flavor: latest=auto` default), never `edge`.
+        assertNull(metadata["flavor"], "Keep metadata-action's default latest=auto")
+        assertTrue(
+            steps("publish-image").any { (it["run"] as? String).orEmpty().contains("docker buildx imagetools create") },
+            "publish-image must join the platform digests into one multi-arch tag set",
+        )
+    }
+
+    @Test
+    fun `images declare both licences in their OCI labels`() {
+        listOf("image", "publish-image").forEach { job ->
+            val metadata = step(job, "docker/metadata-action")
+            assertTrue(
+                metadata["labels"].toString().contains("org.opencontainers.image.licenses=\${{ env.IMAGE_LICENSES }}"),
+                "$job must override the repository's Apache-2.0 licence label: ${metadata["labels"]}",
+            )
+        }
+        assertEquals(ContainerImageTest.IMAGE_LICENCES, (loadCiWorkflow()["env"] as Map<*, *>)["IMAGE_LICENSES"])
+    }
+
+    @Test
+    fun `the published image carries a build provenance attestation`() {
+        val attest = step("publish-image", "actions/attest")
+        assertEquals("\${{ env.IMAGE }}", attest["subject-name"])
+        assertTrue(attest["subject-digest"].toString().isNotBlank(), "The attestation must name the multi-arch digest")
+        assertEquals(true, attest["push-to-registry"])
+    }
+
+    private fun job(name: String): Map<*, *> = jobs()[name] as? Map<*, *> ?: error("ci.yml has no `$name` job")
+
+    /** The `with` inputs of the first step in [job] that uses [action]. */
+    private fun step(
+        job: String,
+        action: String,
+    ): Map<*, *> {
+        val step = steps(job).firstOrNull { (it["uses"] as? String).orEmpty().startsWith("$action@") }
+        assertNotNull(step, "$job must use $action")
+        return step!!["with"] as Map<*, *>
+    }
+
+    companion object {
+        private val CHECK_JOBS = setOf("lint", "frontend", "test", "gitleaks", "activity-file-guard")
+
+        /** The only jobs that may write: pushing to GHCR, and signing and storing the attestation (ADR-0009). */
+        private val IMAGE_JOB_PERMISSIONS =
+            mapOf(
+                "image" to mapOf("contents" to "read", "packages" to "write"),
+                "publish-image" to mapOf("contents" to "read", "packages" to "write", "id-token" to "write", "attestations" to "write"),
+            )
     }
 }
