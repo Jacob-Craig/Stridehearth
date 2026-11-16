@@ -26,6 +26,13 @@ env:
   IMAGE: ghcr.io/jacob-craig/stridehearth
   # Stridehearth's own code is Apache-2.0; the bundled Garmin FIT SDK keeps its own licence (NOTICE).
   IMAGE_LICENSES: Apache-2.0 AND LicenseRef-Garmin-FIT-Protocol-License
+  # metadata-action tag rules, shared by both image jobs so each platform image's version label matches its tag.
+  # `latest` comes from metadata-action's default `latest=auto`: it follows the semver tags, never `edge`.
+  IMAGE_TAGS: |
+    type=edge,branch=main
+    type=semver,pattern={{version}}
+    type=semver,pattern={{major}}.{{minor}}
+    type=semver,pattern={{major}}
 
 # Third-party actions are pinned to full commit SHAs; Dependabot (.github/dependabot.yml)
 # bumps the SHA and the version comment together.
@@ -215,6 +222,7 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.IMAGE }}
+          tags: ${{ env.IMAGE_TAGS }}
           labels: |
             org.opencontainers.image.licenses=${{ env.IMAGE_LICENSES }}
 
@@ -284,11 +292,7 @@ jobs:
           DOCKER_METADATA_ANNOTATIONS_LEVELS: index
         with:
           images: ${{ env.IMAGE }}
-          tags: |
-            type=edge,branch=main
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+          tags: ${{ env.IMAGE_TAGS }}
           labels: |
             org.opencontainers.image.licenses=${{ env.IMAGE_LICENSES }}
 

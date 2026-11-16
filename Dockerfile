@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 # Stridehearth's release image (ADR-0009). CI publishes it to ghcr.io/jacob-craig/stridehearth for linux/amd64 and
 # linux/arm64; anyone can also build it from source with `docker build .`.
 #

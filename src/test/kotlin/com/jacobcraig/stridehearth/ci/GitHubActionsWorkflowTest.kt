@@ -311,7 +311,7 @@ class GitHubActionsWorkflowTest {
     @Test
     fun `pushing a version tag runs the workflow`() {
         @Suppress("UNCHECKED_CAST")
-        val push = (loadCiWorkflow()["on"] ?: loadCiWorkflow()[true]) as Map<String, Map<String, List<String>>>
+        val push = loadCiWorkflow().let { it["on"] ?: it[true] } as Map<String, Map<String, List<String>>>
         assertEquals(listOf("v*.*.*"), push["push"]!!["tags"], "A vX.Y.Z tag must trigger the Release build (ADR-0009)")
     }
 
@@ -367,7 +367,7 @@ class GitHubActionsWorkflowTest {
         assertEquals(listOf("image"), publish["needs"])
         val metadata = step("publish-image", "docker/metadata-action")
         assertEquals("\${{ env.IMAGE }}", metadata["images"])
-        assertEquals("ghcr.io/jacob-craig/stridehearth", (loadCiWorkflow()["env"] as Map<*, *>)["IMAGE"])
+        assertEquals("ghcr.io/jacob-craig/stridehearth", workflowEnv()["IMAGE"])
         assertEquals(
             listOf(
                 "type=edge,branch=main",
@@ -375,12 +375,16 @@ class GitHubActionsWorkflowTest {
                 "type=semver,pattern={{major}}.{{minor}}",
                 "type=semver,pattern={{major}}",
             ),
-            metadata["tags"]
+            workflowEnv()["IMAGE_TAGS"]
                 .toString()
                 .lines()
                 .map { it.trim() }
                 .filter { it.isNotEmpty() },
         )
+        // Both jobs read the same rules, so each platform image's version label matches the published tag.
+        listOf("image", "publish-image").forEach { job ->
+            assertEquals("\${{ env.IMAGE_TAGS }}", step(job, "docker/metadata-action")["tags"], "$job must use env.IMAGE_TAGS")
+        }
         // `latest` follows the newest semver tag (metadata-action's `flavor: latest=auto` default), never `edge`.
         assertNull(metadata["flavor"], "Keep metadata-action's default latest=auto")
         assertTrue(
@@ -398,7 +402,7 @@ class GitHubActionsWorkflowTest {
                 "$job must override the repository's Apache-2.0 licence label: ${metadata["labels"]}",
             )
         }
-        assertEquals(ContainerImageTest.IMAGE_LICENCES, (loadCiWorkflow()["env"] as Map<*, *>)["IMAGE_LICENSES"])
+        assertEquals(ContainerImageTest.IMAGE_LICENSES, workflowEnv()["IMAGE_LICENSES"])
     }
 
     @Test
@@ -408,6 +412,8 @@ class GitHubActionsWorkflowTest {
         assertTrue(attest["subject-digest"].toString().isNotBlank(), "The attestation must name the multi-arch digest")
         assertEquals(true, attest["push-to-registry"])
     }
+
+    private fun workflowEnv(): Map<*, *> = loadCiWorkflow()["env"] as Map<*, *>
 
     private fun job(name: String): Map<*, *> = jobs()[name] as? Map<*, *> ?: error("ci.yml has no `$name` job")
 

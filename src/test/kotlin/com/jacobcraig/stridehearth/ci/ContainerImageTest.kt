@@ -106,8 +106,8 @@ class ContainerImageTest {
         }
         val licences = runtimeStage().filter { it.keyword == "LABEL" }.joinToString(" ") { it.arguments }
         assertTrue(
-            licences.contains("org.opencontainers.image.licenses=\"$IMAGE_LICENCES\""),
-            "The image must declare its licences as \"$IMAGE_LICENCES\": $licences",
+            licences.contains("org.opencontainers.image.licenses=\"$IMAGE_LICENSES\""),
+            "The image must declare its licences as \"$IMAGE_LICENSES\": $licences",
         )
     }
 
@@ -127,6 +127,6 @@ class ContainerImageTest {
         val LAYERS = listOf("dependencies", "spring-boot-loader", "snapshot-dependencies", "application")
 
         /** Stridehearth's own code is Apache-2.0; the bundled Garmin FIT SDK keeps its own licence (NOTICE). */
-        const val IMAGE_LICENCES = "Apache-2.0 AND LicenseRef-Garmin-FIT-Protocol-License"
+        const val IMAGE_LICENSES = "Apache-2.0 AND LicenseRef-Garmin-FIT-Protocol-License"
     }
 }

@@ -18,4 +18,5 @@ Stridehearth is a product that Operators self-host, the author's own Server bein
 - Releases are cut by pushing a tag by hand. Notes are GitHub-generated, plus a manual "One-way Release" section whenever migrations are included.
 - The image contains no configuration secrets. Without an explicit dev profile there are no default credentials or `localhost` addresses, so a Server must supply its database and Redis settings through its environment or fail to start. Swagger UI and SQL logging are off outside dev.
 - There is no hosted staging Server. Edge Builds are the pre-release channel.
+- CI builds each architecture on its own native runner, joins the two under the tags, and attaches a GitHub build provenance attestation. Only those two image jobs widen the workflow token: `packages: write` to push to GHCR, and `id-token: write` with `attestations: write` to sign and store the attestation. Every other job keeps the read-only token.
 - The sample compose file uses a multi-architecture PostGIS image, because `postgis/postgis` publishes only amd64.
