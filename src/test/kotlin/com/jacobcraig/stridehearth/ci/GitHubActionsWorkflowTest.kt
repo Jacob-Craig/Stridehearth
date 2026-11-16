@@ -427,8 +427,8 @@ class GitHubActionsWorkflowTest {
     fun `both image jobs publish exactly the tags image-tags decided`() {
         assertEquals(setOf("image-tags", "image"), (job("publish-image")["needs"] as List<*>).toSet())
         val metadata = step("publish-image", "docker/metadata-action")
-        assertEquals("\${{ env.IMAGE }}", metadata["images"])
-        assertEquals("ghcr.io/jacob-craig/stridehearth", workflowEnv()["IMAGE"])
+        assertEquals("\${{ env.IMAGE_REPOSITORY }}", metadata["images"])
+        assertEquals("ghcr.io/jacob-craig/stridehearth", workflowEnv()["IMAGE_REPOSITORY"])
         // Same rules in both jobs, so each platform image's version label matches the published tag. `latest` is
         // one of those rules, never metadata-action's own latest=auto, which would move it back on a hotfix.
         listOf("image", "publish-image").forEach { job ->
@@ -464,7 +464,7 @@ class GitHubActionsWorkflowTest {
     @Test
     fun `the published image carries a build provenance attestation`() {
         val attest = step("publish-image", "actions/attest")
-        assertEquals("\${{ env.IMAGE }}", attest["subject-name"])
+        assertEquals("\${{ env.IMAGE_REPOSITORY }}", attest["subject-name"])
         assertTrue(attest["subject-digest"].toString().isNotBlank(), "The attestation must name the multi-arch digest")
         assertEquals(true, attest["push-to-registry"])
     }

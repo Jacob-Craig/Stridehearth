@@ -26,7 +26,7 @@ permissions:
   contents: read
 
 env:
-  IMAGE: ghcr.io/jacob-craig/stridehearth
+  IMAGE_REPOSITORY: ghcr.io/jacob-craig/stridehearth
   # Stridehearth's own code is Apache-2.0; the bundled Garmin FIT SDK keeps its own licence (NOTICE).
   IMAGE_LICENSES: Apache-2.0 AND LicenseRef-Garmin-FIT-Protocol-License
 
@@ -246,7 +246,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: ${{ env.IMAGE }}
+          images: ${{ env.IMAGE_REPOSITORY }}
           tags: ${{ needs.image-tags.outputs.rules }}
           flavor: latest=false
           labels: |
@@ -270,7 +270,7 @@ jobs:
           context: .
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
-          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,name=${{ env.IMAGE_REPOSITORY }},push-by-digest=true,name-canonical=true,push=true
           provenance: false
           sbom: false
           cache-from: type=gha,scope=${{ matrix.platform }}
@@ -317,7 +317,7 @@ jobs:
         env:
           DOCKER_METADATA_ANNOTATIONS_LEVELS: index
         with:
-          images: ${{ env.IMAGE }}
+          images: ${{ env.IMAGE_REPOSITORY }}
           tags: ${{ needs.image-tags.outputs.rules }}
           flavor: latest=false
           labels: |
@@ -342,17 +342,18 @@ jobs:
           mapfile -t tags < <(jq -r '.tags[] | "--tag=" + .' <<< "$METADATA")
           mapfile -t annotations < <(jq -r '.annotations[] | "--annotation=" + .' <<< "$METADATA")
           sources=()
-          for digest in *; do sources+=("$IMAGE@sha256:$digest"); done
+          for digest in *; do sources+=("$IMAGE_REPOSITORY@sha256:$digest"); done
           docker buildx imagetools create "${tags[@]}" "${annotations[@]}" "${sources[@]}"
           first_tag=$(jq -r '.tags[0]' <<< "$METADATA")
-          docker buildx imagetools inspect "$first_tag"
-          echo "digest=$(docker buildx imagetools inspect "$first_tag" --format '{{json .Manifest.Digest}}' | tr -d '"')" >> "$GITHUB_OUTPUT"
+          index=$(docker buildx imagetools inspect "$first_tag" --format '{{json .Manifest}}')
+          jq . <<< "$index"
+          echo "digest=$(jq -er .digest <<< "$index")" >> "$GITHUB_OUTPUT"
 
       # A personal account's repository cannot hold artifact storage records, so none is created.
       - name: Attest build provenance
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
-          subject-name: ${{ env.IMAGE }}
+          subject-name: ${{ env.IMAGE_REPOSITORY }}
           subject-digest: ${{ steps.index.outputs.digest }}
           push-to-registry: true
           create-storage-record: false
