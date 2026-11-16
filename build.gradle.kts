@@ -1,11 +1,11 @@
 import java.io.File
 
 plugins {
-    kotlin("jvm") version "2.3.21"
-    kotlin("plugin.spring") version "2.3.21"
-    id("org.springframework.boot") version "4.1.1"
+    kotlin("jvm") version "2.4.21"
+    kotlin("plugin.spring") version "2.4.21"
+    id("org.springframework.boot") version "4.1.2"
     id("io.spring.dependency-management") version "1.1.7"
-    kotlin("plugin.jpa") version "2.3.21"
+    kotlin("plugin.jpa") version "2.4.21"
     id("org.jlleitschuh.gradle.ktlint") version "14.2.0"
 }
 
@@ -52,7 +52,7 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-postgresql")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     // Source: https://mvnrepository.com/artifact/com.garmin/fit
-    implementation("com.garmin:fit:21.217.0")
+    implementation("com.garmin:fit:21.221.0")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:2.8.6")
 }
 
