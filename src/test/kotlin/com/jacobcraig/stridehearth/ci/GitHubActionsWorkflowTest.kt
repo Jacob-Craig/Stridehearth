@@ -1,15 +1,20 @@
 package com.jacobcraig.stridehearth.ci
 
 import com.jacobcraig.stridehearth.testutils.TestProcessUtils.findProjectRoot
+import com.jacobcraig.stridehearth.testutils.TestProcessUtils.runProcess
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import org.yaml.snakeyaml.Yaml
 import java.io.File
 
 class GitHubActionsWorkflowTest {
+    @TempDir
+    lateinit var sandbox: File
+
     private fun assertConfiguresJava17(steps: List<Map<String, Any>>) {
         val hasSetupJava =
             steps.any { step ->
@@ -309,6 +314,60 @@ class GitHubActionsWorkflowTest {
     }
 
     @Test
+    fun `a push to main scans only the pushed commits`() {
+        val calls = runScanStep("gitleaks", "gitleaks-ci git", PUSH_TO_MAIN)
+        assertTrue(calls.contains("--log-opts=$BEFORE..$AFTER"), "gitleaks must scan the pushed commits: $calls")
+        assertEquals("$BEFORE..$AFTER", runScanStep("activity-file-guard", "check-activity-files.sh", PUSH_TO_MAIN))
+    }
+
+    @Test
+    fun `a Release tag push scans only the tagged commit, not all history`() {
+        // GitHub sends an all-zero `before` for a new tag; the tagged commit already passed on its way to its branch.
+        val calls = runScanStep("gitleaks", "gitleaks-ci git", RELEASE_TAG_PUSH)
+        assertTrue(calls.contains("--log-opts=$TAGGED_COMMIT^!"), "gitleaks must scan only the tagged commit: $calls")
+        assertEquals(
+            "$TAGGED_COMMIT^!",
+            runScanStep("activity-file-guard", "check-activity-files.sh", RELEASE_TAG_PUSH),
+            "The activity-file guard must check only the tagged commit's additions",
+        )
+    }
+
+    /**
+     * Runs the [job] step whose script mentions [marker] as GitHub would for [context], with `docker` and
+     * `.github/scripts/check-activity-files.sh` replaced by stubs, and returns the arguments the stubs received.
+     */
+    private fun runScanStep(
+        job: String,
+        marker: String,
+        context: Map<String, String>,
+    ): String {
+        val step = steps(job).first { (it["run"] as? String).orEmpty().contains(marker) }
+        val calls = File(sandbox, "calls").apply { writeText("") }
+        val recorder = "#!/usr/bin/env bash\nprintf '%s\\n' \"$*\" >> \"${calls.path}\"\n"
+        val stubs = File(sandbox, "bin").apply { mkdirs() }
+        File(stubs, "docker").apply { writeText(recorder) }.setExecutable(true)
+        File(sandbox, ".github/scripts").mkdirs()
+        File(sandbox, ".github/scripts/check-activity-files.sh").apply { writeText(recorder) }.setExecutable(true)
+        val script = File(sandbox, "step.sh").apply { writeText(step["run"] as String) }
+
+        val expression = Regex("""^\$\{\{\s*(.+?)\s*}}$""")
+        val env =
+            (step["env"] as Map<*, *>).entries.associate { (name, value) ->
+                val key = expression.find(value.toString())?.groupValues?.get(1) ?: error("$name is not an expression: $value")
+                name.toString() to (context[key] ?: "")
+            }
+        // GitHub runs `run` scripts with `bash --noprofile --norc -eo pipefail`.
+        val result =
+            runProcess(
+                listOf("bash", "--noprofile", "--norc", "-eo", "pipefail", script.path),
+                workingDir = sandbox,
+                environment = env + ("PATH" to "${stubs.path}:${System.getenv("PATH")}"),
+            )
+        assertEquals(0, result.exitCode, "$job step failed: ${result.output}")
+        return calls.readText().trim()
+    }
+
+    @Test
     fun `pushing a version tag runs the workflow`() {
         @Suppress("UNCHECKED_CAST")
         val push = loadCiWorkflow().let { it["on"] ?: it[true] } as Map<String, Map<String, List<String>>>
@@ -425,6 +484,30 @@ class GitHubActionsWorkflowTest {
     }
 
     companion object {
+        private const val BEFORE = "1111111111111111111111111111111111111111"
+        private const val AFTER = "2222222222222222222222222222222222222222"
+        private const val TAGGED_COMMIT = "3333333333333333333333333333333333333333"
+
+        /** The GitHub contexts a push to main sets. */
+        private val PUSH_TO_MAIN =
+            mapOf(
+                "github.event_name" to "push",
+                "github.ref_type" to "branch",
+                "github.sha" to AFTER,
+                "github.event.before" to BEFORE,
+                "github.event.after" to AFTER,
+            )
+
+        /** The GitHub contexts a new Release tag push sets: an all-zero `before`, and `sha` is the tagged commit. */
+        private val RELEASE_TAG_PUSH =
+            mapOf(
+                "github.event_name" to "push",
+                "github.ref_type" to "tag",
+                "github.sha" to TAGGED_COMMIT,
+                "github.event.before" to "0000000000000000000000000000000000000000",
+                "github.event.after" to "4444444444444444444444444444444444444444",
+            )
+
         private val CHECK_JOBS = setOf("lint", "frontend", "test", "gitleaks", "activity-file-guard")
 
         /** The only jobs that may write: pushing to GHCR, and signing and storing the attestation (ADR-0009). */

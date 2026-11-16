@@ -135,9 +135,14 @@ jobs:
 
       # Pull requests: every commit the PR adds, so a secret added then deleted still fails.
       # Pushes to main: the pushed commits. A first push (no "before") scans all history.
+      # Release tags: GitHub sends no "before" for a new tag, which would scan all history on every Release and let
+      # an old finding block it. The tagged commit already passed this scan on its way to main or release/X.Y.x
+      # (image-tags refuses a Release tagged anywhere else), so only that commit is scanned again.
       - name: Scan the commits
         env:
           EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          TAGGED_SHA: ${{ github.sha }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PUSH_BEFORE: ${{ github.event.before }}
@@ -145,6 +150,8 @@ jobs:
         run: |
           if [ "$EVENT_NAME" = "pull_request" ]; then
             range="$PR_BASE_SHA..$PR_HEAD_SHA"
+          elif [ "$REF_TYPE" = "tag" ]; then
+            range="$TAGGED_SHA^!"
           elif [ -n "$PUSH_BEFORE" ] && [ "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ]; then
             range="$PUSH_BEFORE..$PUSH_AFTER"
           else
@@ -163,10 +170,13 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # Allowed folders: .github/activity-file-allowlist.txt
+      # Allowed folders: .github/activity-file-allowlist.txt. The tree is always checked; the commit range is chosen
+      # as in gitleaks above, so a Release tag checks only the files its tagged commit added.
       - name: Reject activity files, images and videos outside the allowlist
         env:
           EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          TAGGED_SHA: ${{ github.sha }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PUSH_BEFORE: ${{ github.event.before }}
@@ -174,6 +184,8 @@ jobs:
         run: |
           if [ "$EVENT_NAME" = "pull_request" ]; then
             .github/scripts/check-activity-files.sh "$PR_BASE_SHA..$PR_HEAD_SHA"
+          elif [ "$REF_TYPE" = "tag" ]; then
+            .github/scripts/check-activity-files.sh "$TAGGED_SHA^!"
           elif [ -n "$PUSH_BEFORE" ] && [ "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ]; then
             .github/scripts/check-activity-files.sh "$PUSH_BEFORE..$PUSH_AFTER"
           else
