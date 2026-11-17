@@ -158,6 +158,50 @@ class TelemetryCleanerTest {
         }
 
         @Test
+        fun `a teleport during a long speed dropout is repaired from the nearest good step on each side`() {
+            val n = 120
+            // Steps: 1 m into t=1, 2 m each up to t=59, a 500 m teleport into t=60, 4 m each up to t=118 and
+            // 5 m into t=119. The far steps differ from the near ones so only the nearest good step fits.
+            val step = { i: Int ->
+                when (i) {
+                    1 -> 1.0f
+                    in 2..59 -> 2.0f
+                    60 -> 500.0f
+                    n - 1 -> 5.0f
+                    else -> 4.0f
+                }
+            }
+            val rawDistance =
+                arrayOfNulls<Float>(n).also { d ->
+                    d[0] = 0.0f
+                    for (i in 1 until n) d[i] = d[i - 1]!! + step(i)
+                }
+            // Speed is missing for 16 s around the teleport, so the gap is too long to interpolate.
+            val speed: Array<Float?> = Array(n) { if (it in 55..70) null else 3.0f }
+            val details = outdoor(n, speed = speed, distance = rawDistance)
+
+            val cleaned = TelemetryCleaner.clean(details, ActivitySport.RUN)
+
+            for (i in 55..70) assertNull(cleaned.speed[i], "speed[$i]")
+            for (i in 0 until 60) assertEquals(rawDistance[i], cleaned.distance[i], "distance[$i]")
+            // The bad step becomes 1 s at the mean of the 2 m/s step before it and the 4 m/s step after it.
+            assertEquals(3.0f, cleaned.distance[60]!! - cleaned.distance[59]!!, 1e-3f)
+            for (i in 61 until n) assertEquals(step(i), cleaned.distance[i]!! - cleaned.distance[i - 1]!!, 1e-3f, "step into $i")
+            assertEquals(rawDistance[n - 1]!! - 497.0f, cleaned.distance[n - 1]!!, 0.01f)
+        }
+
+        @Test
+        fun `a bad step with no good step on either side contributes no distance`() {
+            // Every step implies 500 m/s, so speed derived from distance is rejected everywhere and no step is good.
+            val details = outdoor(3, t = intArrayOf(0, 1, 2), distance = arrayOf(0.0f, 500.0f, 1000.0f))
+
+            val cleaned = TelemetryCleaner.clean(details, ActivitySport.RUN)
+
+            assertContentEquals(arrayOf<Float?>(null, null, null), cleaned.speed)
+            assertContentEquals(arrayOf<Float?>(0.0f, 0.0f, 0.0f), cleaned.distance)
+        }
+
+        @Test
         fun `clean outdoor distance and speed come back bit for bit`() {
             val n = 60
             val speed: Array<Float?> = Array(n) { 2.5f + (it % 7) * 0.1f }

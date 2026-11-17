@@ -19,6 +19,7 @@ Telemetry Cleaning rejects GPS spikes (a speed above a sport-keyed ceiling, or a
 - Best Efforts and Personal Records keep scanning the recorded distance. Moving them to Cleaned Activity Details would silently change existing Personal Records, so it needs its own decision.
 - An Activity with no GPS fix keeps its speed, distance and altitude as recorded; only the heart-rate rules apply to it.
 - The speed ceilings are 8.5 m/s for a Run, 5 m/s for a Walk or Hike, 30 m/s for a Ride and 3 m/s for a Swim. A Workout has none, because it is the fallback for unrecognised sports.
-- Stored cadence is strides per minute of one leg, so cadence-lock compares heart rate with twice the cadence plus its fractional part, and only for a Run, Walk or Hike.
+- Stored cadence is strides per minute of one leg, so cadence-lock compares heart rate with twice the sum of the cadence and its fractional part (2 × (cadence + fractionalCadence)), and only for a Run, Walk or Hike.
 - Accepted risk: a steady effort whose true heart rate sits within 3 bpm of step rate for a minute is discarded as cadence-lock.
+- Accepted risk: any single distance step faster than the speed ceiling counts as a GPS teleport. That includes a genuine catch-up step after a GPS outage, where the watch kept recording a frozen distance and then jumped once the fix returned, so the distance covered during the outage is lost from the cleaned distance and from anything derived from it, such as Grade-Adjusted Pace.
 - Speed gaps longer than 10 s stay missing, so consumers must handle missing samples instead of assuming a continuous series.
