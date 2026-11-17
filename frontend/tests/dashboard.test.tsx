@@ -40,7 +40,13 @@ const fiveKRecord: PersonalRecordDto = {
   elapsedTimeSeconds: 1200,
 };
 
-const runner: UserResponseDto = { id: 1, username: 'runner_bob', email: 'bob@example.com' };
+// An athlete whose time zone is already set, so the app sends no one-off time-zone request.
+const runner: UserResponseDto = {
+  id: 1,
+  username: 'runner_bob',
+  email: 'bob@example.com',
+  timeZone: 'Europe/London',
+};
 
 function stubDashboardApi(responses: ReadonlyArray<DashboardResponseDto | { status: number }>) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
@@ -188,7 +194,7 @@ describe('Dashboard', () => {
 
     renderApp(
       '/dashboard',
-      { id: 2, username: 'other_athlete', email: 'o@example.com' },
+      { id: 2, username: 'other_athlete', email: 'o@example.com', timeZone: 'Europe/London' },
       queryClient,
     );
 

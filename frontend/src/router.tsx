@@ -35,6 +35,7 @@ import {
   manageActivitiesQueries,
 } from './features/manage/ManageActivitiesRoute';
 import { manageSearchSchema, toManageFilters } from './features/manage/manageSearch';
+import { SettingsRoute, settingsQueries } from './features/settings/SettingsRoute';
 
 export interface RouterContext {
   queryClient: QueryClient;
@@ -232,6 +233,15 @@ export const invitesRoute = createRoute({
   errorComponent: routeErrorComponent('Your invites could not be loaded'),
 });
 
+export const settingsRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/settings',
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(settingsQueries(context.user.id).thresholds),
+  component: SettingsRoute,
+  errorComponent: routeErrorComponent('Your settings could not be loaded'),
+});
+
 export function createAppRouter(context: RouterContext, history?: RouterHistory) {
   const routeTree = rootRoute.addChildren([
     loginRoute,
@@ -249,6 +259,7 @@ export function createAppRouter(context: RouterContext, history?: RouterHistory)
       activityEditRoute,
       heatmapRoute,
       invitesRoute,
+      settingsRoute,
     ]),
   ]);
 

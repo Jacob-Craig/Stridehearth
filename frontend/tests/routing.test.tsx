@@ -177,4 +177,50 @@ describe('Router & Route Protection', () => {
       expect(screen.getByText('hydrated_athlete')).toBeInTheDocument();
     });
   });
+
+  it('renders the protected /settings route when authenticated', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              entries: [],
+              current: {
+                maxHr: null,
+                restingHr: null,
+                lthr: null,
+                thresholdSpeedMps: null,
+                criticalPowerWatts: null,
+              },
+              heartRateZones: null,
+              paceZones: null,
+              proposals: [],
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+      ),
+    );
+    const settingsQueryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const router = createAppRouter(
+      {
+        queryClient: settingsQueryClient,
+        auth: {
+          user: { id: 1, username: 'runner_bob', email: 'bob@example.com', timeZone: 'UTC' },
+          isLoading: false,
+        },
+      },
+      createMemoryHistory({ initialEntries: ['/settings'] }),
+    );
+
+    render(
+      <QueryClientProvider client={settingsQueryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Settings', level: 1 })).toBeInTheDocument();
+    });
+  });
 });
