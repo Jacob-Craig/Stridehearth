@@ -33,7 +33,14 @@ function activity(overrides: Partial<ActivitySummaryDto> = {}): ActivitySummaryD
 
 /** The `GET /api/activities/{id}` body for an activity with no Laps, history or Best Efforts. */
 function detailOf(summary: ActivitySummaryDto): ActivityDetailDto {
-  return { ...summary, ownerUsername: 'runner_bob', laps: [], history: [], bestEfforts: [] };
+  return {
+    ...summary,
+    ownerUsername: 'runner_bob',
+    laps: [],
+    history: [],
+    bestEfforts: [],
+    runMetrics: null,
+  };
 }
 
 /** `GET /api/activities/{id}/telemetry` for an activity without Activity Details. */

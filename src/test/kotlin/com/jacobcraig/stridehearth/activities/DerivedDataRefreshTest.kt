@@ -154,6 +154,102 @@ class DerivedDataRefreshTest {
         assertEquals(3.0 * 1.3014, stored.gapSpeed[150]!!.toDouble(), 0.03)
     }
 
+    /** A flat hour of running at 3 m/s and 150 bpm, sampled once a second. */
+    private fun steadyHour(): FitTelemetry {
+        val n = 3600
+        return FitTelemetry(
+            t = IntArray(n) { it },
+            lons = DoubleArray(n) { -1.5 },
+            lats = DoubleArray(n) { 53.0 + it * 3.0 / 111_195.0 },
+            routeIndex = Array(n) { it },
+            speed = Array(n) { 3.0f },
+            distance = Array(n) { it * 3.0f },
+            altitude = Array(n) { 30.0f },
+            heartRate = Array(n) { 150.toShort() },
+        )
+    }
+
+    private data class RunColumns(
+        val movingSeconds: Int?,
+        val ngpMps: Double?,
+        val efficiencyFactor: Double?,
+        val aerobicDecouplingPct: Double?,
+        val reason: String?,
+    )
+
+    private fun runColumns(activity: Activity): RunColumns =
+        jdbcTemplate.queryForObject(
+            """
+            SELECT moving_seconds, ngp_mps, efficiency_factor, aerobic_decoupling_pct, decoupling_unavailable_reason
+            FROM activity_derived_metrics WHERE activity_id = ?
+            """.trimIndent(),
+            { rs, _ ->
+                RunColumns(
+                    rs.getObject("moving_seconds") as Int?,
+                    rs.getObject("ngp_mps") as Double?,
+                    rs.getObject("efficiency_factor") as Double?,
+                    rs.getObject("aerobic_decoupling_pct") as Double?,
+                    rs.getString("decoupling_unavailable_reason"),
+                )
+            },
+            activity.id,
+        )!!
+
+    private val noRunMetrics = RunColumns(null, null, null, null, null)
+
+    @Test
+    fun `importing a run stores its Moving Time, NGP, Efficiency Factor and Aerobic Decoupling`() {
+        val run = import(details = steadyHour())
+
+        val stored = runColumns(run)
+
+        assertEquals(3600, stored.movingSeconds)
+        assertEquals(3.0, assertNotNull(stored.ngpMps), 1e-3)
+        // 60 x 3.0 / 150
+        assertEquals(1.2, assertNotNull(stored.efficiencyFactor), 1e-3)
+        assertEquals(0.0, assertNotNull(stored.aerobicDecouplingPct), 1e-3)
+        assertNull(stored.reason)
+        assertEquals(
+            RunMetricsDTO(3600, stored.ngpMps, stored.efficiencyFactor, stored.aerobicDecouplingPct, null),
+            activityService.getActivityDetail(run.id!!, runner.id!!)!!.runMetrics,
+        )
+    }
+
+    @Test
+    fun `a short run stores NGP with the reason decoupling is unavailable`() {
+        val run = import()
+
+        val stored = runColumns(run)
+
+        assertEquals(300, stored.movingSeconds)
+        assertNotNull(stored.ngpMps)
+        assertNull(stored.efficiencyFactor)
+        assertEquals("NO_HEART_RATE", stored.reason)
+    }
+
+    @Test
+    fun `walks, hikes and rides store no Run metrics`() {
+        listOf(ActivitySport.WALK, ActivitySport.HIKE, ActivitySport.RIDE).forEach { sport ->
+            val activity = import(sport = sport, details = climbingDetails(speed = 1.4f), externalId = sport.name)
+
+            assertEquals(noRunMetrics, runColumns(activity), sport.name)
+            assertNull(activityService.getActivityDetail(activity.id!!, runner.id!!)!!.runMetrics, sport.name)
+        }
+    }
+
+    @Test
+    fun `editing a run into a walk clears its Run metrics, and back to run restores them`() {
+        val run = import(details = steadyHour())
+        val before = runColumns(run)
+
+        activityService.updateActivity(run.id!!, runner.id!!, ActivityUpdateRequestDTO(title = "Walk now", sport = ActivitySport.WALK))
+        assertEquals(noRunMetrics, runColumns(run))
+        assertNull(activityService.getActivityDetail(run.id!!, runner.id!!)!!.runMetrics)
+
+        activityService.updateActivity(run.id!!, runner.id!!, ActivityUpdateRequestDTO(title = "Run again", sport = ActivitySport.RUN))
+        assertEquals(before, runColumns(run))
+    }
+
     @Test
     fun `importing a walk or a hike stores GAP, importing a ride stores a row with no GAP`() {
         val walk = import(sport = ActivitySport.WALK, details = climbingDetails(speed = 1.4f), externalId = "walk")

@@ -11,12 +11,15 @@ import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
 
 /**
- * The version of the derived-data algorithms (Telemetry Cleaning, Grade-Adjusted Pace and whatever later analytics
- * [ActivityAnalysis] adds). Raise it whenever any of them would compute different values from the same Activity
+ * The version of the derived-data algorithms (Telemetry Cleaning, Grade-Adjusted Pace, the Run metrics and whatever
+ * later analytics [ActivityAnalysis] adds). Raise it whenever any of them would compute different values from the same Activity
  * Details: the recompute worker then **Recomputes** every Activity whose row is of an older version (ADR-0014).
  * Separate from the Parser Version.
+ *
+ * - 1: Grade-Adjusted Pace (#32).
+ * - 2: Moving Time, Normalized Graded Pace, Efficiency Factor and Aerobic Decoupling of Runs (#33).
  */
-const val DERIVED_DATA_VERSION: Short = 1
+const val DERIVED_DATA_VERSION: Short = 2
 
 /**
  * The derived-data module (ADR-0014): the only writer of `activity_derived_metrics`, which holds one row per
@@ -86,7 +89,7 @@ class DerivedDataRefresh(
         val activityId = activity.id!!
         val source = details ?: activityDetailsService.findAnalyticsSeries(activityId)
         val analysis = source?.let { ActivityAnalysis.analyse(it, activity.sport) }
-        derivedMetricsRepository.upsert(activityId, DERIVED_DATA_VERSION, analysis?.gapSpeed)
+        derivedMetricsRepository.upsert(activityId, DERIVED_DATA_VERSION, analysis?.gapSpeed, analysis?.runMetrics)
     }
 
     /**

@@ -41,6 +41,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 /**
@@ -217,6 +218,29 @@ class DerivedDataRecomputeWorkerTest {
         assertEquals(RecomputeResult(1, 0), drain())
 
         assertEquals(current.copy(gapLength = 120), row(run))
+    }
+
+    @Test
+    fun `backfills Run metrics for a run whose row was written before they existed, and a rerun processes nothing`() {
+        val run = historical()
+        // As #32 (version 1) left it: GAP stored, the Run metric columns NULL.
+        jdbcTemplate.update(
+            "INSERT INTO activity_derived_metrics (activity_id, algorithm_version, gap_speed) VALUES (?, 1, '{3}')",
+            run.id,
+        )
+
+        assertEquals(RecomputeResult(1, 0), drain())
+
+        val (version, movingSeconds, ngp) =
+            jdbcTemplate.queryForObject(
+                "SELECT algorithm_version, moving_seconds, ngp_mps FROM activity_derived_metrics WHERE activity_id = ?",
+                { rs, _ -> Triple(rs.getInt(1), rs.getObject(2) as Int?, rs.getObject(3) as Double?) },
+                run.id,
+            )!!
+        assertEquals(2, version)
+        assertEquals(120, movingSeconds)
+        assertNotNull(ngp)
+        assertEquals(RecomputeResult(0, 0), drain())
     }
 
     @Test

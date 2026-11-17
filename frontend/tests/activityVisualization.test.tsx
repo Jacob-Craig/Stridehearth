@@ -94,6 +94,7 @@ const activity: ActivityDetailDto = {
   laps: [],
   history: [],
   bestEfforts: [effort],
+  runMetrics: null,
 };
 
 function json(body: unknown): Response {

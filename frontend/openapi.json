@@ -2087,12 +2087,12 @@
           "$ref" : "#/components/schemas/ReplacedLapsDTO"
         } ],
         "properties" : {
+          "kind" : {
+            "type" : "string"
+          },
           "count" : {
             "type" : "integer",
             "format" : "int32"
-          },
-          "kind" : {
-            "type" : "string"
           }
         }
       },
@@ -2603,9 +2603,14 @@
             "items" : {
               "$ref" : "#/components/schemas/ActivityBestEffortDTO"
             }
+          },
+          "runMetrics" : {
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/RunMetricsDTO",
+            "description" : "Derived Run metrics; null for any sport but Run and for a Run whose derived data is not computed yet"
           }
         },
-        "required" : [ "averageHeartRate", "averagePaceKmh", "bestEfforts", "calories", "distance", "hasProtectedMetrics", "history", "id", "laps", "ownerUsername", "source", "sport", "startedAt", "timeTakenSeconds", "title" ]
+        "required" : [ "averageHeartRate", "averagePaceKmh", "bestEfforts", "calories", "distance", "hasProtectedMetrics", "history", "id", "laps", "ownerUsername", "runMetrics", "source", "sport", "startedAt", "timeTakenSeconds", "title" ]
       },
       "ActivityHistoryEntryDTO" : {
         "type" : "object",
@@ -2660,6 +2665,10 @@
         },
         "required" : [ "averageHeartRate", "averagePaceKmh", "distance", "elevationGainMeters", "lapNumber", "startedAt", "timeTakenSeconds" ]
       },
+      "DecouplingUnavailableReason" : {
+        "type" : "string",
+        "enum" : [ "NO_PACE_DATA", "NO_HEART_RATE", "TOO_SHORT", "NOT_STEADY" ]
+      },
       "EffortWindowDTO" : {
         "type" : "object",
         "properties" : {
@@ -2689,6 +2698,36 @@
           }
         },
         "required" : [ "endDistanceMeters", "endIndex", "endTimeSeconds", "startDistanceMeters", "startIndex", "startTimeSeconds" ]
+      },
+      "RunMetricsDTO" : {
+        "type" : "object",
+        "properties" : {
+          "movingSeconds" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Moving Time in seconds"
+          },
+          "ngpMetersPerSecond" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Normalized Graded Pace in meters per second"
+          },
+          "efficiencyFactor" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Efficiency Factor: Normalized Graded Pace in meters per minute per beat per minute of heart rate"
+          },
+          "aerobicDecouplingPercent" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Aerobic Decoupling in percent; positive when heart rate rose relative to pace"
+          },
+          "decouplingUnavailableReason" : {
+            "type" : [ "string", "null" ],
+            "$ref" : "#/components/schemas/DecouplingUnavailableReason"
+          }
+        },
+        "required" : [ "aerobicDecouplingPercent", "decouplingUnavailableReason", "efficiencyFactor", "movingSeconds", "ngpMetersPerSecond" ]
       },
       "ActivityDerivedStreamsDTO" : {
         "type" : "object",
