@@ -22,11 +22,11 @@ Replacing an Activity's stored Activity Details and Laps with ones decoded from 
 _Avoid_: Re-parse, migration
 
 **Backfill**:
-Filling in something an Activity lacks (Activity Details, their distance, Laps, Best Efforts, or derived data such as Grade-Adjusted Pace) without replacing anything it already has. Replacing derived data that is out of date is a Recompute.
+Filling in something an Activity lacks (Activity Details, their distance, Laps, Best Efforts, or derived data such as Grade-Adjusted Pace or Normalized Graded Pace) without replacing anything it already has. Replacing derived data that is out of date is a Recompute.
 _Avoid_: Repair, fix-up
 
 **Recompute (derived data)**:
-Replacing an Activity's stored derived data (such as its Grade-Adjusted Pace) because something it was computed from changed: its Activity Details, its sport or start time, or the version of the algorithm that computed it. It never changes the Activity itself, so it leaves no Activity History Entry.
+Replacing an Activity's stored derived data (such as its Grade-Adjusted Pace or Run metrics like Normalized Graded Pace) because something it was computed from changed: its Activity Details, its sport or start time, or the version of the algorithm that computed it. It never changes the Activity itself, so it leaves no Activity History Entry.
 _Avoid_: Reprocess, regenerate, migration
 
 **Activity Source**:
@@ -110,6 +110,26 @@ _Avoid_: Filtered telemetry, corrected data, cleaned streams
 The pace an athlete would have held on flat ground for the same effort, computed per sample from Cleaned Activity Details and the gradient (Minetti's cost of running, grade clamped to ±45%), for Runs, Walks and Hikes.
 Stored as a speed; derived, so recomputed, never edited. Without altitude or a GPS fix it equals the cleaned speed.
 _Avoid_: Effort pace, adjusted speed
+
+**Moving Time**:
+The seconds of a Run spent moving: its Grade-Adjusted Pace resampled to one value a second, leaving out recording pauses longer than 10 seconds and seconds slower than 0.5 m/s.
+Derived, so recomputed, never edited. It is not the Activity's recorded duration.
+_Avoid_: Active time, elapsed time
+
+**Normalized Graded Pace (NGP)**:
+A Run's Grade-Adjusted Pace weighted towards its harder stretches: the fourth-power mean of its 30-second rolling average over Moving Time. It needs no heart rate.
+Stored as a speed; derived, so recomputed, never edited.
+_Avoid_: Normalized pace, NP, weighted pace
+
+**Efficiency Factor (EF)**:
+A Run's Normalized Graded Pace in metres per minute divided by its average heart rate over Moving Time. A Run whose heart rate covers less than 80% of its Moving Time has none.
+Derived, so recomputed, never edited.
+_Avoid_: Efficiency, pace-to-heart-rate ratio
+
+**Aerobic Decoupling**:
+How far a Run's Efficiency Factor fell from the first half to the second, as a percentage of the first, after leaving out the first 10% (warm-up) and last 5% (cool-down) of Moving Time. Below 5% heart rate stayed coupled to pace; 5% or more is drift.
+It is only reported for a steady state: at least 30 minutes of Moving Time and a 30-second rolling Grade-Adjusted Pace that varies by less than 12% (coefficient of variation). Otherwise it is absent with the reason (no pace data, no heart rate, too short, not steady). Derived, so recomputed, never edited.
+_Avoid_: Cardiac drift, Pa:HR, heart-rate drift
 
 **Dashboard**:
 The athlete's primary landing view summarizing Personal Records, aggregate training volume, and performance trends across recorded Activities.
