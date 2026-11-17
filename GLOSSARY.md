@@ -22,11 +22,11 @@ Replacing an Activity's stored Activity Details and Laps with ones decoded from 
 _Avoid_: Re-parse, migration
 
 **Backfill**:
-Filling in something an Activity lacks (Activity Details, their distance, Laps, Best Efforts, or derived data such as Grade-Adjusted Pace or Normalized Graded Pace) without replacing anything it already has. Replacing derived data that is out of date is a Recompute.
+Filling in something an Activity lacks (Activity Details, their distance, Laps, Best Efforts, or derived data such as Grade-Adjusted Pace, Normalized Graded Pace or Peak Efforts) without replacing anything it already has. Replacing derived data that is out of date is a Recompute.
 _Avoid_: Repair, fix-up
 
 **Recompute (derived data)**:
-Replacing an Activity's stored derived data (such as its Grade-Adjusted Pace or Run metrics like Normalized Graded Pace) because something it was computed from changed: its Activity Details, its sport or start time, or the version of the algorithm that computed it. It never changes the Activity itself, so it leaves no Activity History Entry.
+Replacing an Activity's stored derived data (such as its Grade-Adjusted Pace, Run metrics like Normalized Graded Pace, or Peak Efforts) because something it was computed from changed: its Activity Details, its sport or start time, or the version of the algorithm that computed it. It never changes the Activity itself, so it leaves no Activity History Entry.
 _Avoid_: Reprocess, regenerate, migration
 
 **Activity Source**:
@@ -95,6 +95,20 @@ _Avoid_: Segment, segment effort, fastest interval
 An athlete's all-time fastest Best Effort achieved across all recorded Activities for a specific Benchmark Distance and Sport.
 When two Best Efforts tie, the one from the earlier Activity holds the Personal Record.
 _Avoid_: Personal best, PR segment, record effort
+
+**Personal Record Progression**:
+The Personal Records an athlete has held over time for one Benchmark Distance: every Best Effort that was faster than all Best Efforts from Activities started before it, oldest first. Its last step is the current Personal Record.
+It is worked out from the stored Best Efforts whenever it is read, so the order Activities were imported in, and deleted Activities, never leave it wrong.
+_Avoid_: PR history, record timeline
+
+**Benchmark Duration**:
+A standard window length (5 s, 15 s, 30 s, 1, 2, 3, 5, 10, 20, 30 or 60 minutes) over which Peak Efforts are measured. It is to Peak Efforts what a Benchmark Distance is to Best Efforts.
+_Avoid_: Duration benchmark, time interval
+
+**Peak Effort**:
+The highest average Grade-Adjusted speed, or power, over one continuous window of a Benchmark Duration within a single Run, read from its Cleaned Activity Details (power as recorded) on wall-clock time: recording pauses count as standing still, so a GPS spike or a pause can never produce one.
+It is not a Best Effort and never sets a Personal Record. Derived, so recomputed, never edited.
+_Avoid_: Duration best effort, peak, power PR, mean-maximal
 
 **Telemetry Cleaning**:
 The pass that produces Cleaned Activity Details from an Activity's Activity Details and sport: it rejects GPS spikes (speeds above the sport's ceiling and distance jumps), treats heart rate as missing during dropouts and cadence-lock, interpolates gaps of up to 10 seconds, and smooths altitude over a 15 m distance window.
