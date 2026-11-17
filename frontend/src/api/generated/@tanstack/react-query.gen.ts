@@ -4,8 +4,25 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { backfillBestEfforts, batchDelete, batchUpdate, cancelImportBatch, createActivity, createInvite, deleteActivity, getActivity, getActivityTelemetry, getDashboard, getHeatmapRenderer, getHeatmapRevision, getHeatmapStartingView, getHeatmapTile, getHeatmapYears, getImportBatch, getImportHistory, inviteStatus, listActivities, listPendingInvites, login, logout, me, type Options, redeemInvite, register, registrationStatus, revokeInvite, submitImportBatch, updateActivity, uploadActivityFile } from '../sdk.gen';
-import type { BackfillBestEffortsData, BackfillBestEffortsError, BackfillBestEffortsResponse, BatchDeleteData, BatchDeleteError, BatchDeleteResponse, BatchUpdateData, BatchUpdateError, BatchUpdateResponse, CancelImportBatchData, CancelImportBatchError, CancelImportBatchResponse, CreateActivityData, CreateActivityError, CreateActivityResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, DeleteActivityData, DeleteActivityError, DeleteActivityResponse, GetActivityData, GetActivityError, GetActivityResponse, GetActivityTelemetryData, GetActivityTelemetryError, GetActivityTelemetryResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetHeatmapRendererData, GetHeatmapRendererError, GetHeatmapRendererResponse, GetHeatmapRevisionData, GetHeatmapRevisionError, GetHeatmapRevisionResponse, GetHeatmapStartingViewData, GetHeatmapStartingViewError, GetHeatmapStartingViewResponse, GetHeatmapTileData, GetHeatmapTileError, GetHeatmapTileResponse, GetHeatmapYearsData, GetHeatmapYearsError, GetHeatmapYearsResponse, GetImportBatchData, GetImportBatchError, GetImportBatchResponse, GetImportHistoryData, GetImportHistoryError, GetImportHistoryResponse, InviteStatusData, InviteStatusError, InviteStatusResponse, ListActivitiesData, ListActivitiesError, ListActivitiesResponse, ListPendingInvitesData, ListPendingInvitesError, ListPendingInvitesResponse, LoginData, LoginError, LoginResponse, LogoutData, MeData, MeError, MeResponse, RedeemInviteData, RedeemInviteError, RedeemInviteResponse, RegisterData, RegisterError, RegisterResponse, RegistrationStatusData, RegistrationStatusResponse, RevokeInviteData, RevokeInviteError, RevokeInviteResponse, SubmitImportBatchData, SubmitImportBatchError, SubmitImportBatchResponse, UpdateActivityData, UpdateActivityError, UpdateActivityResponse, UploadActivityFileData, UploadActivityFileError, UploadActivityFileResponse } from '../types.gen';
+import { acceptThresholdProposal, backfillBestEfforts, batchDelete, batchUpdate, cancelImportBatch, createActivity, createInvite, deleteActivity, deleteAthleteThreshold, dismissThresholdProposal, getActivity, getActivityTelemetry, getAthleteThresholds, getDashboard, getHeatmapRenderer, getHeatmapRevision, getHeatmapStartingView, getHeatmapTile, getHeatmapYears, getImportBatch, getImportHistory, inviteStatus, listActivities, listPendingInvites, login, logout, me, type Options, recordAthleteThreshold, redeemInvite, register, registrationStatus, revokeInvite, setAthleteTimeZone, submitImportBatch, updateActivity, uploadActivityFile } from '../sdk.gen';
+import type { AcceptThresholdProposalData, AcceptThresholdProposalError, AcceptThresholdProposalResponse, BackfillBestEffortsData, BackfillBestEffortsError, BackfillBestEffortsResponse, BatchDeleteData, BatchDeleteError, BatchDeleteResponse, BatchUpdateData, BatchUpdateError, BatchUpdateResponse, CancelImportBatchData, CancelImportBatchError, CancelImportBatchResponse, CreateActivityData, CreateActivityError, CreateActivityResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, DeleteActivityData, DeleteActivityError, DeleteActivityResponse, DeleteAthleteThresholdData, DeleteAthleteThresholdError, DeleteAthleteThresholdResponse, DismissThresholdProposalData, DismissThresholdProposalError, DismissThresholdProposalResponse, GetActivityData, GetActivityError, GetActivityResponse, GetActivityTelemetryData, GetActivityTelemetryError, GetActivityTelemetryResponse, GetAthleteThresholdsData, GetAthleteThresholdsError, GetAthleteThresholdsResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetHeatmapRendererData, GetHeatmapRendererError, GetHeatmapRendererResponse, GetHeatmapRevisionData, GetHeatmapRevisionError, GetHeatmapRevisionResponse, GetHeatmapStartingViewData, GetHeatmapStartingViewError, GetHeatmapStartingViewResponse, GetHeatmapTileData, GetHeatmapTileError, GetHeatmapTileResponse, GetHeatmapYearsData, GetHeatmapYearsError, GetHeatmapYearsResponse, GetImportBatchData, GetImportBatchError, GetImportBatchResponse, GetImportHistoryData, GetImportHistoryError, GetImportHistoryResponse, InviteStatusData, InviteStatusError, InviteStatusResponse, ListActivitiesData, ListActivitiesError, ListActivitiesResponse, ListPendingInvitesData, ListPendingInvitesError, ListPendingInvitesResponse, LoginData, LoginError, LoginResponse, LogoutData, MeData, MeError, MeResponse, RecordAthleteThresholdData, RecordAthleteThresholdError, RecordAthleteThresholdResponse, RedeemInviteData, RedeemInviteError, RedeemInviteResponse, RegisterData, RegisterError, RegisterResponse, RegistrationStatusData, RegistrationStatusResponse, RevokeInviteData, RevokeInviteError, RevokeInviteResponse, SetAthleteTimeZoneData, SetAthleteTimeZoneError, SetAthleteTimeZoneResponse, SubmitImportBatchData, SubmitImportBatchError, SubmitImportBatchResponse, UpdateActivityData, UpdateActivityError, UpdateActivityResponse, UploadActivityFileData, UploadActivityFileError, UploadActivityFileResponse } from '../types.gen';
+
+/**
+ * Sets the IANA time zone the athlete's local dates are counted in
+ */
+export const setAthleteTimeZoneMutation = (options?: Partial<Options<SetAthleteTimeZoneData>>): UseMutationOptions<SetAthleteTimeZoneResponse, SetAthleteTimeZoneError, Options<SetAthleteTimeZoneData>> => {
+    const mutationOptions: UseMutationOptions<SetAthleteTimeZoneResponse, SetAthleteTimeZoneError, Options<SetAthleteTimeZoneData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setAthleteTimeZone({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
 
 export const deleteActivityMutation = (options?: Partial<Options<DeleteActivityData>>): UseMutationOptions<DeleteActivityResponse, DeleteActivityError, Options<DeleteActivityData>> => {
     const mutationOptions: UseMutationOptions<DeleteActivityResponse, DeleteActivityError, Options<DeleteActivityData>> = {
@@ -158,6 +175,75 @@ export const redeemInviteMutation = (options?: Partial<Options<RedeemInviteData>
     const mutationOptions: UseMutationOptions<RedeemInviteResponse, RedeemInviteError, Options<RedeemInviteData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await redeemInvite({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getAthleteThresholdsQueryKey = (options?: Options<GetAthleteThresholdsData>) => createQueryKey('getAthleteThresholds', options);
+
+/**
+ * The athlete's Threshold history, today's values, Zones and proposals
+ */
+export const getAthleteThresholdsOptions = (options?: Options<GetAthleteThresholdsData>) => queryOptions<GetAthleteThresholdsResponse, GetAthleteThresholdsError, GetAthleteThresholdsResponse, ReturnType<typeof getAthleteThresholdsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getAthleteThresholds({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getAthleteThresholdsQueryKey(options)
+});
+
+/**
+ * Records a Threshold from a date, replacing a value already recorded for that kind and date
+ */
+export const recordAthleteThresholdMutation = (options?: Partial<Options<RecordAthleteThresholdData>>): UseMutationOptions<RecordAthleteThresholdResponse, RecordAthleteThresholdError, Options<RecordAthleteThresholdData>> => {
+    const mutationOptions: UseMutationOptions<RecordAthleteThresholdResponse, RecordAthleteThresholdError, Options<RecordAthleteThresholdData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await recordAthleteThreshold({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Dismisses a Threshold Proposal without applying it
+ */
+export const dismissThresholdProposalMutation = (options?: Partial<Options<DismissThresholdProposalData>>): UseMutationOptions<DismissThresholdProposalResponse, DismissThresholdProposalError, Options<DismissThresholdProposalData>> => {
+    const mutationOptions: UseMutationOptions<DismissThresholdProposalResponse, DismissThresholdProposalError, Options<DismissThresholdProposalData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await dismissThresholdProposal({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Applies a Threshold Proposal as a Threshold entry
+ */
+export const acceptThresholdProposalMutation = (options?: Partial<Options<AcceptThresholdProposalData>>): UseMutationOptions<AcceptThresholdProposalResponse, AcceptThresholdProposalError, Options<AcceptThresholdProposalData>> => {
+    const mutationOptions: UseMutationOptions<AcceptThresholdProposalResponse, AcceptThresholdProposalError, Options<AcceptThresholdProposalData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await acceptThresholdProposal({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -541,6 +627,23 @@ export const revokeInviteMutation = (options?: Partial<Options<RevokeInviteData>
     const mutationOptions: UseMutationOptions<RevokeInviteResponse, RevokeInviteError, Options<RevokeInviteData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await revokeInvite({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Deletes one of the athlete's Threshold entries
+ */
+export const deleteAthleteThresholdMutation = (options?: Partial<Options<DeleteAthleteThresholdData>>): UseMutationOptions<DeleteAthleteThresholdResponse, DeleteAthleteThresholdError, Options<DeleteAthleteThresholdData>> => {
+    const mutationOptions: UseMutationOptions<DeleteAthleteThresholdResponse, DeleteAthleteThresholdError, Options<DeleteAthleteThresholdData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteAthleteThreshold({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

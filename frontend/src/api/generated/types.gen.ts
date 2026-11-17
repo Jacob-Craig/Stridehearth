@@ -5,6 +5,28 @@ export type ClientOptions = {
     baseUrl: 'http://localhost' | (string & {});
 };
 
+export type AthleteTimeZoneRequestDto = {
+    timeZone: string;
+};
+
+export type ApiErrorResponse = {
+    kind?: 'VALIDATION_FAILED' | 'DUPLICATE_RESOURCE' | 'INVALID_ACTIVITY_FILE' | 'RESOURCE_NOT_FOUND' | 'BAD_REQUEST' | 'UNAUTHORIZED' | 'REGISTRATION_CLOSED' | 'TOO_MANY_ATTEMPTS' | 'INVITE_UNUSABLE' | 'ADMINISTRATOR_ONLY' | 'CONCURRENT_CHANGE';
+    message?: string;
+    fieldErrors?: {
+        [key: string]: string;
+    };
+};
+
+export type UserResponseDto = {
+    id?: number;
+    username?: string;
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+    administrator?: boolean;
+    timeZone?: string | null;
+};
+
 export type ActivityUpdateRequestDto = {
     title: string;
     sport: 'RUN' | 'WALK' | 'HIKE' | 'RIDE' | 'SWIM' | 'WORKOUT';
@@ -20,14 +42,6 @@ export type ActivityUpdateRequestDto = {
     averagePaceKmh?: number | null;
     averageHeartRate?: number | null;
     calories?: number | null;
-};
-
-export type ApiErrorResponse = {
-    kind?: 'VALIDATION_FAILED' | 'DUPLICATE_RESOURCE' | 'INVALID_ACTIVITY_FILE' | 'RESOURCE_NOT_FOUND' | 'BAD_REQUEST' | 'UNAUTHORIZED' | 'REGISTRATION_CLOSED' | 'TOO_MANY_ATTEMPTS' | 'INVITE_UNUSABLE' | 'ADMINISTRATOR_ONLY' | 'CONCURRENT_CHANGE';
-    message?: string;
-    fieldErrors?: {
-        [key: string]: string;
-    };
 };
 
 export type ActivitySummaryDto = {
@@ -68,18 +82,24 @@ export type UserFormDto = {
     lastName?: string;
 };
 
-export type UserResponseDto = {
-    id?: number;
-    username?: string;
-    email?: string;
-    firstName?: string;
-    lastName?: string;
-    administrator?: boolean;
-};
-
 export type LoginRequestDto = {
     username?: string;
     password?: string;
+};
+
+export type ThresholdEntryRequestDto = {
+    kind: ThresholdKind;
+    effectiveDate: string;
+    value: number;
+};
+
+export type ThresholdKind = 'MAX_HR' | 'RESTING_HR' | 'LTHR' | 'THRESHOLD_PACE' | 'CRITICAL_POWER';
+
+export type ThresholdEntryDto = {
+    id: number;
+    kind: ThresholdKind;
+    effectiveDate: string;
+    value: number;
 };
 
 export type ActivityCreateRequestDto = {
@@ -376,6 +396,65 @@ export type PendingInviteDto = {
     expiresAt: string;
 };
 
+export type AthleteThresholdsResponseDto = {
+    /**
+     * Every entry, newest effective date first
+     */
+    entries: Array<ThresholdEntryDto>;
+    /**
+     * The values in force today, in the athlete's time zone
+     */
+    current: CurrentThresholdsDto;
+    /**
+     * Null without an LTHR
+     */
+    heartRateZones: Array<HeartRateZoneDto> | null;
+    /**
+     * Null without a threshold pace
+     */
+    paceZones: Array<PaceZoneDto> | null;
+    proposals: Array<ThresholdProposalDto>;
+};
+
+export type CurrentThresholdsDto = {
+    maxHr: number | null;
+    restingHr: number | null;
+    lthr: number | null;
+    thresholdSpeedMps: number | null;
+    criticalPowerWatts: number | null;
+};
+
+export type HeartRateZoneDto = {
+    zone: number;
+    lowerBpm: number | null;
+    upperBpm: number | null;
+    /**
+     * Seiler's three-zone grouping: 1, 1, 2, 2, 3
+     */
+    seilerZone: number;
+};
+
+export type PaceZoneDto = {
+    zone: number;
+    lowerSpeedMps: number | null;
+    upperSpeedMps: number | null;
+    /**
+     * Seiler's three-zone grouping: 1, 1, 2, 2, 3
+     */
+    seilerZone: number;
+};
+
+export type ThresholdProposalDto = {
+    id: number;
+    kind: ThresholdKind;
+    value: number;
+    effectiveDate: string;
+    /**
+     * The feature that proposed it
+     */
+    source: string;
+};
+
 export type PagedResponseDtoActivitySummaryDto = {
     items: Array<ActivitySummaryDto>;
     page: number;
@@ -612,6 +691,35 @@ export type GeoJsonLineStringDto = {
      */
     coordinates: Array<Array<number>>;
 };
+
+export type SetAthleteTimeZoneData = {
+    body: AthleteTimeZoneRequestDto;
+    path?: never;
+    query?: never;
+    url: '/api/athlete/time-zone';
+};
+
+export type SetAthleteTimeZoneErrors = {
+    /**
+     * Unknown timezone
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type SetAthleteTimeZoneError = SetAthleteTimeZoneErrors[keyof SetAthleteTimeZoneErrors];
+
+export type SetAthleteTimeZoneResponses = {
+    /**
+     * The athlete's profile with the zone
+     */
+    200: UserResponseDto;
+};
+
+export type SetAthleteTimeZoneResponse = SetAthleteTimeZoneResponses[keyof SetAthleteTimeZoneResponses];
 
 export type DeleteActivityData = {
     body?: never;
@@ -870,6 +978,122 @@ export type RedeemInviteResponses = {
 };
 
 export type RedeemInviteResponse = RedeemInviteResponses[keyof RedeemInviteResponses];
+
+export type GetAthleteThresholdsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/athlete/thresholds';
+};
+
+export type GetAthleteThresholdsErrors = {
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type GetAthleteThresholdsError = GetAthleteThresholdsErrors[keyof GetAthleteThresholdsErrors];
+
+export type GetAthleteThresholdsResponses = {
+    /**
+     * The athlete's Thresholds
+     */
+    200: AthleteThresholdsResponseDto;
+};
+
+export type GetAthleteThresholdsResponse = GetAthleteThresholdsResponses[keyof GetAthleteThresholdsResponses];
+
+export type RecordAthleteThresholdData = {
+    body: ThresholdEntryRequestDto;
+    path?: never;
+    query?: never;
+    url: '/api/athlete/thresholds';
+};
+
+export type RecordAthleteThresholdErrors = {
+    /**
+     * Unknown kind, value out of range, or a date after tomorrow
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type RecordAthleteThresholdError = RecordAthleteThresholdErrors[keyof RecordAthleteThresholdErrors];
+
+export type RecordAthleteThresholdResponses = {
+    /**
+     * The stored entry
+     */
+    200: ThresholdEntryDto;
+};
+
+export type RecordAthleteThresholdResponse = RecordAthleteThresholdResponses[keyof RecordAthleteThresholdResponses];
+
+export type DismissThresholdProposalData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/athlete/thresholds/proposals/{id}/dismiss';
+};
+
+export type DismissThresholdProposalErrors = {
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+    /**
+     * No such pending proposal of the athlete's
+     */
+    404: ApiErrorResponse;
+};
+
+export type DismissThresholdProposalError = DismissThresholdProposalErrors[keyof DismissThresholdProposalErrors];
+
+export type DismissThresholdProposalResponses = {
+    /**
+     * Dismissed
+     */
+    204: void;
+};
+
+export type DismissThresholdProposalResponse = DismissThresholdProposalResponses[keyof DismissThresholdProposalResponses];
+
+export type AcceptThresholdProposalData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/athlete/thresholds/proposals/{id}/accept';
+};
+
+export type AcceptThresholdProposalErrors = {
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+    /**
+     * No such pending proposal of the athlete's
+     */
+    404: ApiErrorResponse;
+};
+
+export type AcceptThresholdProposalError = AcceptThresholdProposalErrors[keyof AcceptThresholdProposalErrors];
+
+export type AcceptThresholdProposalResponses = {
+    /**
+     * The entry the proposal became
+     */
+    200: ThresholdEntryDto;
+};
+
+export type AcceptThresholdProposalResponse = AcceptThresholdProposalResponses[keyof AcceptThresholdProposalResponses];
 
 export type ListActivitiesData = {
     body?: never;
@@ -1508,3 +1732,34 @@ export type RevokeInviteResponses = {
 };
 
 export type RevokeInviteResponse = RevokeInviteResponses[keyof RevokeInviteResponses];
+
+export type DeleteAthleteThresholdData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/athlete/thresholds/{id}';
+};
+
+export type DeleteAthleteThresholdErrors = {
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+    /**
+     * No such entry of the athlete's
+     */
+    404: ApiErrorResponse;
+};
+
+export type DeleteAthleteThresholdError = DeleteAthleteThresholdErrors[keyof DeleteAthleteThresholdErrors];
+
+export type DeleteAthleteThresholdResponses = {
+    /**
+     * Deleted
+     */
+    204: void;
+};
+
+export type DeleteAthleteThresholdResponse = DeleteAthleteThresholdResponses[keyof DeleteAthleteThresholdResponses];

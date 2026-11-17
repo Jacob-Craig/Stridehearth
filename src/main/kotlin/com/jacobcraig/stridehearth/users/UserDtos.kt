@@ -30,6 +30,9 @@ data class UserResponseDTO(
     val lastName: String?,
     /** Whether this account is the Server's Administrator, who may issue Invites. */
     val administrator: Boolean,
+    /** The athlete's IANA time zone, or null until it is set; their local dates are counted in it (UTC while null). */
+    @field:Schema(types = ["string", "null"])
+    val timeZone: String?,
 )
 
 fun User.toResponseDTO(): UserResponseDTO =
@@ -40,6 +43,7 @@ fun User.toResponseDTO(): UserResponseDTO =
         firstName = firstName,
         lastName = lastName,
         administrator = administrator,
+        timeZone = timeZone,
     )
 
 /** Whether this Server would accept a sign-up right now, as its Registration Mode decides. */

@@ -3,22 +3,8 @@
 
 import { z } from 'zod';
 
-export const zActivityUpdateRequestDto = z.object({
-    title: z.string().min(1).max(255),
-    sport: z.enum([
-        'RUN',
-        'WALK',
-        'HIKE',
-        'RIDE',
-        'SWIM',
-        'WORKOUT'
-    ]),
-    startedAt: z.string().datetime().nullish(),
-    distance: z.number().gte(0).nullish(),
-    timeTakenSeconds: z.number().int().gte(0).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }).nullish(),
-    averagePaceKmh: z.number().gte(0).nullish(),
-    averageHeartRate: z.number().int().gte(0).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }).nullish(),
-    calories: z.number().int().gte(0).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }).nullish()
+export const zAthleteTimeZoneRequestDto = z.object({
+    timeZone: z.string()
 });
 
 export const zApiErrorResponse = z.object({
@@ -37,6 +23,34 @@ export const zApiErrorResponse = z.object({
     ]).optional(),
     message: z.string().optional(),
     fieldErrors: z.record(z.string()).optional()
+});
+
+export const zUserResponseDto = z.object({
+    id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { message: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { message: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
+    username: z.string().optional(),
+    email: z.string().optional(),
+    firstName: z.string().optional(),
+    lastName: z.string().optional(),
+    administrator: z.boolean().optional(),
+    timeZone: z.string().nullish()
+});
+
+export const zActivityUpdateRequestDto = z.object({
+    title: z.string().min(1).max(255),
+    sport: z.enum([
+        'RUN',
+        'WALK',
+        'HIKE',
+        'RIDE',
+        'SWIM',
+        'WORKOUT'
+    ]),
+    startedAt: z.string().datetime().nullish(),
+    distance: z.number().gte(0).nullish(),
+    timeTakenSeconds: z.number().int().gte(0).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }).nullish(),
+    averagePaceKmh: z.number().gte(0).nullish(),
+    averageHeartRate: z.number().int().gte(0).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }).nullish(),
+    calories: z.number().int().gte(0).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }).nullish()
 });
 
 export const zActivitySummaryDto = z.object({
@@ -80,18 +94,30 @@ export const zUserFormDto = z.object({
     lastName: z.string().optional()
 });
 
-export const zUserResponseDto = z.object({
-    id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { message: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { message: 'Invalid value: Expected int64 to be <= 9223372036854775807' }).optional(),
-    username: z.string().optional(),
-    email: z.string().optional(),
-    firstName: z.string().optional(),
-    lastName: z.string().optional(),
-    administrator: z.boolean().optional()
-});
-
 export const zLoginRequestDto = z.object({
     username: z.string().optional(),
     password: z.string().optional()
+});
+
+export const zThresholdKind = z.enum([
+    'MAX_HR',
+    'RESTING_HR',
+    'LTHR',
+    'THRESHOLD_PACE',
+    'CRITICAL_POWER'
+]);
+
+export const zThresholdEntryRequestDto = z.object({
+    kind: zThresholdKind,
+    effectiveDate: z.string().date(),
+    value: z.number()
+});
+
+export const zThresholdEntryDto = z.object({
+    id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { message: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { message: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    kind: zThresholdKind,
+    effectiveDate: z.string().date(),
+    value: z.number()
 });
 
 export const zActivityCreateRequestDto = z.object({
@@ -444,6 +470,44 @@ export const zPendingInviteDto = z.object({
     expiresAt: z.string().datetime()
 });
 
+export const zCurrentThresholdsDto = z.object({
+    maxHr: z.number().nullable(),
+    restingHr: z.number().nullable(),
+    lthr: z.number().nullable(),
+    thresholdSpeedMps: z.number().nullable(),
+    criticalPowerWatts: z.number().nullable()
+});
+
+export const zHeartRateZoneDto = z.object({
+    zone: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    lowerBpm: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }).nullable(),
+    upperBpm: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }).nullable(),
+    seilerZone: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' })
+});
+
+export const zPaceZoneDto = z.object({
+    zone: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    lowerSpeedMps: z.number().nullable(),
+    upperSpeedMps: z.number().nullable(),
+    seilerZone: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' })
+});
+
+export const zThresholdProposalDto = z.object({
+    id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { message: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { message: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    kind: zThresholdKind,
+    value: z.number(),
+    effectiveDate: z.string().date(),
+    source: z.string()
+});
+
+export const zAthleteThresholdsResponseDto = z.object({
+    entries: z.array(zThresholdEntryDto),
+    current: zCurrentThresholdsDto,
+    heartRateZones: z.array(zHeartRateZoneDto).nullable(),
+    paceZones: z.array(zPaceZoneDto).nullable(),
+    proposals: z.array(zThresholdProposalDto)
+});
+
 export const zPagedResponseDtoActivitySummaryDto = z.object({
     items: z.array(zActivitySummaryDto),
     page: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }),
@@ -663,6 +727,13 @@ export const zActivityTelemetryResponseDto = z.object({
     telemetry: zActivityTelemetryStreamsDto
 });
 
+export const zSetAthleteTimeZoneBody = zAthleteTimeZoneRequestDto;
+
+/**
+ * The athlete's profile with the zone
+ */
+export const zSetAthleteTimeZoneResponse = zUserResponseDto;
+
 export const zDeleteActivityPath = z.object({
     id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { message: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { message: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
 });
@@ -726,6 +797,36 @@ export const zRedeemInvitePath = z.object({
  * Successfully registered with the Invite
  */
 export const zRedeemInviteResponse = zUserResponseDto;
+
+/**
+ * The athlete's Thresholds
+ */
+export const zGetAthleteThresholdsResponse = zAthleteThresholdsResponseDto;
+
+export const zRecordAthleteThresholdBody = zThresholdEntryRequestDto;
+
+/**
+ * The stored entry
+ */
+export const zRecordAthleteThresholdResponse = zThresholdEntryDto;
+
+export const zDismissThresholdProposalPath = z.object({
+    id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { message: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { message: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+/**
+ * Dismissed
+ */
+export const zDismissThresholdProposalResponse = z.void();
+
+export const zAcceptThresholdProposalPath = z.object({
+    id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { message: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { message: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+/**
+ * The entry the proposal became
+ */
+export const zAcceptThresholdProposalResponse = zThresholdEntryDto;
 
 export const zListActivitiesQuery = z.object({
     q: z.string().optional(),
@@ -923,3 +1024,12 @@ export const zRevokeInvitePath = z.object({
  * The Invite was revoked
  */
 export const zRevokeInviteResponse = z.void();
+
+export const zDeleteAthleteThresholdPath = z.object({
+    id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { message: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { message: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+/**
+ * Deleted
+ */
+export const zDeleteAthleteThresholdResponse = z.void();

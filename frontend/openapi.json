@@ -9,6 +9,55 @@
     "description" : "Generated server url"
   } ],
   "paths" : {
+    "/api/athlete/time-zone" : {
+      "put" : {
+        "tags" : [ "athlete-time-zone-controller" ],
+        "summary" : "Sets the IANA time zone the athlete's local dates are counted in",
+        "operationId" : "setAthleteTimeZone",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AthleteTimeZoneRequestDTO"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "The athlete's profile with the zone",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserResponseDTO"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Unknown timezone",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/activities/{id}" : {
       "get" : {
         "tags" : [ "activity-api-controller" ],
@@ -388,6 +437,171 @@
           },
           "429" : {
             "description" : "Too many sign-up attempts from this source; see Retry-After",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/athlete/thresholds" : {
+      "get" : {
+        "tags" : [ "athlete-thresholds-api-controller" ],
+        "summary" : "The athlete's Threshold history, today's values, Zones and proposals",
+        "operationId" : "getAthleteThresholds",
+        "responses" : {
+          "200" : {
+            "description" : "The athlete's Thresholds",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AthleteThresholdsResponseDTO"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "athlete-thresholds-api-controller" ],
+        "summary" : "Records a Threshold from a date, replacing a value already recorded for that kind and date",
+        "operationId" : "recordAthleteThreshold",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ThresholdEntryRequestDTO"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "The stored entry",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ThresholdEntryDTO"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Unknown kind, value out of range, or a date after tomorrow",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/athlete/thresholds/proposals/{id}/dismiss" : {
+      "post" : {
+        "tags" : [ "athlete-thresholds-api-controller" ],
+        "summary" : "Dismisses a Threshold Proposal without applying it",
+        "operationId" : "dismissThresholdProposal",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Dismissed"
+          },
+          "404" : {
+            "description" : "No such pending proposal of the athlete's",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/athlete/thresholds/proposals/{id}/accept" : {
+      "post" : {
+        "tags" : [ "athlete-thresholds-api-controller" ],
+        "summary" : "Applies a Threshold Proposal as a Threshold entry",
+        "operationId" : "acceptThresholdProposal",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The entry the proposal became",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ThresholdEntryDTO"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such pending proposal of the athlete's",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
             "content" : {
               "*/*" : {
                 "schema" : {
@@ -1382,10 +1596,106 @@
           }
         }
       }
+    },
+    "/api/athlete/thresholds/{id}" : {
+      "delete" : {
+        "tags" : [ "athlete-thresholds-api-controller" ],
+        "summary" : "Deletes one of the athlete's Threshold entries",
+        "operationId" : "deleteAthleteThreshold",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Deleted"
+          },
+          "404" : {
+            "description" : "No such entry of the athlete's",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components" : {
     "schemas" : {
+      "AthleteTimeZoneRequestDTO" : {
+        "type" : "object",
+        "properties" : {
+          "timeZone" : {
+            "type" : "string",
+            "example" : "Europe/London"
+          }
+        },
+        "required" : [ "timeZone" ]
+      },
+      "ApiErrorResponse" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "VALIDATION_FAILED", "DUPLICATE_RESOURCE", "INVALID_ACTIVITY_FILE", "RESOURCE_NOT_FOUND", "BAD_REQUEST", "UNAUTHORIZED", "REGISTRATION_CLOSED", "TOO_MANY_ATTEMPTS", "INVITE_UNUSABLE", "ADMINISTRATOR_ONLY", "CONCURRENT_CHANGE" ]
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "fieldErrors" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "UserResponseDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "username" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "firstName" : {
+            "type" : "string"
+          },
+          "lastName" : {
+            "type" : "string"
+          },
+          "administrator" : {
+            "type" : "boolean"
+          },
+          "timeZone" : {
+            "type" : [ "string", "null" ]
+          }
+        }
+      },
       "ActivityUpdateRequestDTO" : {
         "type" : "object",
         "properties" : {
@@ -1431,24 +1741,6 @@
           }
         },
         "required" : [ "sport", "title" ]
-      },
-      "ApiErrorResponse" : {
-        "type" : "object",
-        "properties" : {
-          "kind" : {
-            "type" : "string",
-            "enum" : [ "VALIDATION_FAILED", "DUPLICATE_RESOURCE", "INVALID_ACTIVITY_FILE", "RESOURCE_NOT_FOUND", "BAD_REQUEST", "UNAUTHORIZED", "REGISTRATION_CLOSED", "TOO_MANY_ATTEMPTS", "INVITE_UNUSABLE", "ADMINISTRATOR_ONLY", "CONCURRENT_CHANGE" ]
-          },
-          "message" : {
-            "type" : "string"
-          },
-          "fieldErrors" : {
-            "type" : "object",
-            "additionalProperties" : {
-              "type" : "string"
-            }
-          }
-        }
       },
       "ActivitySummaryDTO" : {
         "type" : "object",
@@ -1545,30 +1837,6 @@
           }
         }
       },
-      "UserResponseDTO" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "username" : {
-            "type" : "string"
-          },
-          "email" : {
-            "type" : "string"
-          },
-          "firstName" : {
-            "type" : "string"
-          },
-          "lastName" : {
-            "type" : "string"
-          },
-          "administrator" : {
-            "type" : "boolean"
-          }
-        }
-      },
       "LoginRequestDTO" : {
         "type" : "object",
         "properties" : {
@@ -1579,6 +1847,48 @@
             "type" : "string"
           }
         }
+      },
+      "ThresholdEntryRequestDTO" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "$ref" : "#/components/schemas/ThresholdKind"
+          },
+          "effectiveDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "value" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        },
+        "required" : [ "effectiveDate", "kind", "value" ]
+      },
+      "ThresholdKind" : {
+        "type" : "string",
+        "enum" : [ "MAX_HR", "RESTING_HR", "LTHR", "THRESHOLD_PACE", "CRITICAL_POWER" ]
+      },
+      "ThresholdEntryDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "kind" : {
+            "$ref" : "#/components/schemas/ThresholdKind"
+          },
+          "effectiveDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "value" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        },
+        "required" : [ "effectiveDate", "id", "kind", "value" ]
       },
       "ActivityCreateRequestDTO" : {
         "type" : "object",
@@ -2469,6 +2779,140 @@
           }
         },
         "required" : [ "expiresAt" ]
+      },
+      "AthleteThresholdsResponseDTO" : {
+        "type" : "object",
+        "properties" : {
+          "entries" : {
+            "type" : "array",
+            "description" : "Every entry, newest effective date first",
+            "items" : {
+              "$ref" : "#/components/schemas/ThresholdEntryDTO"
+            }
+          },
+          "current" : {
+            "$ref" : "#/components/schemas/CurrentThresholdsDTO",
+            "description" : "The values in force today, in the athlete's time zone"
+          },
+          "heartRateZones" : {
+            "type" : [ "array", "null" ],
+            "description" : "Null without an LTHR",
+            "items" : {
+              "$ref" : "#/components/schemas/HeartRateZoneDTO"
+            }
+          },
+          "paceZones" : {
+            "type" : [ "array", "null" ],
+            "description" : "Null without a threshold pace",
+            "items" : {
+              "$ref" : "#/components/schemas/PaceZoneDTO"
+            }
+          },
+          "proposals" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ThresholdProposalDTO"
+            }
+          }
+        },
+        "required" : [ "current", "entries", "heartRateZones", "paceZones", "proposals" ]
+      },
+      "CurrentThresholdsDTO" : {
+        "type" : "object",
+        "properties" : {
+          "maxHr" : {
+            "type" : [ "number", "null" ],
+            "format" : "double"
+          },
+          "restingHr" : {
+            "type" : [ "number", "null" ],
+            "format" : "double"
+          },
+          "lthr" : {
+            "type" : [ "number", "null" ],
+            "format" : "double"
+          },
+          "thresholdSpeedMps" : {
+            "type" : [ "number", "null" ],
+            "format" : "double"
+          },
+          "criticalPowerWatts" : {
+            "type" : [ "number", "null" ],
+            "format" : "double"
+          }
+        },
+        "required" : [ "criticalPowerWatts", "lthr", "maxHr", "restingHr", "thresholdSpeedMps" ]
+      },
+      "HeartRateZoneDTO" : {
+        "type" : "object",
+        "properties" : {
+          "zone" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "lowerBpm" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "upperBpm" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "seilerZone" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Seiler's three-zone grouping: 1, 1, 2, 2, 3"
+          }
+        },
+        "required" : [ "lowerBpm", "seilerZone", "upperBpm", "zone" ]
+      },
+      "PaceZoneDTO" : {
+        "type" : "object",
+        "properties" : {
+          "zone" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "lowerSpeedMps" : {
+            "type" : [ "number", "null" ],
+            "format" : "double"
+          },
+          "upperSpeedMps" : {
+            "type" : [ "number", "null" ],
+            "format" : "double"
+          },
+          "seilerZone" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Seiler's three-zone grouping: 1, 1, 2, 2, 3"
+          }
+        },
+        "required" : [ "lowerSpeedMps", "seilerZone", "upperSpeedMps", "zone" ]
+      },
+      "ThresholdProposalDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "kind" : {
+            "$ref" : "#/components/schemas/ThresholdKind"
+          },
+          "value" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "effectiveDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "source" : {
+            "type" : "string",
+            "description" : "The feature that proposed it"
+          }
+        },
+        "required" : [ "effectiveDate", "id", "kind", "source", "value" ]
       },
       "PagedResponseDTOActivitySummaryDTO" : {
         "type" : "object",
