@@ -2667,7 +2667,7 @@
       },
       "DecouplingUnavailableReason" : {
         "type" : "string",
-        "enum" : [ "NO_PACE_DATA", "NO_HEART_RATE", "TOO_SHORT", "NOT_STEADY" ]
+        "enum" : [ "NO_PACE_DATA", "NO_HEART_RATE", "HEART_RATE_GAP_IN_HALF", "TOO_SHORT", "NOT_STEADY" ]
       },
       "EffortWindowDTO" : {
         "type" : "object",

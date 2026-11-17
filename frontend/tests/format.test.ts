@@ -188,6 +188,9 @@ describe('decouplingStatus', () => {
 describe('formatDecouplingUnavailableReason', () => {
   it('explains each reason', () => {
     expect(formatDecouplingUnavailableReason('NO_HEART_RATE')).toBe('No heart rate');
+    expect(formatDecouplingUnavailableReason('HEART_RATE_GAP_IN_HALF')).toBe(
+      'Heart rate missing in one half',
+    );
     expect(formatDecouplingUnavailableReason('TOO_SHORT')).toBe('Needs 30 min of running');
     expect(formatDecouplingUnavailableReason('NOT_STEADY')).toBe('Pace too variable');
     expect(formatDecouplingUnavailableReason('NO_PACE_DATA')).toBe('No pace data');

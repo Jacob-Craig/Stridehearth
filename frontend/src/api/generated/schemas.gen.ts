@@ -1865,6 +1865,7 @@ export const DecouplingUnavailableReasonSchema = {
     enum: [
         'NO_PACE_DATA',
         'NO_HEART_RATE',
+        'HEART_RATE_GAP_IN_HALF',
         'TOO_SHORT',
         'NOT_STEADY'
     ]

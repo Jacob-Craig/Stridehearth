@@ -415,6 +415,7 @@ describe('/activities/$activityId summary', () => {
 
     it.each([
       ['NO_HEART_RATE', 'No heart rate'],
+      ['HEART_RATE_GAP_IN_HALF', 'Heart rate missing in one half'],
       ['TOO_SHORT', 'Needs 30 min of running'],
       ['NOT_STEADY', 'Pace too variable'],
       ['NO_PACE_DATA', 'No pace data'],

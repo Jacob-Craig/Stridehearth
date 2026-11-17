@@ -339,6 +339,21 @@ class ActivityDetailApiIntegrationTest {
     }
 
     @Test
+    fun `GET api activities id still returns a run whose stored reason a later version no longer knows`() {
+        // A row an older algorithm version wrote, which the recompute worker has not reached yet.
+        val run = saveActivity(runner)
+        saveRunMetrics(run, reason = "RETIRED_REASON", decoupling = null)
+
+        mockMvc
+            .perform(get("/api/activities/{id}", run.id).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.runMetrics.ngpMetersPerSecond").value(3.25))
+            .andExpect(jsonPath("$.runMetrics.efficiencyFactor").value(1.3))
+            .andExpect(jsonPath("$.runMetrics.aerobicDecouplingPercent").value(nullValue()))
+            .andExpect(jsonPath("$.runMetrics.decouplingUnavailableReason").value(nullValue()))
+    }
+
+    @Test
     fun `GET api activities id has null Run metrics for a run without a derived row and for a walk`() {
         val run = saveActivity(runner)
         jdbcTemplate.update("DELETE FROM activity_derived_metrics WHERE activity_id = ?", run.id)

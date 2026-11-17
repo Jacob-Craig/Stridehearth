@@ -457,7 +457,7 @@ export type ActivityLapDto = {
     elevationGainMeters: number | null;
 };
 
-export type DecouplingUnavailableReason = 'NO_PACE_DATA' | 'NO_HEART_RATE' | 'TOO_SHORT' | 'NOT_STEADY';
+export type DecouplingUnavailableReason = 'NO_PACE_DATA' | 'NO_HEART_RATE' | 'HEART_RATE_GAP_IN_HALF' | 'TOO_SHORT' | 'NOT_STEADY';
 
 export type EffortWindowDto = {
     startIndex: number;

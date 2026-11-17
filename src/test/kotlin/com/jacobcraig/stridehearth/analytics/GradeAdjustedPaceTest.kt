@@ -82,6 +82,38 @@ class GradeAdjustedPaceTest {
 
             assertTrue(abs(gap.meanOfPresent() - meanSpeed) / meanSpeed < 0.01, "mean GAP ${gap.meanOfPresent()} vs $meanSpeed")
         }
+
+        @Test
+        fun `a flat run whose FIT altitude flickers and drifts in 0,2 m steps keeps mean GAP within 1 percent of mean pace`() {
+            // As a FIT barometer records it: a level reading, quantised to 0.2 m, that flickers one step and wanders
+            // up and down by a few steps over the hour (a pseudo-random but fixed sequence).
+            var level = 0
+            val random = java.util.Random(32)
+            val altitude =
+                FloatArray(3600) { i ->
+                    if (i % 90 == 0) level = (level + random.nextInt(3) - 1).coerceIn(-3, 3)
+                    val flicker = if (random.nextInt(4) == 0) 1 else 0
+                    (100.0 + 0.2 * (level + flicker)).toFloat()
+                }
+            val cleaned = outdoorRun(3600) { _, i -> altitude[i] }
+
+            val gap = assertNotNull(GradeAdjustedPace.gapSpeed(cleaned))
+            val meanSpeed = cleaned.speed.meanOfPresent()
+
+            assertTrue(abs(gap.meanOfPresent() - meanSpeed) / meanSpeed < 0.01, "mean GAP ${gap.meanOfPresent()} vs $meanSpeed")
+        }
+
+        @Test
+        fun `a flat run whose FIT altitude settles one 0,2 m step higher keeps mean GAP within 1 percent of mean pace`() {
+            // The step reads as about a 1 % grade across the grade window, so GAP there is about 5 % above pace
+            // (ADR-0013's accepted risk); the run's mean stays within 1 %.
+            val cleaned = outdoorRun(1200) { d, _ -> if (d < 1800.0) 100.0f else 100.2f }
+
+            val gap = assertNotNull(GradeAdjustedPace.gapSpeed(cleaned))
+            val meanSpeed = cleaned.speed.meanOfPresent()
+
+            assertTrue(abs(gap.meanOfPresent() - meanSpeed) / meanSpeed < 0.01, "mean GAP ${gap.meanOfPresent()} vs $meanSpeed")
+        }
     }
 
     @Nested

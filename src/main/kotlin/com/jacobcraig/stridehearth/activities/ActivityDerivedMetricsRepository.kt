@@ -53,7 +53,11 @@ class ActivityDerivedMetricsRepository(
             .update()
     }
 
-    /** The stored [RunMetrics] of [activityId], or null when it has no row or the row holds none (not a Run). */
+    /**
+     * The stored [RunMetrics] of [activityId], or null when it has no row or the row holds none (not a Run). A stored
+     * unavailable reason that [DecouplingUnavailableReason] no longer has is read as null, so a row an older version
+     * wrote still reads until the recompute worker replaces it.
+     */
     fun findRunMetrics(activityId: Long): RunMetrics? =
         jdbcClient
             .sql(
@@ -69,8 +73,11 @@ class ActivityDerivedMetricsRepository(
                     ngpMps = rs.getObject("ngp_mps") as Double?,
                     efficiencyFactor = rs.getObject("efficiency_factor") as Double?,
                     aerobicDecouplingPct = rs.getObject("aerobic_decoupling_pct") as Double?,
+                    // A reason a later version renamed or removed reads as none until the worker recomputes the row.
                     decouplingUnavailableReason =
-                        rs.getString("decoupling_unavailable_reason")?.let { DecouplingUnavailableReason.valueOf(it) },
+                        rs.getString("decoupling_unavailable_reason")?.let { stored ->
+                            DecouplingUnavailableReason.entries.firstOrNull { it.name == stored }
+                        },
                 )
             }.optional()
             .orElse(null)

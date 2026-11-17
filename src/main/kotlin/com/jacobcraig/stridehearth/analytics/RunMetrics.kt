@@ -12,8 +12,14 @@ enum class DecouplingUnavailableReason {
     /** Fewer than [RunMetrics.ROLLING_WINDOW_SECONDS] seconds of Moving Time with Grade-Adjusted Pace. */
     NO_PACE_DATA,
 
-    /** Heart rate covers less than [RunMetrics.MIN_COVERAGE] of the Moving Time, or of either half. */
+    /** Heart rate covers less than [RunMetrics.MIN_COVERAGE] of the Moving Time, so there is no Efficiency Factor either. */
     NO_HEART_RATE,
+
+    /**
+     * Heart rate covers enough of the Moving Time for an Efficiency Factor, but less than [RunMetrics.MIN_COVERAGE]
+     * of one of the two halves Aerobic Decoupling compares (a strap dropout, say).
+     */
+    HEART_RATE_GAP_IN_HALF,
 
     /** Less than [RunMetrics.MIN_STEADY_SECONDS] of Moving Time. */
     TOO_SHORT,
@@ -91,10 +97,10 @@ data class RunMetrics(
             val halves = Halves(n)
             val (decoupling, reason) =
                 when {
-                    efficiencyFactor == null ||
-                        !covered(series.heartRate, halves.from, halves.mid) ||
+                    efficiencyFactor == null -> null to DecouplingUnavailableReason.NO_HEART_RATE
+                    !covered(series.heartRate, halves.from, halves.mid) ||
                         !covered(series.heartRate, halves.mid, halves.to) ->
-                        null to DecouplingUnavailableReason.NO_HEART_RATE
+                        null to DecouplingUnavailableReason.HEART_RATE_GAP_IN_HALF
                     n < MIN_STEADY_SECONDS -> null to DecouplingUnavailableReason.TOO_SHORT
                     else -> decoupling(series, halves)
                 }
