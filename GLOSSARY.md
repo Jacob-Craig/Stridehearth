@@ -92,6 +92,16 @@ An athlete's all-time fastest Best Effort achieved across all recorded Activitie
 When two Best Efforts tie, the one from the earlier Activity holds the Personal Record.
 _Avoid_: Personal best, PR segment, record effort
 
+**Telemetry Cleaning**:
+The pass that produces Cleaned Activity Details from an Activity's Activity Details and sport: it rejects GPS spikes (speeds above the sport's ceiling and distance jumps), treats heart rate as missing during dropouts and cadence-lock, interpolates gaps of up to 10 seconds, and smooths altitude over a 15 m distance window.
+It never changes the stored Activity Details, and an Activity with no GPS fix keeps its speed, distance and altitude exactly as recorded.
+_Avoid_: Filtering, sanitising, data correction
+
+**Cleaned Activity Details**:
+Speed, distance, heart-rate and altitude series computed from an Activity's Activity Details by Telemetry Cleaning, with GPS spikes, heart-rate dropouts and altitude noise removed.
+They are never stored and never shown in place of Activity Details; derived analytics read them. Best Efforts are the exception: they are measured on the recorded distance.
+_Avoid_: Filtered telemetry, corrected data, cleaned streams
+
 **Dashboard**:
 The athlete's primary landing view summarizing Personal Records, aggregate training volume, and performance trends across recorded Activities.
 _Avoid_: Statistics page, homepage, stats hub

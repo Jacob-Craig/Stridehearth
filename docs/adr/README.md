@@ -16,3 +16,4 @@ This directory documents the architectural and engineering decisions for the Str
 - [0010-downgrade-by-restoring-a-pre-upgrade-backup.md](0010-downgrade-by-restoring-a-pre-upgrade-backup.md): Downgrade by Restoring a Pre-Upgrade Backup
 - [0011-closed-registration-by-default.md](0011-closed-registration-by-default.md): Closed Registration by Default
 - [0012-publish-as-a-new-repository-with-squashed-history.md](0012-publish-as-a-new-repository-with-squashed-history.md): Publish as a New Repository with Squashed History
+- [0013-derived-analytics-read-cleaned-activity-details.md](0013-derived-analytics-read-cleaned-activity-details.md): Derived Analytics Read Cleaned Activity Details, Computed on Demand
