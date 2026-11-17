@@ -30,9 +30,11 @@ class ThresholdProposals(
     private val athleteThresholds: AthleteThresholds,
 ) {
     /**
-     * Proposes [value] (in [ThresholdKind.unit], within the kind's range) for [userId]'s [kind] from [effectiveDate],
-     * replacing [source]'s earlier proposal of that kind. Returns null, storing nothing, when the athlete dismissed a
-     * proposal from [source] within [SAME_VALUE_TOLERANCE] of [value].
+     * Proposes [value] (in [ThresholdKind.unit]) for [userId]'s [kind] from [effectiveDate], replacing [source]'s
+     * earlier proposal of that kind. Returns null, storing nothing, when the athlete could not accept it (the value is
+     * not finite or outside the kind's range, or the date is after tomorrow, UTC: what [AthleteThresholds.record]
+     * refuses) or when the athlete dismissed a proposal from [source] within [SAME_VALUE_TOLERANCE] of [value]. It never
+     * throws for such a value, so a degenerate fit does not roll back the proposer's transaction.
      */
     @Transactional
     fun propose(
@@ -42,7 +44,7 @@ class ThresholdProposals(
         effectiveDate: LocalDate,
         source: String,
     ): ThresholdProposal? {
-        require(value in kind.validRange) { "A $kind proposal must be within ${kind.validRange}" }
+        if (!AthleteThresholds.isAcceptable(kind, effectiveDate, value)) return null
         val dismissed =
             jdbcClient
                 .sql(

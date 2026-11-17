@@ -39,6 +39,16 @@ class ZonesTest {
         }
 
         @Test
+        fun `Z5 stays open when MAX_HR is not above LTHR, so it is never empty or inverted`() {
+            // LTHR and MAX_HR are recorded independently, so an old or mistyped MAX_HR can sit at or below LTHR.
+            assertNull(Zones.heartRate(lthr = 175.0, maxHr = 170.0).last().upperBpm)
+            assertNull(Zones.heartRate(lthr = 170.0, maxHr = 170.0).last().upperBpm)
+            // 170.4 rounds to 170, the same whole bpm as LTHR's Z5 lower bound.
+            assertNull(Zones.heartRate(lthr = 170.0, maxHr = 170.4).last().upperBpm)
+            assertEquals(171, Zones.heartRate(lthr = 170.0, maxHr = 171.0).last().upperBpm)
+        }
+
+        @Test
         fun `the five zones map to Seiler's 1, 1, 2, 2, 3`() {
             assertEquals(listOf(1, 1, 2, 2, 3), Zones.heartRate(lthr = 170.0, maxHr = null).map { it.seilerZone })
         }

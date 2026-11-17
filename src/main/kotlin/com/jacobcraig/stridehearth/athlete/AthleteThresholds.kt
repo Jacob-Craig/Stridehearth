@@ -76,12 +76,28 @@ class AthleteThresholds(
         value: Double,
     ) {
         val errors = mutableMapOf<String, String>()
-        if (!value.isFinite() || value !in kind.validRange) {
+        if (!isValidValue(kind, value)) {
             errors["value"] = "Must be between ${kind.validRange.start} and ${kind.validRange.endInclusive} ${kind.unit}"
         }
-        if (effectiveDate.isAfter(LocalDate.now(ZoneOffset.UTC).plusDays(1))) {
+        if (!isValidDate(effectiveDate)) {
             errors["effectiveDate"] = "Must not be later than tomorrow"
         }
         if (errors.isNotEmpty()) throw RequestValidationException(errors)
+    }
+
+    companion object {
+        /** Whether [record] would accept [value] for [kind] from [effectiveDate]. */
+        fun isAcceptable(
+            kind: ThresholdKind,
+            effectiveDate: LocalDate,
+            value: Double,
+        ): Boolean = isValidValue(kind, value) && isValidDate(effectiveDate)
+
+        private fun isValidValue(
+            kind: ThresholdKind,
+            value: Double,
+        ) = value.isFinite() && value in kind.validRange
+
+        private fun isValidDate(effectiveDate: LocalDate) = !effectiveDate.isAfter(LocalDate.now(ZoneOffset.UTC).plusDays(1))
     }
 }

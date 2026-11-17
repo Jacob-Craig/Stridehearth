@@ -230,6 +230,9 @@ function CurrentThresholds({
   );
 }
 
+/** The Server's valid range for a threshold pace, as speeds in m/s (16:40 to 2:05 per km). */
+const THRESHOLD_SPEED_RANGE = { min: 1.0, max: 8.0 };
+
 function AddEntryForm({ userId }: { readonly userId: number | undefined }) {
   const record = useRecordThreshold(userId);
   const [kind, setKind] = useState<ThresholdKind>('LTHR');
@@ -245,6 +248,16 @@ function AddEntryForm({ userId }: { readonly userId: number | undefined }) {
     if (parsed === null || value.trim() === '' || !Number.isFinite(parsed)) {
       setLocalError(
         kind === 'THRESHOLD_PACE' ? 'Enter the pace as min:sec, such as 4:30' : 'Enter a number',
+      );
+      return;
+    }
+    if (
+      kind === 'THRESHOLD_PACE' &&
+      (parsed < THRESHOLD_SPEED_RANGE.min || parsed > THRESHOLD_SPEED_RANGE.max)
+    ) {
+      // The Server's range is in m/s, a unit this form never shows: say it as paces.
+      setLocalError(
+        `Enter a pace between ${formatPace(THRESHOLD_SPEED_RANGE.max)} and ${formatPace(THRESHOLD_SPEED_RANGE.min)} per km`,
       );
       return;
     }

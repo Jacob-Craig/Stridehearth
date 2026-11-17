@@ -221,6 +221,31 @@ describe('Settings', () => {
     expect(await screen.findByText(/recalculated in the background/i)).toBeInTheDocument();
   });
 
+  it('refuses a threshold pace outside the allowed range in paces, without asking the Server', async () => {
+    const fetchMock = stubApi({
+      'GET /api/athlete/thresholds': () => ({ status: 200, body: empty }),
+    });
+    renderAt('/settings', runner);
+    const user = userEvent.setup();
+
+    await user.selectOptions(await screen.findByLabelText('Threshold'), 'THRESHOLD_PACE');
+    const pace = screen.getByLabelText(/pace \(min:sec per km\)/i);
+    await user.type(pace, '20:00');
+    await user.click(screen.getByRole('button', { name: 'Add entry' }));
+    expect(
+      await screen.findByText('Enter a pace between 2:05 and 16:40 per km'),
+    ).toBeInTheDocument();
+
+    await user.clear(pace);
+    await user.type(pace, '1:30');
+    await user.click(screen.getByRole('button', { name: 'Add entry' }));
+    expect(
+      await screen.findByText('Enter a pace between 2:05 and 16:40 per km'),
+    ).toBeInTheDocument();
+
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
+  });
+
   it("shows the Server's field errors for a refused entry", async () => {
     stubApi({
       'GET /api/athlete/thresholds': () => ({ status: 200, body: empty }),

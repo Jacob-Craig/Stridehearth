@@ -41,7 +41,11 @@ object Zones {
     /** Seiler's zone for each of Friel's five. */
     private val SEILER = listOf(1, 1, 2, 2, 3)
 
-    /** Friel's five heart-rate zones for [lthr], with Z5 ending at [maxHr] when it is known. Bounds in whole bpm. */
+    /**
+     * Friel's five heart-rate zones for [lthr], with Z5 ending at [maxHr] when it is known and above LTHR. Bounds in
+     * whole bpm. LTHR and MAX_HR are recorded independently, so an old or mistyped MAX_HR at or below LTHR is ignored
+     * and Z5 stays open, rather than coming out empty or inverted.
+     */
     fun heartRate(
         lthr: Double,
         maxHr: Double?,
@@ -55,7 +59,11 @@ object Zones {
                     .setScale(0, RoundingMode.HALF_UP)
                     .toInt()
             }
-        val bounds = listOf(null) + lowers + listOf(maxHr?.let { BigDecimal.valueOf(it).setScale(0, RoundingMode.HALF_UP).toInt() })
+        val z5Upper =
+            maxHr
+                ?.let { BigDecimal.valueOf(it).setScale(0, RoundingMode.HALF_UP).toInt() }
+                ?.takeIf { it > lowers.last() }
+        val bounds = listOf(null) + lowers + listOf(z5Upper)
         return (0 until 5).map { i -> HeartRateZone(i + 1, bounds[i], bounds[i + 1], SEILER[i]) }
     }
 

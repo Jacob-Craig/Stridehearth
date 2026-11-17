@@ -299,6 +299,21 @@ class AthleteThresholdsApiIntegrationTest {
     }
 
     @Test
+    fun `a proposal the athlete could not accept is skipped rather than thrown into the proposer's transaction`() {
+        // Out of range (a degenerate fit), not a number, or dated after tomorrow (UTC): record() would refuse each.
+        val tooLate = LocalDate.now(ZoneOffset.UTC).plusDays(2)
+        assertNull(thresholdProposals.propose(runner.id!!, ThresholdKind.THRESHOLD_PACE, 0.9, LocalDate.parse("2024-03-01"), "CS_FIT"))
+        assertNull(thresholdProposals.propose(runner.id!!, ThresholdKind.THRESHOLD_PACE, 8.5, LocalDate.parse("2024-03-01"), "CS_FIT"))
+        assertNull(thresholdProposals.propose(runner.id!!, ThresholdKind.LTHR, Double.NaN, LocalDate.parse("2024-03-01"), "CS_FIT"))
+        assertNull(thresholdProposals.propose(runner.id!!, ThresholdKind.LTHR, 168.0, tooLate, "CS_FIT"))
+
+        assertEquals(0, thresholdProposals.pending(runner.id!!).size)
+        // Tomorrow is still acceptable, as it is for an entry.
+        val tomorrow = LocalDate.now(ZoneOffset.UTC).plusDays(1)
+        assertEquals(tomorrow, thresholdProposals.propose(runner.id!!, ThresholdKind.LTHR, 168.0, tomorrow, "CS_FIT")?.effectiveDate)
+    }
+
+    @Test
     fun `an entry the athlete records themselves withdraws a pending proposal it already matches`() {
         thresholdProposals.propose(runner.id!!, ThresholdKind.THRESHOLD_PACE, 4.00, LocalDate.parse("2024-03-01"), "CS_FIT")
         thresholdProposals.propose(runner.id!!, ThresholdKind.LTHR, 170.0, LocalDate.parse("2024-03-01"), "TEST")
