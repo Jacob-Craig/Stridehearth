@@ -396,6 +396,22 @@ describe('Grade-Adjusted Pace overlay', () => {
     expect(speedChart()).toBe(chart);
   });
 
+  // jsdom has no layout, so this pins the classes that keep the wider GAP reading inside a phone-width card
+  // (the visual check found a fixed 20 rem box pushing the reading out of a 390 px card, where it was clipped).
+  it('lets the reading box shrink and truncate in a narrow card instead of overflowing it', async () => {
+    renderActivity(telemetry(hilly, undefined, { gapSpeed }));
+    await chartsAndMapReady(['Elevation', 'Speed', 'Heart Rate', 'Cadence']);
+    const speedFigure = screen.getByRole('figure', { name: 'Speed (km/h)' });
+
+    const reading = within(speedFigure).getByRole('status', { name: 'Speed reading' });
+    expect(reading).toHaveClass('min-w-0', 'truncate');
+    expect(reading).not.toHaveClass('shrink-0');
+    // The title and the GAP toggle keep their size, so the title never wraps under the fixed caption height.
+    expect(within(speedFigure).getByRole('button', { name: 'GAP' }).parentElement).toHaveClass(
+      'shrink-0',
+    );
+  });
+
   it('leaves the charts unchanged when the Activity has no GAP stream', async () => {
     renderActivity(telemetry(hilly, undefined, { gapSpeed: null }));
     await chartsAndMapReady(['Elevation', 'Speed', 'Heart Rate', 'Cadence']);

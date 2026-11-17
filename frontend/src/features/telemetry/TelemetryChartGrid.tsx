@@ -166,7 +166,7 @@ function TelemetryChartCard({
           style={{ height: CHART_CAPTION_HEIGHT_PX }}
           className="flex items-center justify-between px-3 text-xs"
         >
-          <span className="flex items-center gap-2">
+          <span className="flex shrink-0 items-center gap-2">
             <span className="font-semibold text-slate-700 dark:text-slate-200">{title}</span>
             {series.overlay && (
               <button
@@ -188,10 +188,11 @@ function TelemetryChartCard({
             aria-label={`${series.label} reading`}
             ref={readout}
             // A fixed-width box: the reading changes on every scrub and must not shift the layout.
-            // An overlay's reading is read out beside the series', so its box is wider.
+            // An overlay's reading is read out beside the series', so its box is wider. In a card too narrow
+            // for it (a phone) the box shrinks and truncates the reading rather than overflowing the card.
             className={`inline-block ${
               series.overlay ? 'w-80' : 'w-56'
-            } shrink-0 whitespace-nowrap text-right tabular-nums text-slate-500 dark:text-slate-400`}
+            } min-w-0 truncate text-right tabular-nums text-slate-500 dark:text-slate-400`}
           >
             —
           </output>
