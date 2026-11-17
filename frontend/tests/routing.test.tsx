@@ -12,7 +12,7 @@ describe('Router & Route Protection', () => {
       'fetch',
       vi.fn(
         async () =>
-          new Response(JSON.stringify({ personalRecordSlots: [] }), {
+          new Response(JSON.stringify({ personalRecordSlots: [], progressions: [] }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
           }),

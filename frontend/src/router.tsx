@@ -117,8 +117,13 @@ export const indexRoute = createRoute({
 export const dashboardRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/dashboard',
-  loader: ({ context }) =>
-    context.queryClient.ensureQueryData(dashboardQueries(context.user.id).dashboard),
+  loader: ({ context }) => {
+    const queries = dashboardQueries(context.user.id);
+    return Promise.all([
+      context.queryClient.ensureQueryData(queries.dashboard),
+      context.queryClient.ensureQueryData(queries.progression),
+    ]);
+  },
   component: DashboardRoute,
   errorComponent: routeErrorComponent('Your Dashboard could not be loaded'),
 });
