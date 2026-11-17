@@ -47,7 +47,10 @@ const fakeUplot = vi.hoisted(() => {
     hooks: { setCursor: Array<(u: FakeUplot) => void>; draw: Array<(u: FakeUplot) => void> };
     axes: Array<{ stroke: Stroke; grid: { stroke: Stroke } }>;
     series: Array<{
+      label?: string;
       stroke?: Stroke;
+      dash?: number[];
+      show?: boolean;
       spanGaps?: boolean;
       gaps?: (
         u: FakeUplot,
@@ -74,6 +77,10 @@ const fakeUplot = vi.hoisted(() => {
     readonly setCursorCalls: Array<[{ left: number; top: number }, boolean | undefined]> = [];
     readonly destroy = vi.fn();
     readonly setSize = vi.fn();
+    readonly setSeries = vi.fn((index: number, options: { show?: boolean }) => {
+      const series = this.opts.series[index];
+      if (series && options.show !== undefined) series.show = options.show;
+    });
     readonly redraw = vi.fn(() => {
       this.fills.length = 0;
       for (const hook of this.opts.hooks.draw) hook(this);
@@ -81,7 +88,7 @@ const fakeUplot = vi.hoisted(() => {
 
     constructor(
       readonly opts: FakeOptions,
-      readonly data: [number[], (number | null)[]],
+      readonly data: [number[], ...(number | null)[][]],
       readonly target: HTMLElement,
     ) {
       instances.push(this);
@@ -297,6 +304,115 @@ describe('uPlot chart adapter', () => {
     expect(u.strokes()).toEqual(dark);
     expect(u.redraw).toHaveBeenCalledWith(false);
     expect(u.destroy).not.toHaveBeenCalled();
+    expect(readout.textContent).toBe('00:03 · 160 bpm');
+  });
+});
+
+describe('uPlot chart adapter Grade-Adjusted Pace overlay', () => {
+  const t = Array.from({ length: 31 }, (_, i) => i);
+  /** Speed 2 km/h per second of elapsed time, and GAP 3 km/h per second, at full resolution. */
+  const speedSamples = { x: t, y: t.map((i) => i * 2) };
+  const gapSamples = { x: t, y: t.map((i) => (i === 13 ? null : i * 3)) };
+  const speed = { label: 'Speed', unit: 'km/h', color: { light: '#0891b2', dark: '#22d3ee' } };
+  const gap = (visible = true) => ({
+    label: 'GAP',
+    color: { light: '#c026d3', dark: '#e879f9' },
+    samples: gapSamples,
+    visible,
+  });
+
+  it('draws GAP as a dashed second series in its own theme colour, sharing the x of speed', () => {
+    const { u } = chart({
+      series: speed,
+      data: speedSamples,
+      samples: speedSamples,
+      overlay: gap(),
+    });
+    const dark = chart({
+      series: speed,
+      data: speedSamples,
+      samples: speedSamples,
+      overlay: gap(),
+      theme: 'dark',
+    }).u;
+
+    expect(u.data).toHaveLength(3);
+    expect(u.data[0]).toBe(speedSamples.x);
+    expect(u.data[2]).toEqual(gapSamples.y);
+    const overlay = u.opts.series[2]!;
+    expect(overlay).toMatchObject({ label: 'GAP', show: true });
+    expect(overlay.dash!.length).toBeGreaterThan(0);
+    expect(overlay.stroke!(u, 2)).toBe('#c026d3');
+    expect(dark.opts.series[2]!.stroke!(dark, 2)).toBe('#e879f9');
+  });
+
+  it('plots GAP at the downsampled speed points, by elapsed time', () => {
+    const plotted = { x: [0, 10, 20, 30], y: [0, 20, 40, 60] };
+
+    const { u } = chart({ series: speed, data: plotted, samples: speedSamples, overlay: gap() });
+
+    expect(u.data[0]).toEqual([0, 10, 20, 30]);
+    expect(u.data[2]).toEqual([0, 30, 60, 90]);
+  });
+
+  it('reads out speed and GAP at the scrubbed time', () => {
+    const { handle, readout } = chart({
+      series: speed,
+      data: speedSamples,
+      samples: speedSamples,
+      overlay: gap(),
+    });
+
+    handle.setCursorTime(10);
+    expect(readout.textContent).toBe('00:10 · 20 km/h · GAP 30 km/h');
+
+    // GAP has no value at 13 s; its line bridges the gap, so the nearest reading is shown.
+    handle.setCursorTime(13);
+    expect(readout.textContent).toBe('00:13 · 26 km/h · GAP 36 km/h');
+  });
+
+  it('hides and shows GAP in place, updating the reading', () => {
+    const { handle, u, readout } = chart({
+      series: speed,
+      data: speedSamples,
+      samples: speedSamples,
+      overlay: gap(),
+    });
+    handle.setCursorTime(10);
+
+    handle.setOverlayVisible(false);
+    expect(u.setSeries).toHaveBeenLastCalledWith(2, { show: false });
+    expect(readout.textContent).toBe('00:10 · 20 km/h');
+
+    handle.setOverlayVisible(true);
+    expect(u.setSeries).toHaveBeenLastCalledWith(2, { show: true });
+    expect(readout.textContent).toBe('00:10 · 20 km/h · GAP 30 km/h');
+    expect(u.destroy).not.toHaveBeenCalled();
+  });
+
+  it('starts hidden when asked, reading out speed alone', () => {
+    const { handle, u, readout } = chart({
+      series: speed,
+      data: speedSamples,
+      samples: speedSamples,
+      overlay: gap(false),
+    });
+
+    handle.setCursorTime(10);
+
+    expect(u.opts.series[2]!.show).toBe(false);
+    expect(readout.textContent).toBe('00:10 · 20 km/h');
+  });
+
+  it('a chart without an overlay plots one series and ignores the toggle', () => {
+    const { handle, u, readout } = chart();
+    handle.setCursorTime(3);
+
+    handle.setOverlayVisible(false);
+
+    expect(u.data).toHaveLength(2);
+    expect(u.opts.series).toHaveLength(2);
+    expect(u.setSeries).not.toHaveBeenCalled();
     expect(readout.textContent).toBe('00:03 · 160 bpm');
   });
 });

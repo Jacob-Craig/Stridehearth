@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { match } from 'ts-pattern';
 import { useColorScheme } from '../../lib/colorScheme';
 import { CHART_CAPTION_HEIGHT_PX, CHART_CARD_HEIGHT_PX, CHART_PLOT_HEIGHT_PX } from './chartLayout';
@@ -88,9 +88,19 @@ function TelemetryChartCard({
   useEffect(() => {
     latestTheme.current = theme;
   });
+  // Whether the overlay (Grade-Adjusted Pace) is drawn; the live chart is toggled in place, not rebuilt.
+  const [overlayVisible, setOverlayVisible] = useState(true);
+  const latestOverlayVisible = useRef(overlayVisible);
+  useEffect(() => {
+    latestOverlayVisible.current = overlayVisible;
+  });
   const title = `${series.label} (${series.unit})`;
   const points = plot.kind === 'ready' ? plot.points : null;
   const samples = useMemo(() => ({ x: t, y: series.values }), [t, series]);
+  const overlaySamples = useMemo(
+    () => series.overlay && { x: t, y: series.overlay.values },
+    [t, series],
+  );
 
   const mount = useMemo(
     () =>
@@ -107,6 +117,15 @@ function TelemetryChartCard({
           samples,
           theme: latestTheme.current,
           onScrub: (seconds) => bus.scrub(seconds, handle),
+          ...(series.overlay &&
+            overlaySamples && {
+              overlay: {
+                label: series.overlay.label,
+                color: series.overlay.color,
+                samples: overlaySamples,
+                visible: latestOverlayVisible.current,
+              },
+            }),
         });
         const unregister = bus.registerChart(handle);
         return {
@@ -117,7 +136,7 @@ function TelemetryChartCard({
           },
         };
       }),
-    [series, points, samples, bus],
+    [series, points, samples, overlaySamples, bus],
   );
   const chart = useLazyRenderer(loadUplotChart, mount);
   const liveChart = chart.kind === 'ready' ? chart.handle : null;
@@ -128,6 +147,9 @@ function TelemetryChartCard({
   useEffect(() => {
     liveChart?.setTheme(theme);
   }, [liveChart, theme]);
+  useEffect(() => {
+    liveChart?.setOverlayVisible(overlayVisible);
+  }, [liveChart, overlayVisible]);
 
   return (
     <li
@@ -144,12 +166,32 @@ function TelemetryChartCard({
           style={{ height: CHART_CAPTION_HEIGHT_PX }}
           className="flex items-center justify-between px-3 text-xs"
         >
-          <span className="font-semibold text-slate-700 dark:text-slate-200">{title}</span>
+          <span className="flex items-center gap-2">
+            <span className="font-semibold text-slate-700 dark:text-slate-200">{title}</span>
+            {series.overlay && (
+              <button
+                type="button"
+                aria-pressed={overlayVisible}
+                title="Grade-Adjusted Pace"
+                onClick={() => setOverlayVisible((visible) => !visible)}
+                className={`rounded px-1.5 py-0.5 font-semibold ring-1 transition-colors ${
+                  overlayVisible
+                    ? 'bg-fuchsia-50 text-fuchsia-700 ring-fuchsia-300 dark:bg-fuchsia-950 dark:text-fuchsia-300 dark:ring-fuchsia-800'
+                    : 'text-slate-500 ring-slate-300 dark:text-slate-400 dark:ring-slate-700'
+                }`}
+              >
+                {series.overlay.label}
+              </button>
+            )}
+          </span>
           <output
             aria-label={`${series.label} reading`}
             ref={readout}
             // A fixed-width box: the reading changes on every scrub and must not shift the layout.
-            className="inline-block w-56 shrink-0 whitespace-nowrap text-right tabular-nums text-slate-500 dark:text-slate-400"
+            // An overlay's reading is read out beside the series', so its box is wider.
+            className={`inline-block ${
+              series.overlay ? 'w-80' : 'w-56'
+            } shrink-0 whitespace-nowrap text-right tabular-nums text-slate-500 dark:text-slate-400`}
           >
             —
           </output>

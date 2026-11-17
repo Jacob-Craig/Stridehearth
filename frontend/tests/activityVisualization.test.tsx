@@ -347,6 +347,71 @@ describe('Activity Details route map and sensor charts', () => {
   });
 });
 
+describe('Grade-Adjusted Pace overlay', () => {
+  const hilly = {
+    enhancedAltitude: [30, 31, 32, 33, 34, 34, 33, 32, 31, 30],
+    enhancedSpeed: [3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+  };
+  // 3 m/s with GAP faster uphill and slower downhill; m/s, as the server sends it.
+  const gapSpeed = [3.5, 3.5, 3.5, 3.5, 3, 3, 2.5, 2.5, 2.5, 2.5];
+  const speedChart = () =>
+    rendered.liveCharts().find((chart) => chart.options.series.label === 'Speed')!;
+
+  it('overlays GAP in km/h on the Speed chart, shown by default, with a pressed toggle in its caption', async () => {
+    renderActivity(telemetry(hilly, undefined, { gapSpeed }));
+    await chartsAndMapReady(['Elevation', 'Speed', 'Heart Rate', 'Cadence']);
+
+    const overlay = speedChart().options.overlay!;
+    expect(overlay).toMatchObject({ label: 'GAP', visible: true });
+    expect(overlay.samples.x).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(overlay.samples.y.map((kmh) => Math.round(kmh! * 10) / 10)).toEqual([
+      12.6, 12.6, 12.6, 12.6, 10.8, 10.8, 9, 9, 9, 9,
+    ]);
+    const speedFigure = screen.getByRole('figure', { name: 'Speed (km/h)' });
+    expect(within(speedFigure).getByRole('button', { name: 'GAP' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    // Only the Speed chart has the overlay and the toggle.
+    expect(rendered.liveCharts().filter((chart) => chart.options.overlay)).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'GAP' })).toHaveLength(1);
+  });
+
+  it('toggles GAP off and on again in place, without rebuilding the chart', async () => {
+    const user = userEvent.setup();
+    renderActivity(telemetry(hilly, undefined, { gapSpeed }));
+    await chartsAndMapReady(['Elevation', 'Speed', 'Heart Rate', 'Cadence']);
+    const chart = speedChart();
+    const toggle = screen.getByRole('button', { name: 'GAP' });
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(chart.setOverlayVisible).toHaveBeenLastCalledWith(false);
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(chart.setOverlayVisible).toHaveBeenLastCalledWith(true);
+    expect(chart.destroy).not.toHaveBeenCalled();
+    expect(speedChart()).toBe(chart);
+  });
+
+  it('leaves the charts unchanged when the Activity has no GAP stream', async () => {
+    renderActivity(telemetry(hilly, undefined, { gapSpeed: null }));
+    await chartsAndMapReady(['Elevation', 'Speed', 'Heart Rate', 'Cadence']);
+
+    expect(rendered.liveCharts().some((chart) => chart.options.overlay)).toBe(false);
+    expect(screen.queryByRole('button', { name: 'GAP' })).not.toBeInTheDocument();
+  });
+
+  it('offers no GAP toggle without elevation, where GAP repeats speed', async () => {
+    renderActivity(telemetry({ enhancedSpeed: hilly.enhancedSpeed }, undefined, { gapSpeed }));
+    await chartsAndMapReady(['Speed', 'Heart Rate', 'Cadence']);
+
+    expect(speedChart().options.overlay).toBeUndefined();
+    expect(screen.queryByRole('button', { name: 'GAP' })).not.toBeInTheDocument();
+  });
+});
+
 describe('ultra-long Activity downsampling', () => {
   /** Runs the real worker protocol in-thread, since jsdom has no Web Worker implementation. */
   class InThreadDownsamplerWorker {
