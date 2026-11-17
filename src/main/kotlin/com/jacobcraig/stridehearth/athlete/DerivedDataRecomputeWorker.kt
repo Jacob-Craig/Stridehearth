@@ -1,5 +1,6 @@
 package com.jacobcraig.stridehearth.athlete
 
+import com.jacobcraig.stridehearth.activities.Activity
 import com.jacobcraig.stridehearth.activities.ActivityDerivedMetricsRepository
 import com.jacobcraig.stridehearth.activities.ActivityDetailsRepository
 import com.jacobcraig.stridehearth.activities.ActivityRepository
@@ -18,16 +19,24 @@ import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 
-/** What one [DerivedDataRecomputeWorker.drain] did: Activities recomputed, and Activities that failed and were skipped. */
+/**
+ * What one [DerivedDataRecomputeWorker.drain] did: Activities whose derived data it computed in full, Activities that
+ * failed and were skipped, and Activities whose **Training Load** alone it recomputed for a recompute request.
+ */
 data class RecomputeResult(
     val activitiesRecomputed: Int,
     val activitiesFailed: Int,
+    val trainingLoadsRecomputed: Int = 0,
 )
 
 /**
- * Brings every **Activity**'s derived data up to [DERIVED_DATA_VERSION] in the background (ADR-0014): the
- * **Backfill** of Activities that have no `activity_derived_metrics` row yet (imported before derived data
- * existed), and the **Recompute** of rows an older algorithm version wrote.
+ * Brings every **Activity**'s derived data up to date in the background (ADR-0014), in two stages:
+ *
+ * 1. The durable **Training Load** recompute requests that a change to an athlete's Thresholds or time zone writes
+ *    ([RecomputeRequestListener]): the Training Load of each of their Activities dated on or after the request's date
+ *    is recomputed, and the request is cleared only if no newer one arrived meanwhile (compare-and-clear).
+ * 2. The **Backfill** of Activities that have no `activity_derived_metrics` row yet (imported before derived data
+ *    existed), and the **Recompute** of rows an older algorithm version wrote ([DERIVED_DATA_VERSION]).
  *
  * It is always present, so tests call [drain] directly; [DerivedDataRecomputeSchedule] runs it periodically.
  *
@@ -47,6 +56,7 @@ class DerivedDataRecomputeWorker(
     private val activityDetailsRepository: ActivityDetailsRepository,
     private val derivedMetricsRepository: ActivityDerivedMetricsRepository,
     private val derivedDataRefresh: DerivedDataRefresh,
+    private val stateRepository: AthleteAnalyticsStateRepository,
     private val transactionTemplate: TransactionTemplate,
 ) {
     private val logger = LoggerFactory.getLogger(DerivedDataRecomputeWorker::class.java)
@@ -67,8 +77,21 @@ class DerivedDataRecomputeWorker(
     private val failedAt = ConcurrentHashMap<Long, Instant>()
 
     /**
-     * Recomputes candidate Activities, [pageSize] per page, for at most [maxPages] pages: every athlete's, or only
-     * those of [onlyUserIds]. It opens one transaction per page itself, so it must not be called inside one.
+     * How far a drain got through each athlete's recompute request before running out of pages: the last Activity id
+     * done, for the request stamped [RequestCursor.requestedAt]. The next drain resumes there, so a request larger than
+     * one run's pages still finishes; a newer request starts again from the beginning. Kept in memory only.
+     */
+    private val requestCursors = ConcurrentHashMap<Long, RequestCursor>()
+
+    private data class RequestCursor(
+        val requestedAt: Instant,
+        val afterId: Long,
+    )
+
+    /**
+     * Serves the pending Training Load recompute requests, then recomputes candidate Activities, [pageSize] per page,
+     * for at most [maxPages] pages in all: every athlete's, or only those of [onlyUserIds]. It opens one transaction
+     * per page itself, so it must not be called inside one.
      *
      * It resumes after the last page the previous drain finished, in id order, and wraps around to the lowest id
      * once, stopping where it started. So Activities that keep failing are retried once per pass over all the
@@ -90,62 +113,112 @@ class DerivedDataRecomputeWorker(
     ): RecomputeResult {
         val limit = pageSize.coerceAtLeast(1)
         failedAt.values.removeIf { !it.isAfter(now - FAILED_RETRY_AFTER) }
+        val tally = Tally()
+        if (!serveRecomputeRequests(limit, maxPages, onlyUserIds, now, tally)) return tally.result()
         val startedAfter = resumeAfterId
         var afterId = startedAfter
         // Activities above startedAfter were scanned before wrapping around; after it, the scan ends at startedAfter.
         var wrapped = startedAfter == 0L
-        var recomputed = 0
-        var failed = 0
-        var pages = 0
-        while (pages < maxPages) {
+        while (tally.pages < maxPages) {
             val page = derivedMetricsRepository.findRecomputePage(afterId, limit, DERIVED_DATA_VERSION, onlyUserIds)
             val candidates = if (wrapped && startedAfter > 0) page.filter { it <= startedAfter } else page
             if (candidates.isEmpty()) {
                 if (wrapped) {
                     resumeAfterId = 0L
-                    return RecomputeResult(recomputed, failed)
+                    return tally.result()
                 }
                 wrapped = true
                 afterId = 0L
                 continue
             }
-            val due = candidates.filterNot { failedAt.containsKey(it) }
-            if (due.isNotEmpty()) {
-                try {
-                    recomputed += recomputeInTransaction(due)
-                } catch (e: RuntimeException) {
-                    if (e.isDatabaseFailure()) throw e
-                    logger.warn("Derived data page after Activity {} failed; recomputing its Activities one by one", afterId, e)
-                    for (activityId in due) {
-                        try {
-                            recomputed += recomputeInTransaction(listOf(activityId))
-                        } catch (activityFailure: RuntimeException) {
-                            if (activityFailure.isDatabaseFailure()) throw activityFailure
-                            logger.error(
-                                "Skipping Activity {} for {} min: its derived data could not be computed",
-                                activityId,
-                                FAILED_RETRY_AFTER.toMinutes(),
-                                activityFailure,
-                            )
-                            failedAt[activityId] = now
-                            failed++
-                        }
-                    }
-                }
-            }
+            tally.recomputed += runPage(candidates, afterId, now, tally, ::recomputePage)
             afterId = candidates.last()
             resumeAfterId = afterId
-            pages++
+            tally.pages++
         }
-        return RecomputeResult(recomputed, failed)
+        return tally.result()
     }
 
-    /** Recomputes [activityIds] in one transaction, retrying a lost lock race; returns how many still existed. */
-    private fun recomputeInTransaction(activityIds: List<Long>): Int {
+    /**
+     * Stage 1: serves each pending recompute request in athlete id order, a page at a time from where the last drain
+     * left it, clearing each request it finishes unless a newer one replaced it meanwhile. Returns false when it used
+     * up [maxPages] first.
+     */
+    private fun serveRecomputeRequests(
+        limit: Int,
+        maxPages: Int,
+        onlyUserIds: Collection<Long>?,
+        now: Instant,
+        tally: Tally,
+    ): Boolean {
+        for (request in stateRepository.findPendingRequests(onlyUserIds)) {
+            var afterId = requestCursors[request.userId]?.takeIf { it.requestedAt == request.requestedAt }?.afterId ?: 0L
+            while (true) {
+                if (tally.pages >= maxPages) {
+                    requestCursors[request.userId] = RequestCursor(request.requestedAt, afterId)
+                    return false
+                }
+                val page =
+                    derivedMetricsRepository.findTrainingLoadRecomputePage(request.userId, request.from, request.zone, afterId, limit)
+                if (page.isEmpty()) break
+                tally.trainingLoads += runPage(page, afterId, now, tally, ::recomputeTrainingLoadPage)
+                afterId = page.last()
+                tally.pages++
+            }
+            requestCursors.remove(request.userId)
+            if (!stateRepository.clearRequest(request)) {
+                logger.info("A newer Training Load recompute request for athlete {} arrived; it is served next run", request.userId)
+            }
+        }
+        return true
+    }
+
+    /**
+     * Runs [work] over the [candidates] not backed off, in one transaction; if that fails other than in the database,
+     * once per Activity, logging and backing off each that still fails. Returns what [work] counted.
+     */
+    private fun runPage(
+        candidates: List<Long>,
+        afterId: Long,
+        now: Instant,
+        tally: Tally,
+        work: (List<Long>) -> Int,
+    ): Int {
+        val due = candidates.filterNot { failedAt.containsKey(it) }
+        if (due.isEmpty()) return 0
+        return try {
+            inTransaction(due, work)
+        } catch (e: RuntimeException) {
+            if (e.isDatabaseFailure()) throw e
+            logger.warn("Derived data page after Activity {} failed; recomputing its Activities one by one", afterId, e)
+            due.sumOf { activityId ->
+                try {
+                    inTransaction(listOf(activityId), work)
+                } catch (activityFailure: RuntimeException) {
+                    if (activityFailure.isDatabaseFailure()) throw activityFailure
+                    logger.error(
+                        "Skipping Activity {} for {} min: its derived data could not be computed",
+                        activityId,
+                        FAILED_RETRY_AFTER.toMinutes(),
+                        activityFailure,
+                    )
+                    failedAt[activityId] = now
+                    tally.failed++
+                    0
+                }
+            }
+        }
+    }
+
+    /** Runs [work] over [activityIds] in one transaction, retrying a lost lock race. */
+    private fun inTransaction(
+        activityIds: List<Long>,
+        work: (List<Long>) -> Int,
+    ): Int {
         var attempt = 1
         while (true) {
             try {
-                return transactionTemplate.execute { recomputePage(activityIds) }!!
+                return transactionTemplate.execute { work(activityIds) }!!
             } catch (e: PessimisticLockingFailureException) {
                 if (attempt >= LOCK_ATTEMPTS) throw e
                 logger.info("Derived data page lost a lock race (attempt {} of {}); retrying", attempt, LOCK_ATTEMPTS)
@@ -162,14 +235,32 @@ class DerivedDataRecomputeWorker(
     private fun RuntimeException.isDatabaseFailure(): Boolean =
         this is TransientDataAccessException || this is DataAccessResourceFailureException || this is TransactionException
 
+    /** Recomputes all the derived data of [activityIds]; returns how many still existed. */
     private fun recomputePage(activityIds: List<Long>): Int {
+        val activities = lockAndLoad(activityIds)
+        if (activities.isNotEmpty()) derivedDataRefresh.refresh(activities)
+        return activities.size
+    }
+
+    /** Recomputes only the Training Load of [activityIds]; returns how many loads it replaced. */
+    private fun recomputeTrainingLoadPage(activityIds: List<Long>): Int = derivedDataRefresh.refreshTrainingLoad(lockAndLoad(activityIds))
+
+    private fun lockAndLoad(activityIds: List<Long>): List<Activity> {
         // Lock first, then read: under READ COMMITTED the reads below see whatever a concurrent writer committed
         // while this page waited for its lock.
         val locked = activityDetailsRepository.lockActivities(activityIds)
-        if (locked.isEmpty()) return 0
-        val activities = activityRepository.findAllById(locked)
-        derivedDataRefresh.refresh(activities)
-        return activities.size
+        if (locked.isEmpty()) return emptyList()
+        return activityRepository.findAllById(locked)
+    }
+
+    /** What one drain has done so far. */
+    private class Tally {
+        var recomputed = 0
+        var failed = 0
+        var trainingLoads = 0
+        var pages = 0
+
+        fun result() = RecomputeResult(recomputed, failed, trainingLoads)
     }
 
     companion object {
