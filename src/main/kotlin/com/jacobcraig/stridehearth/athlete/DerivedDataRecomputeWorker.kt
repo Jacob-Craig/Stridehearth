@@ -6,8 +6,11 @@ import com.jacobcraig.stridehearth.activities.ActivityRepository
 import com.jacobcraig.stridehearth.activities.DERIVED_DATA_VERSION
 import com.jacobcraig.stridehearth.activities.DerivedDataRefresh
 import org.slf4j.LoggerFactory
+import org.springframework.dao.DataAccessResourceFailureException
 import org.springframework.dao.PessimisticLockingFailureException
+import org.springframework.dao.TransientDataAccessException
 import org.springframework.stereotype.Component
+import org.springframework.transaction.TransactionException
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
@@ -31,11 +34,12 @@ data class RecomputeResult(
  * Each page is one transaction that first takes the same row lock an Upgrade takes (`FOR NO KEY UPDATE`, in id
  * order) on its Activities, then reloads them and calls [DerivedDataRefresh]. So a page never computes from a
  * sport, `startedAt` or Activity Details that a concurrent edit or Upgrade is changing: it waits for that change
- * to commit, and an Activity deleted meanwhile is skipped. A page that loses a lock race (a deadlock with a batch
- * edit that locks the same Activities in another order) is retried. A page that fails any other way is retried
- * one Activity per transaction, so one Activity whose Activity Details cannot be analysed is logged and skipped
- * rather than stopping the scan. It stays a candidate, but later drains pass over it until [FAILED_RETRY_AFTER] has
- * gone by, so a Server whose other rows are all current does not re-analyse and re-log it on every run.
+ * to commit, and an Activity deleted meanwhile is skipped. A page that loses a lock race with another writer is
+ * retried. A page the database fails (a timeout, a lost connection, no transaction) ends the run, which the next
+ * run resumes from the same page. A page that fails any other way is retried one Activity per transaction, so one
+ * Activity whose Activity Details cannot be analysed is logged and skipped rather than stopping the scan. It stays
+ * a candidate, but later drains pass over it until [FAILED_RETRY_AFTER] has gone by, so a Server whose other rows
+ * are all current does not re-analyse and re-log it on every run.
  */
 @Component
 class DerivedDataRecomputeWorker(
@@ -74,6 +78,8 @@ class DerivedDataRecomputeWorker(
      *
      * @throws PessimisticLockingFailureException when a page still loses its lock race after [LOCK_ATTEMPTS]
      *   tries; the pages before it stay committed, and the next run resumes.
+     * @throws RuntimeException any other failure of the database itself (see [isDatabaseFailure]), the same way:
+     *   no Activity is backed off for it.
      */
     @Transactional(propagation = Propagation.NEVER)
     fun drain(
@@ -107,16 +113,14 @@ class DerivedDataRecomputeWorker(
             if (due.isNotEmpty()) {
                 try {
                     recomputed += recomputeInTransaction(due)
-                } catch (e: PessimisticLockingFailureException) {
-                    throw e
                 } catch (e: RuntimeException) {
+                    if (e.isDatabaseFailure()) throw e
                     logger.warn("Derived data page after Activity {} failed; recomputing its Activities one by one", afterId, e)
                     for (activityId in due) {
                         try {
                             recomputed += recomputeInTransaction(listOf(activityId))
-                        } catch (lockFailure: PessimisticLockingFailureException) {
-                            throw lockFailure
                         } catch (activityFailure: RuntimeException) {
+                            if (activityFailure.isDatabaseFailure()) throw activityFailure
                             logger.error(
                                 "Skipping Activity {} for {} min: its derived data could not be computed",
                                 activityId,
@@ -149,6 +153,14 @@ class DerivedDataRecomputeWorker(
             }
         }
     }
+
+    /**
+     * Whether this failure came from the database rather than from the Activities being recomputed: a lost lock race
+     * or any other transient failure (a timeout), a lost or unreachable database, or a transaction that could not be
+     * opened or committed. Retrying the page's Activities one by one would only wait on the database again.
+     */
+    private fun RuntimeException.isDatabaseFailure(): Boolean =
+        this is TransientDataAccessException || this is DataAccessResourceFailureException || this is TransactionException
 
     private fun recomputePage(activityIds: List<Long>): Int {
         // Lock first, then read: under READ COMMITTED the reads below see whatever a concurrent writer committed

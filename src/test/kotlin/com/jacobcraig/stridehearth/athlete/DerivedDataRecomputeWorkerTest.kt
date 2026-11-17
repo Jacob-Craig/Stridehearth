@@ -28,10 +28,13 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.dao.CannotAcquireLockException
+import org.springframework.dao.DataAccessResourceFailureException
+import org.springframework.dao.QueryTimeoutException
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean
 import org.springframework.test.util.AopTestUtils
+import org.springframework.transaction.CannotCreateTransactionException
 import org.springframework.transaction.IllegalTransactionStateException
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
@@ -44,6 +47,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 
 /**
  * The derived-data recompute worker: the **Backfill** of Activities without a derived-data row and the
@@ -448,6 +452,42 @@ class DerivedDataRecomputeWorkerTest {
         assertEquals(DerivedDataRecomputeWorker.LOCK_ATTEMPTS, calls.get())
         assertEquals(120, gapLength(first))
         assertNull(row(second))
+    }
+
+    @Test
+    fun `a database failure ends the drain without backing any Activity off, and the next drain resumes there`() {
+        val first = historical()
+        val second = historical()
+        val now = Instant.now()
+        val outages =
+            listOf(
+                QueryTimeoutException("statement timeout"),
+                DataAccessResourceFailureException("connection lost"),
+                CannotCreateTransactionException("no connection"),
+            )
+
+        for (outage in outages) {
+            val attempts = AtomicInteger()
+            doAnswer { invocation ->
+                if (invocation.getArgument<Collection<Activity>>(0).any { it.id == second.id }) {
+                    attempts.incrementAndGet()
+                    throw outage
+                }
+                invocation.callRealMethod()
+            }.whenever(refreshSpy).refresh(any<Collection<Activity>>(), any())
+
+            assertSame(outage, assertThrows<RuntimeException> { drain(pageSize = 1, now = now) })
+
+            // Not retried one Activity at a time, as an Activity that cannot be analysed would be.
+            assertEquals(1, attempts.get())
+            assertNull(row(second))
+        }
+        assertEquals(120, gapLength(first))
+
+        // Not backed off: once the database is back, the next drain (even at the same instant) computes it.
+        doCallRealMethod().whenever(refreshSpy).refresh(any<Collection<Activity>>(), any())
+        assertEquals(RecomputeResult(activitiesRecomputed = 1, activitiesFailed = 0), drain(pageSize = 1, now = now))
+        assertEquals(120, gapLength(second))
     }
 
     @Test
