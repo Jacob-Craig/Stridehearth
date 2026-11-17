@@ -19,13 +19,15 @@ import java.time.Instant
  * - 1: Grade-Adjusted Pace (#32).
  * - 2: Moving Time, Normalized Graded Pace, Efficiency Factor and Aerobic Decoupling of Runs (#33).
  * - 3: Grade-Adjusted Pace measures grade over a 180 m baseline between 60 m altitude anchors (#51).
+ * - 4: Peak Efforts of Runs by Benchmark Duration, over GAP speed and power (#38).
  */
-const val DERIVED_DATA_VERSION: Short = 3
+const val DERIVED_DATA_VERSION: Short = 4
 
 /**
  * The derived-data module (ADR-0014): the only writer of `activity_derived_metrics`, which holds one row per
  * **Activity** of every sport, computed in one pure pass ([ActivityAnalysis]) from its **Cleaned Activity
- * Details** and stamped with [DERIVED_DATA_VERSION]. It also marks the athlete's rollups ([AthleteRollups]).
+ * Details** and stamped with [DERIVED_DATA_VERSION], and of `activity_peak_effort`, a Run's **Peak Efforts** from
+ * the same pass. It also marks the athlete's rollups ([AthleteRollups]).
  *
  * Caller contract, as for [BestEffortRefresh]:
  * - Call it in the caller's transaction whenever an input changes: an Activity is created (with or without Activity
@@ -35,7 +37,7 @@ const val DERIVED_DATA_VERSION: Short = 3
  *   the caller's pending change, and its write key-share locks the Activity's row, both of which ADR-0006 orders
  *   after the Personal Record lock.
  * - `details`, if passed, must be the Activity Details just stored; otherwise the stored ones are read.
- * - A deleted Activity's row goes by `ON DELETE CASCADE`; the refresh only marks its athlete's rollups.
+ * - A deleted Activity's rows go by `ON DELETE CASCADE`; the refresh only marks its athlete's rollups.
  * - It is idempotent, takes no lock of its own, and writes no **Activity History Entry**.
  */
 @Component
@@ -43,6 +45,7 @@ class DerivedDataRefresh(
     private val entityManager: EntityManager,
     private val activityDetailsService: ActivityDetailsService,
     private val derivedMetricsRepository: ActivityDerivedMetricsRepository,
+    private val peakEffortRepository: ActivityPeakEffortRepository,
     private val athleteRollups: AthleteRollups,
 ) {
     /**
@@ -91,6 +94,7 @@ class DerivedDataRefresh(
         val source = details ?: activityDetailsService.findAnalyticsSeries(activityId)
         val analysis = source?.let { ActivityAnalysis.analyse(it, activity.sport) }
         derivedMetricsRepository.upsert(activityId, DERIVED_DATA_VERSION, analysis?.gapSpeed, analysis?.runMetrics)
+        peakEffortRepository.replace(activityId, analysis?.peakEfforts.orEmpty())
     }
 
     /**
