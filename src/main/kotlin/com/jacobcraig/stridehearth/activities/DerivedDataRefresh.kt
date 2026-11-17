@@ -18,8 +18,9 @@ import java.time.Instant
  *
  * - 1: Grade-Adjusted Pace (#32).
  * - 2: Moving Time, Normalized Graded Pace, Efficiency Factor and Aerobic Decoupling of Runs (#33).
+ * - 3: Grade-Adjusted Pace measures grade over a 180 m baseline between 60 m altitude anchors (#51).
  */
-const val DERIVED_DATA_VERSION: Short = 2
+const val DERIVED_DATA_VERSION: Short = 3
 
 /**
  * The derived-data module (ADR-0014): the only writer of `activity_derived_metrics`, which holds one row per
