@@ -201,6 +201,36 @@ class ActivityImportServiceTest {
     }
 
     @Test
+    fun `a file's already-imported Activities are all locked at once, after their Personal Record locks and before any offer`() {
+        whenever(userRepository.getReferenceById(42L)).thenReturn(owner)
+        // Session order differs from id order: the first session was deleted and imported again, so got a later id.
+        val reimported = alreadyImported(50L, "ext-first")
+        val original = alreadyImported(11L, "ext-second")
+
+        importing(parsedRun("ext-first"), parsedRun("ext-second"))
+
+        // One statement locks them in id order, as a derived-data recompute page does, so the two cannot deadlock.
+        val order = inOrder(bestEffortRefresh, activityDetailsService)
+        order.verify(bestEffortRefresh).lockBeforeChange(reimported)
+        order.verify(bestEffortRefresh).lockBeforeChange(original)
+        val locked = argumentCaptor<Collection<Long>>()
+        order.verify(activityDetailsService).lockActivities(locked.capture())
+        order.verify(activityDetailsService).offer(eq(reimported), anyOrNull(), any(), any())
+        order.verify(activityDetailsService).offer(eq(original), anyOrNull(), any(), any())
+        assertEquals(setOf(11L, 50L), locked.firstValue.toSet())
+    }
+
+    @Test
+    fun `a file of new Activities locks no existing Activity up front`() {
+        whenever(userRepository.getReferenceById(42L)).thenReturn(owner)
+        whenever(activityRepository.save(any<Activity>())).thenReturn(activity(101L, "ext-new"))
+
+        importing(parsedRun("ext-new"))
+
+        verify(activityDetailsService, never()).lockActivities(any())
+    }
+
+    @Test
     fun `an Unchanged offer for an already-imported Activity is a duplicate with no history and no refresh`() {
         whenever(userRepository.getReferenceById(42L)).thenReturn(owner)
         val existing = alreadyImported(99L, "dup-1")
@@ -282,8 +312,9 @@ class ActivityImportServiceTest {
     fun `losing the external-id race to a concurrent import retries once and classifies the file as Duplicate`() {
         whenever(userRepository.getReferenceById(42L)).thenReturn(owner)
         val concurrentlyImported = activity(400L, "ext-race")
+        // Not there for the first attempt's up-front lock or its own lookup; there once the concurrent import commits.
         whenever(activityRepository.findByUserIdAndSourceAndExternalId(42L, ActivitySource.FIT_UPLOAD, "ext-race"))
-            .thenReturn(null, concurrentlyImported)
+            .thenReturn(null, null, concurrentlyImported)
         whenever(activityRepository.save(any<Activity>())).thenThrow(
             DataIntegrityViolationException(
                 "could not execute statement",

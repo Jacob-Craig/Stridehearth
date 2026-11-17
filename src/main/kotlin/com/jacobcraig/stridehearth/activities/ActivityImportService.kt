@@ -83,6 +83,15 @@ class ActivityImportService(
         val duplicateActivities = mutableListOf<Activity>()
         val upgradedActivities = mutableListOf<ActivityUpgrade>()
 
+        // Each offer below locks its Activity's row. Lock every already-imported one now, in one statement and in id
+        // order as a derived-data recompute page does (ADR-0014): offered in session order, a file whose sessions'
+        // ids are out of order could deadlock with a page. The lookups below find the same rows already locked.
+        val alreadyImported =
+            parsedActivities.mapNotNull { parsed ->
+                parsed.externalId?.let { findAfterPersonalRecordLock(userId, source, it)?.id }
+            }
+        if (alreadyImported.isNotEmpty()) activityDetailsService.lockActivities(alreadyImported)
+
         for (parsed in parsedActivities) {
             val existing = parsed.externalId?.let { findAfterPersonalRecordLock(userId, source, it) }
             val activity = existing ?: activityRepository.save(parsed.toActivity(owner, source))
