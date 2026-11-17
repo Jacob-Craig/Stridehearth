@@ -29,3 +29,12 @@ Activities without a row (imported before derived data existed) are filled in by
 - Rollup marks are instants, not days: the conversion to the athlete's local day happens in the before-commit pass, so the skeleton needs no rework once athletes have a time zone. The daily-load mark keeps the earliest instant per athlete; the peak marks keep every instant, because a model fitted over a window is affected only near each change.
 - The telemetry endpoint emits a derived stream only while it is parallel to `activity_details.t`, so a row computed from details since replaced never misaligns the charts.
 - The Best Effort Backfill and its endpoint are unchanged; Best Efforts keep scanning the recorded distance (ADR-0013).
+
+## Durable recompute requests (#35)
+
+Training Load also depends on the athlete's Thresholds as of the Activity's local date, which change without any Activity changing. A Threshold or Athlete Time Zone change therefore does not recompute anything in its own request. A plain listener in the writing transaction records a durable request in `athlete_analytics_state` (one row per athlete): `recompute_from` is the earliest affected local date, or NULL for everything, and `recompute_requested_at` stamps the request. A second request merges into a pending one: the earlier date wins, and NULL wins over any date. The request commits or rolls back with the change.
+
+The worker serves pending requests first on each run, before the version Backfill and within the same page budget. For each athlete, it pages through their Activities with a local start date on or after `recompute_from`, in id order. It locks each page as it does for the version Backfill, and replaces only the Training Load columns (`DerivedDataRefresh.refreshTrainingLoad`). An Activity with no row, or a row at an older version, is left to the version Backfill. When the pages run out, the request is cleared only if `recompute_requested_at` still equals the value read at the start (compare-and-clear), so a change that commits mid-run is served by the next run. A request larger than one run's pages resumes, through an in-memory cursor, where the last run stopped. A restart starts it again from the beginning.
+
+- **Rejected: recompute synchronously in the Threshold request.** An athlete with years of history would hold one transaction over thousands of Activities, locking every one of their rows.
+- **Rejected: an after-commit listener.** A crash between commit and recompute would lose the request. The durable marker survives restarts.

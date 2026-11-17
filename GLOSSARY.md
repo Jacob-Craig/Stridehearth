@@ -22,11 +22,11 @@ Replacing an Activity's stored Activity Details and Laps with ones decoded from 
 _Avoid_: Re-parse, migration
 
 **Backfill**:
-Filling in something an Activity lacks (Activity Details, their distance, Laps, Best Efforts, or derived data such as Grade-Adjusted Pace or Normalized Graded Pace) without replacing anything it already has. Replacing derived data that is out of date is a Recompute.
+Filling in something an Activity lacks (Activity Details, their distance, Laps, Best Efforts, or derived data such as Grade-Adjusted Pace, Normalized Graded Pace or Training Load) without replacing anything it already has. Replacing derived data that is out of date is a Recompute.
 _Avoid_: Repair, fix-up
 
 **Recompute (derived data)**:
-Replacing an Activity's stored derived data (such as its Grade-Adjusted Pace or Run metrics like Normalized Graded Pace) because something it was computed from changed: its Activity Details, its sport or start time, or the version of the algorithm that computed it. It never changes the Activity itself, so it leaves no Activity History Entry.
+Replacing an Activity's stored derived data (such as its Grade-Adjusted Pace, Run metrics like Normalized Graded Pace, or Training Load) because something it was computed from changed: its Activity Details, its sport or start time, the athlete's Thresholds or Athlete Time Zone, or the version of the algorithm that computed it. It never changes the Activity itself, so it leaves no Activity History Entry.
 _Avoid_: Reprocess, regenerate, migration
 
 **Activity Source**:
@@ -146,6 +146,15 @@ _Avoid_: Auto-update, recommendation
 **Athlete Time Zone**:
 The time zone an athlete's calendar days are counted in, such as the day an Activity falls on for the Thresholds in force then. Set from the athlete's browser when they first sign in, changeable in Settings, and UTC until set.
 _Avoid_: Locale, timezone offset
+
+**Training Load**:
+One number per Activity for how much physiological stress it imposed, scaled so one hour at threshold is 100, computed by the first Training Load Method whose data and Threshold the Activity has, against the Thresholds in force on its date.
+An Activity with none (no Activity Details, no usable stream, or a missing Threshold) has no Training Load and records why. Derived, so recomputed, never edited.
+_Avoid_: TSS, stress score, effort, load score
+
+**Training Load Method**:
+How a Training Load was computed, tried in this order: RSS (Running Stress Score, from power against critical power, for Runs, Walks and Hikes), rTSS (from Normalized Graded Pace against threshold pace over Moving Time, for Runs) and HRSS (Heart Rate Stress Score, Banister's TRIMP over heart rate normalised to one hour at LTHR, for any sport). A power or heart-rate stream is used only when it covers at least 80% of the recorded time.
+_Avoid_: Load type, scoring model
 
 **Dashboard**:
 The athlete's primary landing view summarizing Personal Records, aggregate training volume, and performance trends across recorded Activities.
