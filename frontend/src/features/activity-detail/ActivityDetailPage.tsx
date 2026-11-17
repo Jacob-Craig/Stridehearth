@@ -1,5 +1,5 @@
 import { Link, useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useDeleteActivity } from '../../api/activities';
 import type {
   ActivityDetailDto,
@@ -10,6 +10,8 @@ import {
   formatDate,
   formatDistanceKm,
   formatDuration,
+  formatEfficiencyFactor,
+  formatNgpPerKm,
   formatOptional,
   formatPacePerKm,
   formatSport,
@@ -19,6 +21,7 @@ import { parseApiError } from '../../utils/error';
 import { ActivityHistoryDialog } from './ActivityHistoryDialog';
 import { ActivityVisualization } from './ActivityVisualization';
 import { BestEffortsTable } from './BestEffortsTable';
+import { DecouplingBadge } from './DecouplingBadge';
 import { LapsTable } from './LapsTable';
 import { SECONDARY_BUTTON_CLASS } from './styles';
 
@@ -120,13 +123,25 @@ export function ActivityDetailPage({ userId, activity, telemetry }: ActivityDeta
   );
 }
 
+/**
+ * The summary tiles, five per row on wide screens: the recorded metrics, then a Run's derived
+ * metrics (NGP, Efficiency Factor, Aerobic Decoupling) when it has them.
+ */
 function SummaryMetrics({ activity }: { activity: ActivityDetailDto }) {
-  const metrics: ReadonlyArray<readonly [label: string, value: string]> = [
+  const { runMetrics } = activity;
+  const metrics: ReadonlyArray<readonly [label: string, value: ReactNode]> = [
     ['Distance', formatDistanceKm(activity.distance)],
     ['Duration', formatDuration(activity.timeTakenSeconds)],
     ['Avg Pace', formatPacePerKm(activity.averagePaceKmh)],
     ['Avg Heart Rate', formatOptional(activity.averageHeartRate, 'bpm')],
     ['Calories', formatOptional(activity.calories, 'kcal')],
+    ...(runMetrics
+      ? ([
+          ['NGP', formatNgpPerKm(runMetrics.ngpMetersPerSecond)],
+          ['Efficiency Factor', formatEfficiencyFactor(runMetrics.efficiencyFactor)],
+          ['Aerobic Decoupling', <DecouplingBadge key="decoupling" runMetrics={runMetrics} />],
+        ] as const)
+      : []),
   ];
   return (
     <ul

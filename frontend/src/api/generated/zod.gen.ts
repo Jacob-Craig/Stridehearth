@@ -243,8 +243,8 @@ export const zLapsUpgradeDto = z.intersection(z.union([
     zBackfilledLapsDto,
     zReplacedLapsDto
 ]), z.object({
-    count: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }).optional(),
-    kind: z.string().optional()
+    kind: z.string().optional(),
+    count: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }).optional()
 }));
 
 export const zSportChangeDto = z.object({
@@ -470,6 +470,14 @@ export const zActivityLapDto = z.object({
     elevationGainMeters: z.number().nullable()
 });
 
+export const zDecouplingUnavailableReason = z.enum([
+    'NO_PACE_DATA',
+    'NO_HEART_RATE',
+    'TOO_SHORT',
+    'HEART_RATE_GAP_IN_HALF',
+    'NOT_STEADY'
+]);
+
 export const zEffortWindowDto = z.object({
     startIndex: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }),
     endIndex: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }),
@@ -493,6 +501,14 @@ export const zActivityBestEffortDto = z.object({
     distanceMeters: z.number(),
     elapsedTimeSeconds: z.number(),
     window: zEffortWindowDto
+});
+
+export const zRunMetricsDto = z.object({
+    movingSeconds: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    ngpMetersPerSecond: z.number().nullable(),
+    efficiencyFactor: z.number().nullable(),
+    aerobicDecouplingPercent: z.number().nullable(),
+    decouplingUnavailableReason: zDecouplingUnavailableReason.nullable()
 });
 
 export const zActivityDetailDto = z.object({
@@ -522,7 +538,12 @@ export const zActivityDetailDto = z.object({
     ownerUsername: z.string(),
     laps: z.array(zActivityLapDto),
     history: z.array(zActivityHistoryEntryDto),
-    bestEfforts: z.array(zActivityBestEffortDto)
+    bestEfforts: z.array(zActivityBestEffortDto),
+    runMetrics: zRunMetricsDto.nullable()
+});
+
+export const zActivityDerivedStreamsDto = z.object({
+    gapSpeed: z.array(z.number().nullable()).nullable()
 });
 
 export const zActivityTelemetryBestEffortDto = z.object({
@@ -638,6 +659,7 @@ export const zActivityTelemetryResponseDto = z.object({
     ]),
     route: zGeoJsonLineStringDto.nullable(),
     bestEfforts: z.array(zActivityTelemetryBestEffortDto),
+    derivedStreams: zActivityDerivedStreamsDto,
     telemetry: zActivityTelemetryStreamsDto
 });
 

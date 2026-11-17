@@ -33,8 +33,26 @@ data class ActivityTelemetryResponseDTO(
     val route: GeoJsonLineStringDTO?,
     @field:Schema(requiredMode = REQUIRED, description = "Best Efforts, shortest Benchmark Distance first")
     val bestEfforts: List<ActivityTelemetryBestEffortDTO>,
+    @field:Schema(requiredMode = REQUIRED, description = "Streams derived from the Activity Details, parallel to telemetry.t")
+    val derivedStreams: ActivityDerivedStreamsDTO,
     @field:Schema(requiredMode = REQUIRED)
     val telemetry: ActivityTelemetryStreamsDTO,
+)
+
+/**
+ * Streams derived from the **Activity Details** (through their **Cleaned Activity Details**), never recorded by
+ * the device. Each is parallel to `telemetry.t`, or null when it was not computed for this Activity.
+ */
+data class ActivityDerivedStreamsDTO(
+    @field:Schema(
+        types = [ARRAY, NULL],
+        requiredMode = REQUIRED,
+        description =
+            "Grade-Adjusted Pace as a speed in metres per second; null for sports without it. " +
+                "An element is null where cleaned speed is missing",
+    )
+    @field:ArraySchema(schema = Schema(types = [NUMBER, NULL]))
+    val gapSpeed: List<Double?>?,
 )
 
 /** A GeoJSON `LineString` (RFC 7946) of `[longitude, latitude]` positions. */

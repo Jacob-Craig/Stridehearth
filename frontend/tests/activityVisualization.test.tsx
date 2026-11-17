@@ -39,6 +39,7 @@ const coordinates = [
 function telemetry(
   streams: Partial<ActivityTelemetryStreamsDto> = {},
   route: ActivityTelemetryResponseDto['route'] = { type: 'LineString', coordinates },
+  derivedStreams: ActivityTelemetryResponseDto['derivedStreams'] = { gapSpeed: null },
 ): ActivityTelemetryResponseDto {
   const unrecorded = Object.fromEntries(
     Object.keys(zActivityTelemetryStreamsDto.shape).map((stream) => [stream, null]),
@@ -48,6 +49,7 @@ function telemetry(
     sport: 'RUN',
     route,
     bestEfforts: [],
+    derivedStreams,
     telemetry: {
       ...unrecorded,
       t: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
@@ -92,6 +94,7 @@ const activity: ActivityDetailDto = {
   laps: [],
   history: [],
   bestEfforts: [effort],
+  runMetrics: null,
 };
 
 function json(body: unknown): Response {
@@ -342,6 +345,98 @@ describe('Activity Details route map and sensor charts', () => {
       ),
     ).toBeInTheDocument();
     expect(rendered.charts).toHaveLength(0);
+  });
+});
+
+describe('Grade-Adjusted Pace overlay', () => {
+  const hilly = {
+    enhancedAltitude: [30, 31, 32, 33, 34, 34, 33, 32, 31, 30],
+    enhancedSpeed: [3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+  };
+  // 3 m/s with GAP faster uphill and slower downhill; m/s, as the server sends it.
+  const gapSpeed = [3.5, 3.5, 3.5, 3.5, 3, 3, 2.5, 2.5, 2.5, 2.5];
+  const speedChart = () =>
+    rendered.liveCharts().find((chart) => chart.options.series.label === 'Speed')!;
+
+  it('overlays GAP in km/h on the Speed chart, shown by default, with a pressed toggle in its caption', async () => {
+    renderActivity(telemetry(hilly, undefined, { gapSpeed }));
+    await chartsAndMapReady(['Elevation', 'Speed', 'Heart Rate', 'Cadence']);
+
+    const overlay = speedChart().options.overlay!;
+    expect(overlay).toMatchObject({ label: 'GAP', visible: true });
+    expect(overlay.samples.x).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(overlay.samples.y.map((kmh) => Math.round(kmh! * 10) / 10)).toEqual([
+      12.6, 12.6, 12.6, 12.6, 10.8, 10.8, 9, 9, 9, 9,
+    ]);
+    const speedFigure = screen.getByRole('figure', { name: 'Speed (km/h)' });
+    expect(within(speedFigure).getByRole('button', { name: 'GAP' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    // Only the Speed chart has the overlay and the toggle.
+    expect(rendered.liveCharts().filter((chart) => chart.options.overlay)).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'GAP' })).toHaveLength(1);
+  });
+
+  it('toggles GAP off and on again in place, without rebuilding the chart', async () => {
+    const user = userEvent.setup();
+    renderActivity(telemetry(hilly, undefined, { gapSpeed }));
+    await chartsAndMapReady(['Elevation', 'Speed', 'Heart Rate', 'Cadence']);
+    const chart = speedChart();
+    const toggle = screen.getByRole('button', { name: 'GAP' });
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    expect(chart.setOverlayVisible).toHaveBeenLastCalledWith(false);
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(chart.setOverlayVisible).toHaveBeenLastCalledWith(true);
+    expect(chart.destroy).not.toHaveBeenCalled();
+    expect(speedChart()).toBe(chart);
+  });
+
+  // jsdom has no layout, so this pins the classes that keep the wider GAP reading inside a phone-width card
+  // (the visual check found a fixed 20 rem box pushing the reading out of a 390 px card, where it was clipped).
+  it('lets the reading box shrink and truncate in a narrow card instead of overflowing it', async () => {
+    renderActivity(telemetry(hilly, undefined, { gapSpeed }));
+    await chartsAndMapReady(['Elevation', 'Speed', 'Heart Rate', 'Cadence']);
+    const speedFigure = screen.getByRole('figure', { name: 'Speed (km/h)' });
+
+    const reading = within(speedFigure).getByRole('status', { name: 'Speed reading' });
+    expect(reading).toHaveClass('min-w-0', 'truncate');
+    expect(reading).not.toHaveClass('shrink-0');
+    // The title and the GAP toggle keep their size, so the title never wraps under the fixed caption height.
+    expect(within(speedFigure).getByRole('button', { name: 'GAP' }).parentElement).toHaveClass(
+      'shrink-0',
+    );
+  });
+
+  it('leaves the charts unchanged when the Activity has no GAP stream', async () => {
+    renderActivity(telemetry(hilly, undefined, { gapSpeed: null }));
+    await chartsAndMapReady(['Elevation', 'Speed', 'Heart Rate', 'Cadence']);
+
+    expect(rendered.liveCharts().some((chart) => chart.options.overlay)).toBe(false);
+    expect(screen.queryByRole('button', { name: 'GAP' })).not.toBeInTheDocument();
+  });
+
+  it('offers no GAP toggle without elevation, where GAP repeats speed', async () => {
+    renderActivity(telemetry({ enhancedSpeed: hilly.enhancedSpeed }, undefined, { gapSpeed }));
+    await chartsAndMapReady(['Speed', 'Heart Rate', 'Cadence']);
+
+    expect(speedChart().options.overlay).toBeUndefined();
+    expect(screen.queryByRole('button', { name: 'GAP' })).not.toBeInTheDocument();
+  });
+
+  it('offers no GAP toggle without a GPS fix, where GAP repeats speed', async () => {
+    // A treadmill Run on a watch with a barometer: elevation but no route, so the server's grade is 0.
+    renderActivity(telemetry({ ...hilly, routeIndex: Array(10).fill(null) }, null, { gapSpeed }));
+    await waitFor(() =>
+      expect(chartLabels()).toEqual(['Elevation', 'Speed', 'Heart Rate', 'Cadence']),
+    );
+
+    expect(speedChart().options.overlay).toBeUndefined();
+    expect(screen.queryByRole('button', { name: 'GAP' })).not.toBeInTheDocument();
   });
 });
 

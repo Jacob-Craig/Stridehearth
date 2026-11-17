@@ -3,6 +3,8 @@ package com.jacobcraig.stridehearth.activities
 import com.jacobcraig.stridehearth.activities.history.ActivityHistoryEntryDTO
 import com.jacobcraig.stridehearth.activities.history.HistoryEntry
 import com.jacobcraig.stridehearth.activities.history.toDto
+import com.jacobcraig.stridehearth.analytics.DecouplingUnavailableReason
+import com.jacobcraig.stridehearth.analytics.RunMetrics
 import com.jacobcraig.stridehearth.system.ActivitySport
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.Instant
@@ -10,7 +12,7 @@ import java.time.Instant
 /**
  * One **Activity** with everything its detail view shows: the summary metrics (canonical primitives
  * only, as in [ActivitySummaryDTO]), its owner, device **Laps**, **Activity History Entries** and
- * **Best Efforts**. The high-resolution **Activity Details** are served separately by
+ * **Best Efforts**, and for a Run its derived [RunMetricsDTO]. The high-resolution **Activity Details** are served separately by
  * `GET /api/activities/{id}/telemetry` ([ActivityTelemetryResponseDTO]).
  */
 data class ActivityDetailDTO(
@@ -47,7 +49,51 @@ data class ActivityDetailDTO(
     val history: List<ActivityHistoryEntryDTO>,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Best Efforts, shortest Benchmark Distance first")
     val bestEfforts: List<ActivityBestEffortDTO>,
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
+        types = ["object", "null"],
+        description = "Derived Run metrics; null for any sport but Run and for a Run whose derived data is not computed yet",
+    )
+    val runMetrics: RunMetricsDTO?,
 )
+
+/**
+ * The derived summary metrics of a Run, unrounded SI values computed from its **Grade-Adjusted Pace** (see
+ * [RunMetrics]). [aerobicDecouplingPercent] is null exactly when [decouplingUnavailableReason] says why.
+ */
+data class RunMetricsDTO(
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Moving Time in seconds")
+    val movingSeconds: Int,
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
+        types = ["number", "null"],
+        description = "Normalized Graded Pace in meters per second",
+    )
+    val ngpMetersPerSecond: Double?,
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
+        types = ["number", "null"],
+        description = "Efficiency Factor: Normalized Graded Pace in meters per minute per beat per minute of heart rate",
+    )
+    val efficiencyFactor: Double?,
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
+        types = ["number", "null"],
+        description = "Aerobic Decoupling in percent; positive when heart rate rose relative to pace",
+    )
+    val aerobicDecouplingPercent: Double?,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = ["string", "null"])
+    val decouplingUnavailableReason: DecouplingUnavailableReason?,
+)
+
+fun RunMetrics.toDto(): RunMetricsDTO =
+    RunMetricsDTO(
+        movingSeconds = movingSeconds,
+        ngpMetersPerSecond = ngpMps,
+        efficiencyFactor = efficiencyFactor,
+        aerobicDecouplingPercent = aerobicDecouplingPct,
+        decouplingUnavailableReason = decouplingUnavailableReason,
+    )
 
 /** One device-recorded **Lap**. Distance is in kilometers and average speed in km/h. */
 data class ActivityLapDTO(
@@ -113,6 +159,7 @@ fun Activity.toDetailDto(
     laps: List<ActivityLap>,
     history: List<HistoryEntry>,
     bestEfforts: List<ActivityBestEffort>,
+    runMetrics: RunMetrics? = null,
 ): ActivityDetailDTO =
     toSummaryDto(hasActivityDetails).let { summary ->
         ActivityDetailDTO(
@@ -131,6 +178,7 @@ fun Activity.toDetailDto(
             laps = laps.map { it.toDto() },
             history = history.map { it.toDto() },
             bestEfforts = bestEfforts.map { it.toDto() },
+            runMetrics = runMetrics?.takeIf { sport == ActivitySport.RUN }?.toDto(),
         )
     }
 

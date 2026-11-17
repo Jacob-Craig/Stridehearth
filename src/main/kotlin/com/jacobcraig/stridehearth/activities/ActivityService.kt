@@ -21,7 +21,9 @@ class ActivityService(
     private val activityBestEffortRepository: ActivityBestEffortRepository,
     private val activityDetailsRepository: ActivityDetailsRepository,
     private val bestEffortRefresh: BestEffortRefresh,
+    private val derivedDataRefresh: DerivedDataRefresh,
     private val heatmapRouteRepository: HeatmapRouteRepository,
+    private val derivedMetricsRepository: ActivityDerivedMetricsRepository,
 ) {
     /** Logs a `MANUAL` **Activity** for [userId], recording its creation as an **Activity History Entry**. */
     @Transactional
@@ -51,6 +53,7 @@ class ActivityService(
                     source = ActivitySource.MANUAL,
                 ),
             )
+        derivedDataRefresh.refresh(saved)
         activityHistory.record(saved, ActivityChange.Created.MANUAL)
         return saved.toSummaryDto(hasActivityDetails = false)
     }
@@ -70,6 +73,7 @@ class ActivityService(
             laps = activityLapRepository.findByActivityIdOrderByLapNumberAsc(id),
             history = activityHistory.entriesFor(id),
             bestEfforts = activityBestEffortRepository.findByActivityId(id).sortedBy { it.benchmarkDistance.distanceMeters },
+            runMetrics = if (activity.sport == ActivitySport.RUN) derivedMetricsRepository.findRunMetrics(id) else null,
         )
     }
 
@@ -120,8 +124,9 @@ class ActivityService(
     }
 
     /**
-     * Applies an edit (with [metrics] only when they are editable), recording history and, on a sport change,
-     * refreshing Best Efforts and recomputing the Activity's heatmap route.
+     * Applies an edit (with [metrics] only when they are editable), recording history; on a sport change it
+     * refreshes Best Efforts and derived data and recomputes the Activity's heatmap route, and on a `startedAt`
+     * change it refreshes derived data.
      */
     private fun applyEdit(
         activity: Activity,
@@ -130,14 +135,19 @@ class ActivityService(
         metrics: ProtectedMetrics?,
     ) {
         val oldSport = activity.sport
+        val oldStartedAt = activity.startedAt
         val changes =
             activity.applyMetadataChanges(title, sport) + (metrics?.let { activity.applyProtectedMetricChanges(it) } ?: emptyList())
 
         activityRepository.save(activity)
+        val previousStartedAt = oldStartedAt.takeIf { it != activity.startedAt }
         if (activity.sport != oldSport) {
             bestEffortRefresh.refresh(activity)
+            derivedDataRefresh.refresh(activity, previousStartedAt = previousStartedAt, previousSport = oldSport)
             // After the refresh, which flushes the edit: a heatmap route insert key-share locks the Activity's row.
             heatmapRouteRepository.recomputeForSport(listOf(activity.id!!), activity.sport)
+        } else if (previousStartedAt != null) {
+            derivedDataRefresh.refresh(activity, previousStartedAt = previousStartedAt)
         }
         // After the refresh: the entry's insert runs at once and key-share locks the Activity's row, which must
         // come after the Personal Record lock (ADR-0006).
@@ -146,7 +156,10 @@ class ActivityService(
         }
     }
 
-    /** Deletes the athlete's Activity [id] and refreshes its **Best Efforts**, returning false if it doesn't exist for them. */
+    /**
+     * Deletes the athlete's Activity [id] and refreshes its **Best Efforts** and derived data, returning false if it
+     * doesn't exist for them.
+     */
     @Transactional
     fun deleteActivity(
         id: Long,
@@ -155,6 +168,7 @@ class ActivityService(
         val existingActivity = activityRepository.findByIdAndUserId(id, userId) ?: return false
         activityRepository.delete(existingActivity)
         bestEffortRefresh.refresh(existingActivity)
+        derivedDataRefresh.refresh(existingActivity)
         return true
     }
 
@@ -175,17 +189,22 @@ class ActivityService(
 
         val edited = mutableListOf<Pair<Activity, List<FieldChange>>>()
         val reclassified = mutableListOf<Activity>()
+        val previousSports = mutableMapOf<Long, ActivitySport>()
         for (activity in ownedActivities) {
             val oldSport = activity.sport
             val changes = activity.applyMetadataChanges(change.title, change.sport)
             if (changes.isNotEmpty()) {
                 activityRepository.save(activity)
                 edited += activity to changes
-                if (activity.sport != oldSport) reclassified += activity
+                if (activity.sport != oldSport) {
+                    reclassified += activity
+                    previousSports[activity.id!!] = oldSport
+                }
             }
         }
         if (reclassified.isNotEmpty()) {
             bestEffortRefresh.refresh(reclassified)
+            derivedDataRefresh.refresh(reclassified, previousSports)
             // Every reclassified Activity now has the batch's sport; after the refresh, as for history below.
             heatmapRouteRepository.recomputeForSport(reclassified.map { it.id!! }, change.sport!!)
         }
@@ -195,7 +214,7 @@ class ActivityService(
     }
 
     /**
-     * Deletes the athlete's [activityIds], refreshing their **Best Efforts** in one call, and returns how many
+     * Deletes the athlete's [activityIds], refreshing their **Best Efforts** and derived data, and returns how many
      * were deleted. All or nothing, like [batchUpdateActivities]: null, deleting nothing, unless every requested
      * Activity exists and belongs to [userId].
      */
@@ -207,17 +226,27 @@ class ActivityService(
         val ownedActivities = findAllOwnedActivities(activityIds, userId) ?: return null
         activityRepository.deleteAll(ownedActivities)
         bestEffortRefresh.refresh(ownedActivities)
+        derivedDataRefresh.refresh(ownedActivities)
         return ownedActivities.size
     }
 
-    /** Every one of [activityIds] as the athlete's Activities, or null if any is missing or another athlete's. */
+    /**
+     * Every one of [activityIds] as the athlete's Activities, in ascending id order, or null if any is missing or
+     * another athlete's.
+     *
+     * The order is the lock order: a batch deletes them, and records their Activity History Entries, in this
+     * order, and `hibernate.order_updates` flushes its updates by id, so a batch takes its Activities' row locks
+     * in the order the derived-data recompute worker locks a page in. The lookup's own order (no ORDER BY, and
+     * chunked) could otherwise deadlock with a worker page, and a batch request, unlike a page, is not retried
+     * (ADR-0014). No row is locked up front, because ADR-0006 takes the Personal Record lock before any row lock.
+     */
     private fun findAllOwnedActivities(
         activityIds: Collection<Long>,
         userId: Long,
     ): List<Activity>? {
         val requestedIds = activityIds.distinct()
         val owned = requestedIds.chunkedForIdLookup().flatMap { activityRepository.findByIdInAndUserId(it, userId) }
-        return owned.takeIf { requestedIds.isNotEmpty() && it.size == requestedIds.size }
+        return owned.takeIf { requestedIds.isNotEmpty() && it.size == requestedIds.size }?.sortedBy { it.id }
     }
 }
 

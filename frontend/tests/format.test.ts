@@ -1,14 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
   averageSpeedKmh,
+  decouplingStatus,
   formatDate,
   formatDateTime,
+  formatDecouplingPercent,
+  formatDecouplingUnavailableReason,
   formatDistanceKm,
   formatDistanceMeters,
   formatDistanceRangeKm,
   formatDuration,
   formatDurationRange,
+  formatEfficiencyFactor,
   formatElevationGain,
+  formatNgpPerKm,
   formatPacePerKm,
 } from '../src/lib/format';
 
@@ -133,5 +138,61 @@ describe('formatDurationRange', () => {
   it('formats a span of elapsed seconds', () => {
     expect(formatDurationRange(10, 250)).toBe('00:10 – 04:10');
     expect(formatDurationRange(3540, 3725)).toBe('59:00 – 01:02:05');
+  });
+});
+
+describe('formatNgpPerKm', () => {
+  it('formats Normalized Graded Pace in m/s as a pace per km', () => {
+    // 10/3 m/s = 12 km/h = 5:00 /km; 4 m/s = 14.4 km/h = 250 s /km.
+    expect(formatNgpPerKm(10 / 3)).toBe('05:00 /km');
+    expect(formatNgpPerKm(4)).toBe('04:10 /km');
+  });
+
+  it('shows a dash when absent', () => {
+    expect(formatNgpPerKm(null)).toBe('—');
+  });
+});
+
+describe('formatEfficiencyFactor', () => {
+  it('formats to two decimal places', () => {
+    expect(formatEfficiencyFactor(1.2)).toBe('1.20');
+    expect(formatEfficiencyFactor(1.23456)).toBe('1.23');
+  });
+
+  it('shows a dash when absent', () => {
+    expect(formatEfficiencyFactor(null)).toBe('—');
+  });
+});
+
+describe('formatDecouplingPercent', () => {
+  it('formats to one decimal place with a percent sign', () => {
+    expect(formatDecouplingPercent(4.94)).toBe('4.9%');
+    expect(formatDecouplingPercent(9.0909)).toBe('9.1%');
+    expect(formatDecouplingPercent(-2)).toBe('-2.0%');
+  });
+});
+
+describe('decouplingStatus', () => {
+  it('is coupled below 5 percent, including negative drift', () => {
+    expect(decouplingStatus(4.9)).toBe('coupled');
+    expect(decouplingStatus(4.999)).toBe('coupled');
+    expect(decouplingStatus(-3)).toBe('coupled');
+  });
+
+  it('is drifting at 5 percent or more', () => {
+    expect(decouplingStatus(5)).toBe('drifting');
+    expect(decouplingStatus(12.5)).toBe('drifting');
+  });
+});
+
+describe('formatDecouplingUnavailableReason', () => {
+  it('explains each reason', () => {
+    expect(formatDecouplingUnavailableReason('NO_HEART_RATE')).toBe('No heart rate');
+    expect(formatDecouplingUnavailableReason('HEART_RATE_GAP_IN_HALF')).toBe(
+      'Heart rate missing in one half',
+    );
+    expect(formatDecouplingUnavailableReason('TOO_SHORT')).toBe('Needs 30 min of running');
+    expect(formatDecouplingUnavailableReason('NOT_STEADY')).toBe('Pace too variable');
+    expect(formatDecouplingUnavailableReason('NO_PACE_DATA')).toBe('No pace data');
   });
 });

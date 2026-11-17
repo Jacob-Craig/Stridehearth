@@ -293,6 +293,93 @@ class ActivityDetailApiIntegrationTest {
             .andExpect(jsonPath("$.bestEfforts[0].formattedPace").doesNotExist())
     }
 
+    /** Stores derived Run metrics for [activity] as the derived-data refresh would. */
+    private fun saveRunMetrics(
+        activity: Activity,
+        reason: String? = null,
+        decoupling: Double? = 4.25,
+    ) = jdbcTemplate.update(
+        """
+        INSERT INTO activity_derived_metrics (activity_id, algorithm_version, moving_seconds, ngp_mps, efficiency_factor,
+            aerobic_decoupling_pct, decoupling_unavailable_reason)
+        VALUES (?, 2, 3540, 3.25, 1.3, ?, ?)
+        ON CONFLICT (activity_id) DO UPDATE SET aerobic_decoupling_pct = EXCLUDED.aerobic_decoupling_pct,
+            decoupling_unavailable_reason = EXCLUDED.decoupling_unavailable_reason
+        """.trimIndent(),
+        activity.id,
+        decoupling,
+        reason,
+    )
+
+    @Test
+    fun `GET api activities id returns a run's Run metrics`() {
+        val run = saveActivity(runner)
+        saveRunMetrics(run)
+
+        mockMvc
+            .perform(get("/api/activities/{id}", run.id).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.runMetrics.movingSeconds").value(3540))
+            .andExpect(jsonPath("$.runMetrics.ngpMetersPerSecond").value(3.25))
+            .andExpect(jsonPath("$.runMetrics.efficiencyFactor").value(1.3))
+            .andExpect(jsonPath("$.runMetrics.aerobicDecouplingPercent").value(4.25))
+            .andExpect(jsonPath("$.runMetrics.decouplingUnavailableReason").value(nullValue()))
+    }
+
+    @Test
+    fun `GET api activities id gives the reason a run has no Aerobic Decoupling`() {
+        val run = saveActivity(runner)
+        saveRunMetrics(run, reason = "NOT_STEADY", decoupling = null)
+
+        mockMvc
+            .perform(get("/api/activities/{id}", run.id).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.runMetrics.aerobicDecouplingPercent").value(nullValue()))
+            .andExpect(jsonPath("$.runMetrics.decouplingUnavailableReason").value("NOT_STEADY"))
+    }
+
+    @Test
+    fun `GET api activities id still returns a run whose stored reason a later version no longer knows`() {
+        // A row an older algorithm version wrote, which the recompute worker has not reached yet.
+        val run = saveActivity(runner)
+        saveRunMetrics(run, reason = "RETIRED_REASON", decoupling = null)
+
+        mockMvc
+            .perform(get("/api/activities/{id}", run.id).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.runMetrics.ngpMetersPerSecond").value(3.25))
+            .andExpect(jsonPath("$.runMetrics.efficiencyFactor").value(1.3))
+            .andExpect(jsonPath("$.runMetrics.aerobicDecouplingPercent").value(nullValue()))
+            .andExpect(jsonPath("$.runMetrics.decouplingUnavailableReason").value(nullValue()))
+    }
+
+    @Test
+    fun `GET api activities id has null Run metrics for a run without a derived row and for a walk`() {
+        val run = saveActivity(runner)
+        jdbcTemplate.update("DELETE FROM activity_derived_metrics WHERE activity_id = ?", run.id)
+        val walk = saveActivity(runner, source = ActivitySource.MANUAL).apply { sport = ActivitySport.WALK }
+        activityRepository.save(walk)
+        saveRunMetrics(walk)
+
+        listOf(run, walk).forEach {
+            mockMvc
+                .perform(get("/api/activities/{id}", it.id).accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.runMetrics").value(nullValue()))
+        }
+    }
+
+    @Test
+    fun `GET api activities id never returns another athlete's Run metrics`() {
+        val notMine = saveActivity(otherRunner)
+        saveRunMetrics(notMine)
+
+        mockMvc
+            .perform(get("/api/activities/{id}", notMine.id).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.runMetrics").doesNotExist())
+    }
+
     @Test
     fun `GET api activities id returns a uniform 404 for another athlete's activity and a missing one`() {
         val notMine = saveActivity(otherRunner)

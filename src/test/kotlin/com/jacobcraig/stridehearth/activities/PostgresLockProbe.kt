@@ -73,6 +73,30 @@ class PostgresLockProbe(
     }
 
     /**
+     * Polls until a backend other than [excluding] waits on a heavyweight lock that is not an advisory lock (such as
+     * another transaction's row lock), and returns it: the way to find the backend of work that opens its own
+     * transaction. Fails after a timeout, or as soon as [ended] reports that the work finished without waiting.
+     */
+    fun awaitRowLockWaiter(
+        excluding: Set<Int> = emptySet(),
+        ended: () -> Boolean = { false },
+    ): Int {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30)
+        while (System.nanoTime() < deadline) {
+            val waiter =
+                jdbcClient
+                    .sql("SELECT pid FROM pg_locks WHERE locktype <> 'advisory' AND NOT granted")
+                    .query(Int::class.java)
+                    .list()
+                    .firstOrNull { it !in excluding }
+            if (waiter != null) return waiter
+            check(!ended()) { "The work ended without waiting on a lock" }
+            Thread.onSpinWait()
+        }
+        fail("No backend other than $excluding started waiting on a lock")
+    }
+
+    /**
      * Polls until backend [pid] reaches [what], as [reached] reports. Fails after a timeout, or as soon as [ended]
      * reports that the backend's work finished without getting there.
      */

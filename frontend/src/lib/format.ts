@@ -3,7 +3,7 @@
  * The API never pre-formats values; every human-readable string is produced here.
  */
 
-import type { ActivitySummaryDto } from '../api/generated/types.gen';
+import type { ActivitySummaryDto, RunMetricsDto } from '../api/generated/types.gen';
 
 export type ActivitySport = ActivitySummaryDto['sport'];
 
@@ -35,6 +35,44 @@ export function formatPacePerKm(speedKmh: number | null): string {
   if (speedKmh === null || !Number.isFinite(speedKmh) || speedKmh <= 0) return MISSING;
   const secondsPerKm = Math.round(3600 / speedKmh);
   return `${pad2(Math.floor(secondsPerKm / 60))}:${pad2(secondsPerKm % 60)} /km`;
+}
+
+/** Formats a **Normalized Graded Pace** in m/s as a running pace, e.g. `05:00 /km`, or `—` when absent. */
+export function formatNgpPerKm(metersPerSecond: number | null): string {
+  return metersPerSecond === null ? MISSING : formatPacePerKm(metersPerSecond * 3.6);
+}
+
+/** Formats an **Efficiency Factor** (m/min per bpm) to two decimal places, or `—` when absent. */
+export function formatEfficiencyFactor(efficiencyFactor: number | null): string {
+  return efficiencyFactor === null ? MISSING : efficiencyFactor.toFixed(2);
+}
+
+/** Formats an **Aerobic Decoupling** percentage to one decimal place, e.g. `4.9%`. */
+export function formatDecouplingPercent(percent: number): string {
+  return `${percent.toFixed(1)}%`;
+}
+
+/** At or above this **Aerobic Decoupling** percentage, heart rate drifted from pace. */
+export const DECOUPLING_DRIFT_PERCENT = 5;
+
+/** Whether an **Aerobic Decoupling** shows heart rate and pace coupled (below 5 %, negative included). */
+export function decouplingStatus(percent: number): 'coupled' | 'drifting' {
+  return percent < DECOUPLING_DRIFT_PERCENT ? 'coupled' : 'drifting';
+}
+
+export type DecouplingUnavailableReason = NonNullable<RunMetricsDto['decouplingUnavailableReason']>;
+
+const DECOUPLING_UNAVAILABLE_LABELS: Readonly<Record<DecouplingUnavailableReason, string>> = {
+  NO_PACE_DATA: 'No pace data',
+  NO_HEART_RATE: 'No heart rate',
+  TOO_SHORT: 'Needs 30 min of running',
+  HEART_RATE_GAP_IN_HALF: 'Heart rate missing in one half',
+  NOT_STEADY: 'Pace too variable',
+};
+
+/** Why a Run has no **Aerobic Decoupling**, e.g. `Pace too variable`. */
+export function formatDecouplingUnavailableReason(reason: DecouplingUnavailableReason): string {
+  return DECOUPLING_UNAVAILABLE_LABELS[reason];
 }
 
 const kilometersFormat = new Intl.NumberFormat('en-GB', {

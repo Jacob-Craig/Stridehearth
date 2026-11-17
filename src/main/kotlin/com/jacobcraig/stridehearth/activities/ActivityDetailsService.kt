@@ -32,6 +32,17 @@ class ActivityDetailsService(
     private val activityLapRepository: ActivityLapRepository,
 ) {
     /**
+     * Takes the row lock [offer] takes on each of [activityIds] in one statement, in ascending id order, as a
+     * derived-data recompute page does (ADR-0014). A caller about to offer details for several existing Activities
+     * locks them all through this first: offering one by one would lock them in the caller's order, which can
+     * deadlock with a page holding the same Activities. Their **Personal Record** locks come first (ADR-0006).
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun lockActivities(activityIds: Collection<Long>) {
+        if (activityIds.isNotEmpty()) activityDetailsRepository.lockActivities(activityIds)
+    }
+
+    /**
      * Offers newly parsed [details] (if the file had any) and [laps] for [activity], decoded by
      * [parserVersion]. Writes only what the rule decides and returns what changed.
      *
@@ -85,6 +96,19 @@ class ActivityDetailsService(
             distance = distance,
         )
         return stored.copy(lons = lons, lats = lats, distance = distance)
+    }
+
+    /**
+     * Reads an Activity's stored details as derived analytics need them (the series **Telemetry Cleaning** reads,
+     * and power), or `null` when none are stored. A pure read: it never writes. When the stored details lack
+     * distance the route is read too, so cleaning can synthesize distance in memory exactly as the parser would;
+     * the stored row is left unchanged.
+     */
+    fun findAnalyticsSeries(activityId: Long): FitTelemetry? {
+        val stored = activityDetailsRepository.findStoredAnalyticsSeries(activityId) ?: return null
+        if (stored.hasDistance) return stored
+        val (lons, lats) = activityDetailsRepository.findStoredRoute(activityId)
+        return stored.copy(lons = lons, lats = lats)
     }
 
     private fun write(

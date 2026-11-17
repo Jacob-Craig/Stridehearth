@@ -22,8 +22,12 @@ Replacing an Activity's stored Activity Details and Laps with ones decoded from 
 _Avoid_: Re-parse, migration
 
 **Backfill**:
-Filling in something an Activity lacks (Activity Details, their distance, Laps, or Best Efforts) without replacing anything it already has.
+Filling in something an Activity lacks (Activity Details, their distance, Laps, Best Efforts, or derived data such as Grade-Adjusted Pace or Normalized Graded Pace) without replacing anything it already has. Replacing derived data that is out of date is a Recompute.
 _Avoid_: Repair, fix-up
+
+**Recompute (derived data)**:
+Replacing an Activity's stored derived data (such as its Grade-Adjusted Pace or Run metrics like Normalized Graded Pace) because something it was computed from changed: its Activity Details, its sport or start time, or the version of the algorithm that computed it. It never changes the Activity itself, so it leaves no Activity History Entry.
+_Avoid_: Reprocess, regenerate, migration
 
 **Activity Source**:
 The origin or mechanism by which an activity was ingested into the system (e.g. manual entry, FIT file upload).
@@ -34,7 +38,7 @@ Summary measurements on an Activity (start time, distance, duration, pace, heart
 _Avoid_: Locked fields, protected fields, read-only metrics
 
 **Activity History Entry**:
-A chronological audit record of one change to an Activity's own recorded data: its creation, an edit to its metadata or Protected Metrics, or a backfill or upgrade of its Activity Details and Laps. Recomputing derived data (Best Efforts, Personal Records) does not change the Activity and leaves no entry.
+A chronological audit record of one change to an Activity's own recorded data: its creation, an edit to its metadata or Protected Metrics, or a backfill or upgrade of its Activity Details and Laps. Recomputing derived data (Best Efforts, Personal Records, Grade-Adjusted Pace) does not change the Activity and leaves no entry.
 _Avoid_: Activity log, audit trail, change event
 
 **Activity Change**:
@@ -91,6 +95,41 @@ _Avoid_: Segment, segment effort, fastest interval
 An athlete's all-time fastest Best Effort achieved across all recorded Activities for a specific Benchmark Distance and Sport.
 When two Best Efforts tie, the one from the earlier Activity holds the Personal Record.
 _Avoid_: Personal best, PR segment, record effort
+
+**Telemetry Cleaning**:
+The pass that produces Cleaned Activity Details from an Activity's Activity Details and sport: it rejects GPS spikes (speeds above the sport's ceiling and distance jumps), treats heart rate as missing during dropouts and cadence-lock, interpolates gaps of up to 10 seconds, and smooths altitude over a 15 m distance window.
+It never changes the stored Activity Details, and an Activity with no GPS fix keeps its speed, distance and altitude exactly as recorded.
+_Avoid_: Filtering, sanitising, data correction
+
+**Cleaned Activity Details**:
+Speed, distance, heart-rate and altitude series computed from an Activity's Activity Details by Telemetry Cleaning, with GPS spikes, heart-rate dropouts and altitude noise removed.
+They are never stored and never shown in place of Activity Details; derived analytics read them. Best Efforts are the exception: they are measured on the recorded distance.
+_Avoid_: Filtered telemetry, corrected data, cleaned streams
+
+**Grade-Adjusted Pace (GAP)**:
+The pace an athlete would have held on flat ground for the same effort, computed per sample from Cleaned Activity Details and the gradient (Minetti's cost of running, grade clamped to ±45%), for Runs, Walks and Hikes.
+Stored as a speed; derived, so recomputed, never edited. Without altitude or a GPS fix it equals the cleaned speed.
+_Avoid_: Effort pace, adjusted speed
+
+**Moving Time**:
+The seconds of a Run spent moving: its Grade-Adjusted Pace resampled to one value a second, leaving out recording pauses longer than 10 seconds and seconds slower than 0.5 m/s.
+Derived, so recomputed, never edited. It is not the Activity's recorded duration.
+_Avoid_: Active time, elapsed time
+
+**Normalized Graded Pace (NGP)**:
+A Run's Grade-Adjusted Pace weighted towards its harder stretches: the fourth-power mean of its 30-second rolling average over Moving Time. It needs no heart rate.
+Stored as a speed; derived, so recomputed, never edited.
+_Avoid_: Normalized pace, NP, weighted pace
+
+**Efficiency Factor (EF)**:
+A Run's Normalized Graded Pace in metres per minute divided by its average heart rate over Moving Time. A Run whose heart rate covers less than 80% of its Moving Time has none.
+Derived, so recomputed, never edited.
+_Avoid_: Efficiency, pace-to-heart-rate ratio
+
+**Aerobic Decoupling**:
+How far a Run's Efficiency Factor fell from the first half to the second, as a percentage of the first, after leaving out the first 10% (warm-up) and last 5% (cool-down) of Moving Time. Below 5% heart rate stayed coupled to pace; 5% or more is drift.
+It is only reported for a steady state: at least 30 minutes of Moving Time and a 30-second rolling Grade-Adjusted Pace that varies by less than 12% (coefficient of variation). Otherwise it is absent with the reason (no pace data, no heart rate, too short, heart rate missing in one half, not steady). Derived, so recomputed, never edited.
+_Avoid_: Cardiac drift, Pa:HR, heart-rate drift
 
 **Dashboard**:
 The athlete's primary landing view summarizing Personal Records, aggregate training volume, and performance trends across recorded Activities.

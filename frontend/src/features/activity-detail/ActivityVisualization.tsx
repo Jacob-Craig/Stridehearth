@@ -29,12 +29,15 @@ function EmptyPanel({ children }: { readonly children: ReactNode }) {
  * Map and chart panels have fixed heights, so nothing shifts as they render.
  */
 export function ActivityVisualization({ telemetry, selectedEffort }: ActivityVisualizationProps) {
-  const { route, telemetry: streams } = telemetry;
+  const { route, telemetry: streams, derivedStreams } = telemetry;
   const timeline = useMemo<RouteTimeline | null>(() => {
     const coordinates = route && parseRoute(route.coordinates);
     return coordinates ? { coordinates, t: streams.t, routeIndex: streams.routeIndex } : null;
   }, [route, streams]);
-  const series = useMemo(() => selectChartSeries(streams), [streams]);
+  const series = useMemo(
+    () => selectChartSeries(streams, derivedStreams),
+    [streams, derivedStreams],
+  );
   const bus = useTelemetryScrubber(timeline);
   const highlight = selectedEffort?.window ?? null;
 

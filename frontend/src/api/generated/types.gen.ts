@@ -235,8 +235,8 @@ export type ImportBatchSummaryDto = {
 };
 
 export type LapsUpgradeDto = (BackfilledLapsDto | ReplacedLapsDto) & {
-    count?: number;
     kind?: string;
+    count?: number;
 };
 
 export type LegacyChangeDto = {
@@ -429,6 +429,10 @@ export type ActivityDetailDto = {
      * Best Efforts, shortest Benchmark Distance first
      */
     bestEfforts: Array<ActivityBestEffortDto>;
+    /**
+     * Derived Run metrics; null for any sport but Run and for a Run whose derived data is not computed yet
+     */
+    runMetrics: RunMetricsDto | null;
 };
 
 export type ActivityHistoryEntryDto = {
@@ -453,6 +457,8 @@ export type ActivityLapDto = {
     elevationGainMeters: number | null;
 };
 
+export type DecouplingUnavailableReason = 'NO_PACE_DATA' | 'NO_HEART_RATE' | 'TOO_SHORT' | 'HEART_RATE_GAP_IN_HALF' | 'NOT_STEADY';
+
 export type EffortWindowDto = {
     startIndex: number;
     endIndex: number;
@@ -460,6 +466,33 @@ export type EffortWindowDto = {
     endTimeSeconds: number;
     startDistanceMeters: number;
     endDistanceMeters: number;
+};
+
+export type RunMetricsDto = {
+    /**
+     * Moving Time in seconds
+     */
+    movingSeconds: number;
+    /**
+     * Normalized Graded Pace in meters per second
+     */
+    ngpMetersPerSecond: number | null;
+    /**
+     * Efficiency Factor: Normalized Graded Pace in meters per minute per beat per minute of heart rate
+     */
+    efficiencyFactor: number | null;
+    /**
+     * Aerobic Decoupling in percent; positive when heart rate rose relative to pace
+     */
+    aerobicDecouplingPercent: number | null;
+    decouplingUnavailableReason: DecouplingUnavailableReason | null;
+};
+
+export type ActivityDerivedStreamsDto = {
+    /**
+     * Grade-Adjusted Pace as a speed in metres per second; null for sports without it. An element is null where cleaned speed is missing
+     */
+    gapSpeed: Array<number | null> | null;
 };
 
 export type ActivityTelemetryBestEffortDto = {
@@ -484,6 +517,10 @@ export type ActivityTelemetryResponseDto = {
      * Best Efforts, shortest Benchmark Distance first
      */
     bestEfforts: Array<ActivityTelemetryBestEffortDto>;
+    /**
+     * Streams derived from the Activity Details, parallel to telemetry.t
+     */
+    derivedStreams: ActivityDerivedStreamsDto;
     telemetry: ActivityTelemetryStreamsDto;
 };
 

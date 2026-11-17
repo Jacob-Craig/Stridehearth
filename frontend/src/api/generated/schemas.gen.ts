@@ -1010,12 +1010,12 @@ export const LapsUpgradeDTOSchema = {
         }
     ],
     properties: {
+        kind: {
+            type: 'string'
+        },
         count: {
             type: 'integer',
             format: 'int32'
-        },
-        kind: {
-            type: 'string'
         }
     }
 } as const;
@@ -1754,6 +1754,14 @@ export const ActivityDetailDTOSchema = {
             items: {
                 $ref: '#/components/schemas/ActivityBestEffortDTO'
             }
+        },
+        runMetrics: {
+            type: [
+                'object',
+                'null'
+            ],
+            $ref: '#/components/schemas/RunMetricsDTO',
+            description: 'Derived Run metrics; null for any sport but Run and for a Run whose derived data is not computed yet'
         }
     },
     required: [
@@ -1767,6 +1775,7 @@ export const ActivityDetailDTOSchema = {
         'id',
         'laps',
         'ownerUsername',
+        'runMetrics',
         'source',
         'sport',
         'startedAt',
@@ -1851,6 +1860,17 @@ export const ActivityLapDTOSchema = {
     ]
 } as const;
 
+export const DecouplingUnavailableReasonSchema = {
+    type: 'string',
+    enum: [
+        'NO_PACE_DATA',
+        'NO_HEART_RATE',
+        'TOO_SHORT',
+        'HEART_RATE_GAP_IN_HALF',
+        'NOT_STEADY'
+    ]
+} as const;
+
 export const EffortWindowDTOSchema = {
     type: 'object',
     properties: {
@@ -1886,6 +1906,77 @@ export const EffortWindowDTOSchema = {
         'startDistanceMeters',
         'startIndex',
         'startTimeSeconds'
+    ]
+} as const;
+
+export const RunMetricsDTOSchema = {
+    type: 'object',
+    properties: {
+        movingSeconds: {
+            type: 'integer',
+            format: 'int32',
+            description: 'Moving Time in seconds'
+        },
+        ngpMetersPerSecond: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Normalized Graded Pace in meters per second'
+        },
+        efficiencyFactor: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Efficiency Factor: Normalized Graded Pace in meters per minute per beat per minute of heart rate'
+        },
+        aerobicDecouplingPercent: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Aerobic Decoupling in percent; positive when heart rate rose relative to pace'
+        },
+        decouplingUnavailableReason: {
+            type: [
+                'string',
+                'null'
+            ],
+            $ref: '#/components/schemas/DecouplingUnavailableReason'
+        }
+    },
+    required: [
+        'aerobicDecouplingPercent',
+        'decouplingUnavailableReason',
+        'efficiencyFactor',
+        'movingSeconds',
+        'ngpMetersPerSecond'
+    ]
+} as const;
+
+export const ActivityDerivedStreamsDTOSchema = {
+    type: 'object',
+    properties: {
+        gapSpeed: {
+            type: [
+                'array',
+                'null'
+            ],
+            description: 'Grade-Adjusted Pace as a speed in metres per second; null for sports without it. An element is null where cleaned speed is missing',
+            items: {
+                type: [
+                    'number',
+                    'null'
+                ]
+            }
+        }
+    },
+    required: [
+        'gapSpeed'
     ]
 } as const;
 
@@ -1977,6 +2068,10 @@ export const ActivityTelemetryResponseDTOSchema = {
                 $ref: '#/components/schemas/ActivityTelemetryBestEffortDTO'
             }
         },
+        derivedStreams: {
+            $ref: '#/components/schemas/ActivityDerivedStreamsDTO',
+            description: 'Streams derived from the Activity Details, parallel to telemetry.t'
+        },
         telemetry: {
             $ref: '#/components/schemas/ActivityTelemetryStreamsDTO'
         }
@@ -1984,6 +2079,7 @@ export const ActivityTelemetryResponseDTOSchema = {
     required: [
         'activityId',
         'bestEfforts',
+        'derivedStreams',
         'route',
         'sport',
         'telemetry'
