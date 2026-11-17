@@ -11,6 +11,7 @@ import type {
   ActivitySummaryDto,
   ActivityTelemetryResponseDto,
   ActivityTelemetryStreamsDto,
+  RunMetricsDto,
   UserResponseDto,
 } from '../src/api/generated/types.gen';
 import { zActivityTelemetryStreamsDto } from '../src/api/generated/zod.gen';
@@ -327,6 +328,114 @@ describe('/activities/$activityId summary', () => {
     const metrics = screen.getByRole('list', { name: /summary metrics/i });
     expect(within(metrics).getByText('Avg Heart Rate').closest('li')).toHaveTextContent('—');
     expect(screen.queryByRole('region', { name: /route map and sensor charts/i })).toBeNull();
+  });
+
+  describe('Run metrics', () => {
+    const runMetrics = (overrides: Partial<RunMetricsDto> = {}): RunMetricsDto => ({
+      movingSeconds: 3540,
+      ngpMetersPerSecond: 10 / 3,
+      efficiencyFactor: 1.2,
+      aerobicDecouplingPercent: 4.9,
+      decouplingUnavailableReason: null,
+      ...overrides,
+    });
+
+    async function summaryTile(metrics: RunMetricsDto, label: string): Promise<HTMLElement> {
+      stubActivity(detail({ runMetrics: metrics }));
+      renderApp('/activities/42');
+      const list = await screen.findByRole('list', { name: /summary metrics/i });
+      return within(list).getByText(label).closest('li') as HTMLElement;
+    }
+
+    it('shows NGP as a pace and the Efficiency Factor to two decimals', async () => {
+      stubActivity(detail({ runMetrics: runMetrics() }));
+      renderApp('/activities/42');
+
+      const list = await screen.findByRole('list', { name: /summary metrics/i });
+      const metric = (label: string) => within(list).getByText(label).closest('li') as HTMLElement;
+      // 10/3 m/s = 12 km/h = 5:00 /km.
+      expect(metric('NGP')).toHaveTextContent('05:00 /km');
+      expect(metric('Efficiency Factor')).toHaveTextContent('1.20');
+    });
+
+    it('shows a green Coupled badge below 5 percent', async () => {
+      const tile = await summaryTile(
+        runMetrics({ aerobicDecouplingPercent: 4.9 }),
+        'Aerobic Decoupling',
+      );
+
+      const badge = within(tile).getByText('Coupled');
+      expect(tile).toHaveTextContent('4.9%');
+      expect(badge.closest('[data-status]')).toHaveAttribute('data-status', 'coupled');
+      expect(badge.closest('[data-status]')?.className).toMatch(/emerald/);
+    });
+
+    it('shows an amber Drifting badge at 5 percent', async () => {
+      const tile = await summaryTile(
+        runMetrics({ aerobicDecouplingPercent: 5 }),
+        'Aerobic Decoupling',
+      );
+
+      const badge = within(tile).getByText('Drifting');
+      expect(tile).toHaveTextContent('5.0%');
+      expect(badge.closest('[data-status]')).toHaveAttribute('data-status', 'drifting');
+      expect(badge.closest('[data-status]')?.className).toMatch(/amber/);
+    });
+
+    it('treats negative decoupling as coupled', async () => {
+      const tile = await summaryTile(
+        runMetrics({ aerobicDecouplingPercent: -2 }),
+        'Aerobic Decoupling',
+      );
+
+      expect(tile).toHaveTextContent('-2.0%');
+      expect(within(tile).getByText('Coupled')).toBeInTheDocument();
+    });
+
+    it.each([
+      ['NO_HEART_RATE', 'No heart rate'],
+      ['TOO_SHORT', 'Needs 30 min of running'],
+      ['NOT_STEADY', 'Pace too variable'],
+      ['NO_PACE_DATA', 'No pace data'],
+    ] as const)('explains why decoupling is unavailable: %s', async (reason, copy) => {
+      const tile = await summaryTile(
+        runMetrics({ aerobicDecouplingPercent: null, decouplingUnavailableReason: reason }),
+        'Aerobic Decoupling',
+      );
+
+      expect(tile).toHaveTextContent('—');
+      expect(tile).toHaveTextContent(copy);
+      expect(within(tile).queryByText(/Coupled|Drifting/)).toBeNull();
+    });
+
+    it('shows dashes for NGP and EF a Run could not compute', async () => {
+      stubActivity(
+        detail({
+          runMetrics: runMetrics({
+            ngpMetersPerSecond: null,
+            efficiencyFactor: null,
+            aerobicDecouplingPercent: null,
+            decouplingUnavailableReason: 'NO_PACE_DATA',
+          }),
+        }),
+      );
+      renderApp('/activities/42');
+
+      const list = await screen.findByRole('list', { name: /summary metrics/i });
+      expect(within(list).getByText('NGP').closest('li')).toHaveTextContent('—');
+      expect(within(list).getByText('Efficiency Factor').closest('li')).toHaveTextContent('—');
+    });
+
+    it('adds no Run metric tiles without Run metrics', async () => {
+      stubActivity(detail({ runMetrics: null }));
+      renderApp('/activities/42');
+
+      const list = await screen.findByRole('list', { name: /summary metrics/i });
+      expect(within(list).getAllByRole('listitem')).toHaveLength(5);
+      expect(within(list).queryByText('NGP')).toBeNull();
+      expect(within(list).queryByText('Efficiency Factor')).toBeNull();
+      expect(within(list).queryByText('Aerobic Decoupling')).toBeNull();
+    });
   });
 
   it('links to the edit screen', async () => {
