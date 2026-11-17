@@ -5,6 +5,8 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.doThrow
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.isNull
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -14,19 +16,19 @@ class DerivedDataRecomputeScheduleTest {
 
     @Test
     fun `each run drains at most the configured number of pages`() {
-        doReturn(RecomputeResult(3, 0)).whenever(worker).drain(any(), any(), anyOrNull())
+        doReturn(RecomputeResult(3, 0)).whenever(worker).drain(any(), any(), anyOrNull(), any())
 
         DerivedDataRecomputeSchedule(worker, pagesPerRun = 4).run()
 
-        verify(worker).drain(DerivedDataRecomputeWorker.PAGE_SIZE, 4, null)
+        verify(worker).drain(eq(DerivedDataRecomputeWorker.PAGE_SIZE), eq(4), isNull(), any())
     }
 
     @Test
     fun `a failing run is logged, not thrown, so the next run retries`() {
-        doThrow(IllegalStateException("database down")).whenever(worker).drain(any(), any(), anyOrNull())
+        doThrow(IllegalStateException("database down")).whenever(worker).drain(any(), any(), anyOrNull(), any())
 
         DerivedDataRecomputeSchedule(worker, pagesPerRun = 4).run()
 
-        verify(worker).drain(DerivedDataRecomputeWorker.PAGE_SIZE, 4, null)
+        verify(worker).drain(eq(DerivedDataRecomputeWorker.PAGE_SIZE), eq(4), isNull(), any())
     }
 }
