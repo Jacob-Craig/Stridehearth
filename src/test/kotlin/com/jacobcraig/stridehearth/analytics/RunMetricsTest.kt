@@ -160,6 +160,16 @@ class RunMetricsTest {
         }
 
         @Test
+        fun `a duplicated timestamp does not stop the gap after it being filled`() {
+            // t = 0..29, 30, 30, 35, 36..59: the duplicate at 30 is ignored and 31..34 are interpolated from it,
+            // so every second from 0 to 59 is moving.
+            val t = IntArray(31) { it } + intArrayOf(30) + IntArray(25) { 35 + it }
+            val result = metrics(run(t, { 3.0 }))
+
+            assertEquals(60, result.movingSeconds)
+        }
+
+        @Test
         fun `samples every 5 s are interpolated to 1 Hz`() {
             // t = 0, 5, ..., 3595: every second from 0 to 3595 is moving.
             val result = metrics(run(IntArray(720) { it * 5 }, { 3.0 }))
@@ -271,6 +281,34 @@ class RunMetricsTest {
         fun `NO_HEART_RATE is reported before TOO_SHORT`() {
             val result = metrics(oneHz(1200, { 3.0 }, hr = { null }))
 
+            assertEquals(DecouplingUnavailableReason.NO_HEART_RATE, result.decouplingUnavailableReason)
+        }
+
+        @Test
+        fun `NO_HEART_RATE in one half is reported before NOT_STEADY`() {
+            // The +/-14 % square wave alone is NOT_STEADY (see below). HR missing for t in [2700, 3420) keeps
+            // overall coverage at 80 % so EF stands, but the second half [1890, 3420) has HR on only 52.9 %.
+            val result =
+                metrics(
+                    oneHz(
+                        3600,
+                        { s -> if ((s / 300) % 2 == 0) 3.0 * 1.14 else 3.0 * 0.86 },
+                        hr = { if (it in 2700 until 3420) null else 150 },
+                    ),
+                )
+
+            assertNotNull(result.efficiencyFactor)
+            assertNull(result.aerobicDecouplingPct)
+            assertEquals(DecouplingUnavailableReason.NO_HEART_RATE, result.decouplingUnavailableReason)
+        }
+
+        @Test
+        fun `NO_HEART_RATE in one half is reported before TOO_SHORT`() {
+            // N = 1200: trimmed [120, 1140), halves [120, 630) and [630, 1140). HR missing for t in [900, 1140)
+            // leaves 960 of 1200 s (80 %) overall but only 270 of 510 s (52.9 %) in the second half.
+            val result = metrics(oneHz(1200, { 3.0 }, hr = { if (it in 900 until 1140) null else 150 }))
+
+            assertNotNull(result.efficiencyFactor)
             assertEquals(DecouplingUnavailableReason.NO_HEART_RATE, result.decouplingUnavailableReason)
         }
 

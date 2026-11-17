@@ -88,28 +88,43 @@ data class RunMetrics(
                 normalized(series.gap, 0, n)
                     ?: return RunMetrics(n, null, null, null, DecouplingUnavailableReason.NO_PACE_DATA)
             val efficiencyFactor = efficiencyFactor(ngp, series.heartRate, 0, n)
+            val halves = Halves(n)
             val (decoupling, reason) =
                 when {
-                    efficiencyFactor == null -> null to DecouplingUnavailableReason.NO_HEART_RATE
+                    efficiencyFactor == null ||
+                        !covered(series.heartRate, halves.from, halves.mid) ||
+                        !covered(series.heartRate, halves.mid, halves.to) ->
+                        null to DecouplingUnavailableReason.NO_HEART_RATE
                     n < MIN_STEADY_SECONDS -> null to DecouplingUnavailableReason.TOO_SHORT
-                    else -> decoupling(series)
+                    else -> decoupling(series, halves)
                 }
             return RunMetrics(n, ngp, efficiencyFactor, decoupling, reason)
         }
 
-        private fun decoupling(series: MovingSeries): Pair<Double?, DecouplingUnavailableReason?> {
-            val n = series.gap.size
+        /** The trimmed range `[ceil(0.10 N), floor(0.95 N))` split by count at [mid]. */
+        private class Halves(
+            n: Int,
+        ) {
             val from = ceil(WARM_UP_FRACTION * n).toInt()
             val to = floor((1 - COOL_DOWN_FRACTION) * n).toInt()
+            val mid = from + (to - from) / 2
+        }
+
+        /** Called only with at least [MIN_STEADY_SECONDS] of Moving Time and heart rate covering both halves. */
+        private fun decoupling(
+            series: MovingSeries,
+            halves: Halves,
+        ): Pair<Double?, DecouplingUnavailableReason?> {
+            val from = halves.from
+            val mid = halves.mid
+            val to = halves.to
             val rolling = rollingMeans(series.gap, from, to)
             val mean = rolling.average()
             val sd = sqrt(rolling.sumOf { (it - mean) * (it - mean) } / rolling.size)
             if (sd / mean >= MAX_STEADY_CV) return null to DecouplingUnavailableReason.NOT_STEADY
-            val mid = from + (to - from) / 2
-            val first = normalized(series.gap, from, mid)?.let { efficiencyFactor(it, series.heartRate, from, mid) }
-            val second = normalized(series.gap, mid, to)?.let { efficiencyFactor(it, series.heartRate, mid, to) }
-            if (first == null || second == null) return null to DecouplingUnavailableReason.NO_HEART_RATE
-            return (first - second) / first * 100 to null
+            val first = efficiencyFactor(checkNotNull(normalized(series.gap, from, mid)), series.heartRate, from, mid)
+            val second = efficiencyFactor(checkNotNull(normalized(series.gap, mid, to)), series.heartRate, mid, to)
+            return (checkNotNull(first) - checkNotNull(second)) / first * 100 to null
         }
 
         /** `(mean r^4)^(1/4)` over the rolling windows lying wholly in [from, to), or null when there are none. */
@@ -147,9 +162,18 @@ data class RunMetrics(
             from: Int,
             to: Int,
         ): Double? {
-            val present = (from until to).mapNotNull { heartRate[it] }
-            if (present.isEmpty() || present.size < MIN_COVERAGE * (to - from)) return null
-            return 60 * ngp / present.average()
+            if (!covered(heartRate, from, to)) return null
+            return 60 * ngp / (from until to).mapNotNull { heartRate[it] }.average()
+        }
+
+        /** Whether heart rate is present on at least [MIN_COVERAGE] of the seconds in [from, to), and on any. */
+        private fun covered(
+            heartRate: Array<Double?>,
+            from: Int,
+            to: Int,
+        ): Boolean {
+            val present = (from until to).count { heartRate[it] != null }
+            return present > 0 && present >= MIN_COVERAGE * (to - from)
         }
 
         private class MovingSeries(
@@ -175,21 +199,29 @@ data class RunMetrics(
                 heartRate += heartRateValue
             }
 
+            var previous = -1
             for (i in t.indices) {
-                if (i > 0 && t[i] <= t[i - 1]) continue
-                keep(gapSpeed.at(i), cleaned.speed.at(i), cleaned.heartRate.getOrNull(i)?.toDouble())
-                val next = i + 1
-                if (next >= t.size) break
-                val dt = t[next] - t[i]
-                if (dt <= 1 || dt > RECORDING_PAUSE_SECONDS) continue
-                for (s in 1 until dt) {
-                    val fraction = s.toDouble() / dt
-                    keep(
-                        lerp(gapSpeed.at(i), gapSpeed.at(next), fraction),
-                        lerp(cleaned.speed.at(i), cleaned.speed.at(next), fraction),
-                        lerp(cleaned.heartRate.getOrNull(i)?.toDouble(), cleaned.heartRate.getOrNull(next)?.toDouble(), fraction),
-                    )
+                if (previous >= 0) {
+                    // A sample that does not advance time is skipped; the gap is filled from the last kept one.
+                    if (t[i] <= t[previous]) continue
+                    val dt = t[i] - t[previous]
+                    if (dt <= RECORDING_PAUSE_SECONDS) {
+                        for (s in 1 until dt) {
+                            val fraction = s.toDouble() / dt
+                            keep(
+                                lerp(gapSpeed.at(previous), gapSpeed.at(i), fraction),
+                                lerp(cleaned.speed.at(previous), cleaned.speed.at(i), fraction),
+                                lerp(
+                                    cleaned.heartRate.getOrNull(previous)?.toDouble(),
+                                    cleaned.heartRate.getOrNull(i)?.toDouble(),
+                                    fraction,
+                                ),
+                            )
+                        }
+                    }
                 }
+                keep(gapSpeed.at(i), cleaned.speed.at(i), cleaned.heartRate.getOrNull(i)?.toDouble())
+                previous = i
             }
             return MovingSeries(gap.toDoubleArray(), heartRate.toTypedArray())
         }

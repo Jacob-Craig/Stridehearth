@@ -382,6 +382,27 @@ describe('/activities/$activityId summary', () => {
       expect(badge.closest('[data-status]')?.className).toMatch(/amber/);
     });
 
+    it('classifies the percentage it displays, so 4.96 shows 5.0% and Drifting', async () => {
+      const tile = await summaryTile(
+        runMetrics({ aerobicDecouplingPercent: 4.96 }),
+        'Aerobic Decoupling',
+      );
+
+      expect(tile).toHaveTextContent('5.0%');
+      const badge = within(tile).getByText('Drifting');
+      expect(badge.closest('[data-status]')).toHaveAttribute('data-status', 'drifting');
+    });
+
+    it('keeps 4.94, displayed as 4.9%, Coupled', async () => {
+      const tile = await summaryTile(
+        runMetrics({ aerobicDecouplingPercent: 4.94 }),
+        'Aerobic Decoupling',
+      );
+
+      expect(tile).toHaveTextContent('4.9%');
+      expect(within(tile).getByText('Coupled')).toBeInTheDocument();
+    });
+
     it('treats negative decoupling as coupled', async () => {
       const tile = await summaryTile(
         runMetrics({ aerobicDecouplingPercent: -2 }),

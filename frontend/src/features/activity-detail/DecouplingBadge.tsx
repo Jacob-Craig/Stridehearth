@@ -43,11 +43,13 @@ export function DecouplingBadge({
       </>
     );
   }
-  const status = decouplingStatus(percent);
+  // Classify the value as displayed (one decimal place), so 4.96 reads "5.0%" and is Drifting.
+  const shown = Number(percent.toFixed(1));
+  const status = decouplingStatus(shown);
   const { label, className } = STATUS_STYLES[status];
   return (
     <span className="flex flex-wrap items-center gap-2">
-      {formatDecouplingPercent(percent)}
+      {formatDecouplingPercent(shown)}
       <span
         data-status={status}
         className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${className}`}
