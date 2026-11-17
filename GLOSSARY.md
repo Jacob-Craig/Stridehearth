@@ -22,7 +22,7 @@ Replacing an Activity's stored Activity Details and Laps with ones decoded from 
 _Avoid_: Re-parse, migration
 
 **Backfill**:
-Filling in something an Activity lacks (Activity Details, their distance, Laps, or Best Efforts) without replacing anything it already has.
+Filling in something an Activity lacks (Activity Details, their distance, Laps, Best Efforts, or derived metrics such as Grade-Adjusted Pace) without replacing anything it already has. Derived metrics computed by an older version of their algorithm count as lacking.
 _Avoid_: Repair, fix-up
 
 **Activity Source**:
@@ -34,7 +34,7 @@ Summary measurements on an Activity (start time, distance, duration, pace, heart
 _Avoid_: Locked fields, protected fields, read-only metrics
 
 **Activity History Entry**:
-A chronological audit record of one change to an Activity's own recorded data: its creation, an edit to its metadata or Protected Metrics, or a backfill or upgrade of its Activity Details and Laps. Recomputing derived data (Best Efforts, Personal Records) does not change the Activity and leaves no entry.
+A chronological audit record of one change to an Activity's own recorded data: its creation, an edit to its metadata or Protected Metrics, or a backfill or upgrade of its Activity Details and Laps. Recomputing derived data (Best Efforts, Personal Records, Grade-Adjusted Pace) does not change the Activity and leaves no entry.
 _Avoid_: Activity log, audit trail, change event
 
 **Activity Change**:
@@ -101,6 +101,11 @@ _Avoid_: Filtering, sanitising, data correction
 Speed, distance, heart-rate and altitude series computed from an Activity's Activity Details by Telemetry Cleaning, with GPS spikes, heart-rate dropouts and altitude noise removed.
 They are never stored and never shown in place of Activity Details; derived analytics read them. Best Efforts are the exception: they are measured on the recorded distance.
 _Avoid_: Filtered telemetry, corrected data, cleaned streams
+
+**Grade-Adjusted Pace (GAP)**:
+The pace an athlete would have held on flat ground for the same effort, computed per sample from Cleaned Activity Details and the gradient (Minetti's cost of running, grade clamped to ±45%), for Runs, Walks and Hikes.
+Stored as a speed; derived, so recomputed, never edited. Without altitude or a GPS fix it equals the cleaned speed.
+_Avoid_: Effort pace, adjusted speed
 
 **Dashboard**:
 The athlete's primary landing view summarizing Personal Records, aggregate training volume, and performance trends across recorded Activities.
