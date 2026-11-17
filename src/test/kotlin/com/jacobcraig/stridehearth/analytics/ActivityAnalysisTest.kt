@@ -32,6 +32,20 @@ class ActivityAnalysisTest {
         assertContentEquals(GradeAdjustedPace.gapSpeed(cleaned), assertNotNull(analysis.gapSpeed))
     }
 
+    @Test
+    fun `a Run gets Run metrics from its cleaned series and GAP stream`() {
+        val analysis = ActivityAnalysis.analyse(climb, ActivitySport.RUN)
+
+        assertEquals(RunMetrics.of(analysis.cleaned, analysis.gapSpeed), analysis.runMetrics)
+        assertEquals(120, assertNotNull(analysis.runMetrics).movingSeconds)
+    }
+
+    @ParameterizedTest
+    @EnumSource(ActivitySport::class, names = ["RUN"], mode = EnumSource.Mode.EXCLUDE)
+    fun `only Runs get Run metrics`(sport: ActivitySport) {
+        assertNull(ActivityAnalysis.analyse(climb, sport).runMetrics)
+    }
+
     @ParameterizedTest
     @EnumSource(ActivitySport::class, names = ["RIDE", "SWIM", "WORKOUT"])
     fun `a sport outside the GAP sports has cleaned details but no GAP stream`(sport: ActivitySport) {

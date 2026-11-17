@@ -9,13 +9,15 @@ import com.jacobcraig.stridehearth.system.fit.FitTelemetry
  * every derived value of an Activity comes from the same cleaning.
  *
  * [gapSpeed] is the **Grade-Adjusted Pace** stream, parallel to `cleaned.t`; `null` for a sport outside
- * [GradeAdjustedPace.GAP_SPORTS] or when no sample has a cleaned speed.
+ * [GradeAdjustedPace.GAP_SPORTS] or when no sample has a cleaned speed. [runMetrics] (Moving Time, Normalized Graded
+ * Pace, Efficiency Factor and Aerobic Decoupling) exist for a Run only.
  *
  * No Spring and no I/O.
  */
 class ActivityAnalysis private constructor(
     val cleaned: CleanedTelemetry,
     val gapSpeed: Array<Float?>?,
+    val runMetrics: RunMetrics?,
 ) {
     companion object {
         /** Cleans [details] for [sport], then computes every derived stream from the result. */
@@ -25,7 +27,8 @@ class ActivityAnalysis private constructor(
         ): ActivityAnalysis {
             val cleaned = TelemetryCleaner.clean(details, sport)
             val gapSpeed = if (sport in GradeAdjustedPace.GAP_SPORTS) GradeAdjustedPace.gapSpeed(cleaned) else null
-            return ActivityAnalysis(cleaned, gapSpeed)
+            val runMetrics = if (sport == ActivitySport.RUN) RunMetrics.of(cleaned, gapSpeed) else null
+            return ActivityAnalysis(cleaned, gapSpeed, runMetrics)
         }
     }
 }
