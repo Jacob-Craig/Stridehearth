@@ -15,6 +15,7 @@ import {
   formatElevationGain,
   formatNgpPerKm,
   formatPacePerKm,
+  formatTrainingLoad,
 } from '../src/lib/format';
 
 describe('formatDuration', () => {
@@ -194,5 +195,13 @@ describe('formatDecouplingUnavailableReason', () => {
     expect(formatDecouplingUnavailableReason('TOO_SHORT')).toBe('Needs 30 min of running');
     expect(formatDecouplingUnavailableReason('NOT_STEADY')).toBe('Pace too variable');
     expect(formatDecouplingUnavailableReason('NO_PACE_DATA')).toBe('No pace data');
+  });
+});
+
+describe('formatTrainingLoad', () => {
+  it('rounds the load to an integer and names the method', () => {
+    expect(formatTrainingLoad({ value: 87.4, method: 'RTSS' })).toBe('87 · rTSS');
+    expect(formatTrainingLoad({ value: 99.5, method: 'RSS' })).toBe('100 · RSS');
+    expect(formatTrainingLoad({ value: 0.2, method: 'HRSS' })).toBe('0 · HRSS');
   });
 });

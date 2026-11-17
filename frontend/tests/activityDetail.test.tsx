@@ -462,6 +462,57 @@ describe('/activities/$activityId summary', () => {
     });
   });
 
+  describe('Training Load', () => {
+    async function trainingLoadTile(overrides: Partial<ActivityDetailDto>): Promise<HTMLElement> {
+      stubActivity(detail(overrides));
+      renderApp('/activities/42');
+      const list = await screen.findByRole('list', { name: /summary metrics/i });
+      return within(list).getByText('Training Load').closest('li') as HTMLElement;
+    }
+
+    it.each([
+      ['RTSS', 87.4, '87 · rTSS'],
+      ['RSS', 112.5, '113 · RSS'],
+      ['HRSS', 63.34, '63 · HRSS'],
+    ] as const)(
+      'shows a %s load rounded to an integer with its method',
+      async (method, value, shown) => {
+        const tile = await trainingLoadTile({ trainingLoad: { value, method } });
+
+        expect(tile).toHaveTextContent(shown);
+      },
+    );
+
+    it.each([
+      ['NO_ACTIVITY_DETAILS', 'No Activity Details recorded'],
+      ['NO_USABLE_STREAM', 'No usable heart rate or power'],
+    ] as const)('explains why there is no Training Load: %s', async (reason, copy) => {
+      const tile = await trainingLoadTile({ trainingLoadUnavailableReason: reason });
+
+      expect(tile).toHaveTextContent('No Training Load');
+      expect(tile).toHaveTextContent(copy);
+      expect(within(tile).queryByRole('link')).toBeNull();
+    });
+
+    it('links to the settings page when Thresholds are missing', async () => {
+      const tile = await trainingLoadTile({ trainingLoadUnavailableReason: 'NO_THRESHOLDS' });
+
+      expect(tile).toHaveTextContent('No Training Load');
+      expect(within(tile).getByRole('link', { name: /set your thresholds/i })).toHaveAttribute(
+        'href',
+        '/settings',
+      );
+    });
+
+    it('adds no tile while the Training Load is not computed yet', async () => {
+      stubActivity(detail({ trainingLoad: null, trainingLoadUnavailableReason: null }));
+      renderApp('/activities/42');
+
+      const list = await screen.findByRole('list', { name: /summary metrics/i });
+      expect(within(list).queryByText('Training Load')).toBeNull();
+    });
+  });
+
   it('links to the edit screen', async () => {
     stubActivity(detail());
     renderApp('/activities/42');
