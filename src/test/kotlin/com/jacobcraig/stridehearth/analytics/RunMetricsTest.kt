@@ -303,13 +303,14 @@ class RunMetricsTest {
         }
 
         @Test
-        fun `HEART_RATE_GAP_IN_HALF is reported before TOO_SHORT`() {
+        fun `TOO_SHORT is reported before HEART_RATE_GAP_IN_HALF`() {
             // N = 1200: trimmed [120, 1140), halves [120, 630) and [630, 1140). HR missing for t in [900, 1140)
-            // leaves 960 of 1200 s (80 %) overall but only 270 of 510 s (52.9 %) in the second half.
+            // leaves 960 of 1200 s (80 %) overall but only 270 of 510 s (52.9 %) in the second half. Even with
+            // perfect heart rate a 20 minute Run has no Decoupling, so the length is the reason that matters.
             val result = metrics(oneHz(1200, { 3.0 }, hr = { if (it in 900 until 1140) null else 150 }))
 
             assertNotNull(result.efficiencyFactor)
-            assertEquals(DecouplingUnavailableReason.HEART_RATE_GAP_IN_HALF, result.decouplingUnavailableReason)
+            assertEquals(DecouplingUnavailableReason.TOO_SHORT, result.decouplingUnavailableReason)
         }
 
         @Test

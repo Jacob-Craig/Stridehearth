@@ -128,7 +128,7 @@ _Avoid_: Efficiency, pace-to-heart-rate ratio
 
 **Aerobic Decoupling**:
 How far a Run's Efficiency Factor fell from the first half to the second, as a percentage of the first, after leaving out the first 10% (warm-up) and last 5% (cool-down) of Moving Time. Below 5% heart rate stayed coupled to pace; 5% or more is drift.
-It is only reported for a steady state: at least 30 minutes of Moving Time and a 30-second rolling Grade-Adjusted Pace that varies by less than 12% (coefficient of variation). Otherwise it is absent with the reason (no pace data, no heart rate, heart rate missing in one half, too short, not steady). Derived, so recomputed, never edited.
+It is only reported for a steady state: at least 30 minutes of Moving Time and a 30-second rolling Grade-Adjusted Pace that varies by less than 12% (coefficient of variation). Otherwise it is absent with the reason (no pace data, no heart rate, too short, heart rate missing in one half, not steady). Derived, so recomputed, never edited.
 _Avoid_: Cardiac drift, Pa:HR, heart-rate drift
 
 **Dashboard**:

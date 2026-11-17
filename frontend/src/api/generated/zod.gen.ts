@@ -473,8 +473,8 @@ export const zActivityLapDto = z.object({
 export const zDecouplingUnavailableReason = z.enum([
     'NO_PACE_DATA',
     'NO_HEART_RATE',
-    'HEART_RATE_GAP_IN_HALF',
     'TOO_SHORT',
+    'HEART_RATE_GAP_IN_HALF',
     'NOT_STEADY'
 ]);
 
