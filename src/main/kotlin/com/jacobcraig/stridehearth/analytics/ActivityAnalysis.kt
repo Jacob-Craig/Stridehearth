@@ -10,7 +10,9 @@ import com.jacobcraig.stridehearth.system.fit.FitTelemetry
  *
  * [gapSpeed] is the **Grade-Adjusted Pace** stream, parallel to `cleaned.t`; `null` for a sport outside
  * [GradeAdjustedPace.GAP_SPORTS] or when no sample has a cleaned speed. [runMetrics] (Moving Time, Normalized Graded
- * Pace, Efficiency Factor and Aerobic Decoupling) exist for a Run only.
+ * Pace, Efficiency Factor and Aerobic Decoupling) exist for a Run only, and so do [peakEfforts]: one per
+ * **Benchmark Duration** the Run spans over its GAP stream, plus power peaks when any power sample was recorded.
+ * GAP peaks read the cleaned stream, so a GPS spike cannot produce one; power is read as recorded.
  *
  * No Spring and no I/O.
  */
@@ -18,6 +20,7 @@ class ActivityAnalysis private constructor(
     val cleaned: CleanedTelemetry,
     val gapSpeed: Array<Float?>?,
     val runMetrics: RunMetrics?,
+    val peakEfforts: List<PeakEffort>,
 ) {
     companion object {
         /** Cleans [details] for [sport], then computes every derived stream from the result. */
@@ -28,7 +31,23 @@ class ActivityAnalysis private constructor(
             val cleaned = TelemetryCleaner.clean(details, sport)
             val gapSpeed = if (sport in GradeAdjustedPace.GAP_SPORTS) GradeAdjustedPace.gapSpeed(cleaned) else null
             val runMetrics = if (sport == ActivitySport.RUN) RunMetrics.of(cleaned, gapSpeed) else null
-            return ActivityAnalysis(cleaned, gapSpeed, runMetrics)
+            val peakEfforts = if (sport == ActivitySport.RUN) peakEfforts(details, cleaned, gapSpeed) else emptyList()
+            return ActivityAnalysis(cleaned, gapSpeed, runMetrics, peakEfforts)
+        }
+
+        private fun peakEfforts(
+            details: FitTelemetry,
+            cleaned: CleanedTelemetry,
+            gapSpeed: Array<Float?>?,
+        ): List<PeakEffort> {
+            val gapPeaks = gapSpeed?.let { PeakEffortDetector.detect(cleaned.t, it, PeakEffortMetric.GAP_SPEED) }.orEmpty()
+            val powerPeaks =
+                if (details.power.any { it != null }) {
+                    PeakEffortDetector.detect(details.t, details.power, PeakEffortMetric.POWER)
+                } else {
+                    emptyList()
+                }
+            return gapPeaks + powerPeaks
         }
     }
 }
