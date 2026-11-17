@@ -119,15 +119,16 @@ const isRecorded = (
 
 /**
  * The **Grade-Adjusted Pace** overlay for the Speed chart, in km/h, or `null` when there is no GAP
- * stream parallel to `t`. Without elevation GAP only repeats speed, so it is offered only with it.
+ * stream parallel to `t`. GAP only repeats speed without elevation, and without a GPS fix (the
+ * server takes the grade as 0 then), so it is offered only with both.
  */
 function gapOverlay(
   derived: ActivityDerivedStreamsDto | null | undefined,
   length: number,
-  hasElevation: boolean,
+  hasGrade: boolean,
 ): ChartOverlay | null {
   const gapSpeed = derived?.gapSpeed;
-  if (!hasElevation || !isRecorded(gapSpeed, length)) return null;
+  if (!hasGrade || !isRecorded(gapSpeed, length)) return null;
   return {
     label: 'GAP',
     color: GAP_COLOR,
@@ -138,13 +139,15 @@ function gapOverlay(
 /**
  * The sensor streams of the **Activity Details** worth charting: every one of the nine sensors with a
  * stream parallel to `t` that recorded at least one value, in display order. The Speed chart carries
- * the **Grade-Adjusted Pace** overlay when `derived` has a GAP stream and elevation was recorded.
+ * the **Grade-Adjusted Pace** overlay when `derived` has a GAP stream and both elevation and a GPS
+ * fix were recorded.
  */
 export function selectChartSeries(
   streams: ActivityTelemetryStreamsDto,
   derived?: ActivityDerivedStreamsDto | null,
 ): ChartSeries[] {
   const length = streams.t.length;
+  const hasGpsFix = streams.routeIndex?.some((vertex) => vertex != null) ?? false;
   const series: ChartSeries[] = [];
   for (const chart of SENSOR_CHARTS) {
     const recorded = chart.streams
@@ -154,11 +157,7 @@ export function selectChartSeries(
     const { transform } = chart;
     const overlay =
       chart.id === 'speed'
-        ? gapOverlay(
-            derived,
-            length,
-            series.some((s) => s.id === 'elevation'),
-          )
+        ? gapOverlay(derived, length, hasGpsFix && series.some((s) => s.id === 'elevation'))
         : null;
     series.push({
       id: chart.id,

@@ -427,6 +427,17 @@ describe('Grade-Adjusted Pace overlay', () => {
     expect(speedChart().options.overlay).toBeUndefined();
     expect(screen.queryByRole('button', { name: 'GAP' })).not.toBeInTheDocument();
   });
+
+  it('offers no GAP toggle without a GPS fix, where GAP repeats speed', async () => {
+    // A treadmill Run on a watch with a barometer: elevation but no route, so the server's grade is 0.
+    renderActivity(telemetry({ ...hilly, routeIndex: Array(10).fill(null) }, null, { gapSpeed }));
+    await waitFor(() =>
+      expect(chartLabels()).toEqual(['Elevation', 'Speed', 'Heart Rate', 'Cadence']),
+    );
+
+    expect(speedChart().options.overlay).toBeUndefined();
+    expect(screen.queryByRole('button', { name: 'GAP' })).not.toBeInTheDocument();
+  });
 });
 
 describe('ultra-long Activity downsampling', () => {

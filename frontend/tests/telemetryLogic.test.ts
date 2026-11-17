@@ -94,7 +94,11 @@ describe('selectChartSeries', () => {
   });
 
   describe('Grade-Adjusted Pace overlay', () => {
-    const hilly = streams({ enhancedAltitude: [30, 31, 32], enhancedSpeed: [2.5, 3, null] });
+    const hilly = streams({
+      routeIndex: [0, 1, 2],
+      enhancedAltitude: [30, 31, 32],
+      enhancedSpeed: [2.5, 3, null],
+    });
 
     it('overlays GAP on the Speed chart in km/h when the Activity has elevation', () => {
       const series = selectChartSeries(hilly, { gapSpeed: [3, 3.5, null] });
@@ -120,6 +124,24 @@ describe('selectChartSeries', () => {
       const flat = streams({ enhancedSpeed: [2.5, 3, 3] });
 
       expect(selectChartSeries(flat, { gapSpeed: [2.5, 3, 3] })[0]!.overlay).toBeUndefined();
+    });
+
+    it('offers no overlay without a GPS fix, where GAP repeats speed', () => {
+      // An indoor Activity with a barometer: grade is 0 without a GPS fix, so GAP equals speed.
+      const indoor = streams({
+        routeIndex: [null, null, null],
+        enhancedAltitude: [30, 31, 32],
+        enhancedSpeed: [2.5, 3, 3],
+      });
+
+      expect(selectChartSeries(indoor, { gapSpeed: [2.5, 3, 3] }).some((s) => s.overlay)).toBe(
+        false,
+      );
+      expect(
+        selectChartSeries({ ...indoor, routeIndex: null }, { gapSpeed: [2.5, 3, 3] }).some(
+          (s) => s.overlay,
+        ),
+      ).toBe(false);
     });
 
     it('offers no overlay for a GAP stream that is not parallel to the elapsed-time stream', () => {
