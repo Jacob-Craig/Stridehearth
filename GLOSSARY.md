@@ -108,7 +108,7 @@ _Avoid_: Filtered telemetry, corrected data, cleaned streams
 
 **Grade-Adjusted Pace (GAP)**:
 The pace an athlete would have held on flat ground for the same effort, computed per sample from Cleaned Activity Details and the gradient (Minetti's cost of running, grade clamped to ±45%), for Runs, Walks and Hikes.
-The gradient is measured over about 180 m of distance, so altitude noise cannot make hills on flat ground, at the cost of spreading a short climb over a longer stretch.
+The gradient is measured over about 180 m of distance, so barometer steps and ordinary altitude noise barely make hills on flat ground (very noisy GPS altitude still biases it slightly upwards; see ADR-0013), at the cost of spreading a short climb over a longer stretch.
 Stored as a speed; derived, so recomputed, never edited. Without altitude or a GPS fix it equals the cleaned speed.
 _Avoid_: Effort pace, adjusted speed
 

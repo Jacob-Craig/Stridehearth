@@ -125,7 +125,7 @@ class GradeAdjustedPaceTest {
         }
 
         @Test
-        fun `a flat run whose FIT altitude flickers and drifts in 0,2 m steps keeps mean GAP within 1 percent of mean pace`() {
+        fun `a flat run whose FIT altitude flickers and drifts in 0,2 m steps keeps GAP within 1 percent of pace, on mean and over 5 s`() {
             // As a FIT barometer records it: a level reading, quantised to 0.2 m, that flickers one step and wanders
             // up and down by a few steps over the hour (a pseudo-random but fixed sequence).
             var level = 0
