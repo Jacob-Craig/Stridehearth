@@ -110,7 +110,7 @@ class GradeAdjustedPaceTest {
         }
 
         @Test
-        fun `a flat run with altitude noise of 0,3 m keeps mean GAP within 1 percent of mean pace`() {
+        fun `a flat run with altitude noise of 0,3 m keeps GAP within 1 percent of pace, on the mean and over 5 s`() {
             // Alternating +/-0.3 m and a slower +/-0.3 m wobble every 7 samples, as a barometer jitters.
             val cleaned =
                 outdoorRun(1200) { _, i ->
@@ -121,6 +121,7 @@ class GradeAdjustedPaceTest {
             val meanSpeed = cleaned.speed.meanOfPresent()
 
             assertTrue(abs(gap.meanOfPresent() - meanSpeed) / meanSpeed < 0.01, "mean GAP ${gap.meanOfPresent()} vs $meanSpeed")
+            assertWithinOnePercentOverFiveSeconds(cleaned, gap)
         }
 
         @Test
@@ -146,7 +147,8 @@ class GradeAdjustedPaceTest {
 
         @Test
         fun `a flat run whose FIT altitude settles one 0,2 m step higher keeps GAP within 1 percent of pace over 5 s`() {
-            // Across the 180 m grade baseline the step reads as at most 0.2 / 180 = 0.11 % grade: GAP 0.6 % above pace.
+            // At this even pace the anchors' mean distances are 180 m apart, so the step reads as 0.2 / 180 = 0.11 %
+            // grade: GAP 0.6 % above pace. Uneven pace can bring them as close as 120 m (see the standing-still test).
             val cleaned = outdoorRun(1200) { d, _ -> if (d < 1800.0) 100.0f else 100.2f }
 
             val gap = assertNotNull(GradeAdjustedPace.gapSpeed(cleaned))
@@ -167,14 +169,29 @@ class GradeAdjustedPaceTest {
         }
 
         @Test
-        fun `a flat run with the 0,3 m altitude noise keeps GAP within 1 percent of pace over 5 s`() {
+        fun `a 0,2 m step read across anchors brought 120 m apart by standing still stays within 0,9 percent of pace`() {
+            // Hand-built, 1 m a second, flat with one 0.2 m step at 1000 m; the athlete stands at 940 m for 60 s. For
+            // the samples just past the step the behind anchor's mean distance is pulled forward towards 940 m, so
+            // the span shrinks below 180 m. It can never fall below 180 - 60 = 120 m: 0.2 / 120 = 0.17 % grade, a
+            // ratio of 1 + 5.42 x 0.00167 = 1.009.
+            val distances = (0..940).map { it.toFloat() } + List(60) { 940.0f } + (941..2000).map { it.toFloat() }
+            val n = distances.size
             val cleaned =
-                outdoorRun(1200) { _, i ->
-                    (30.0 + (if (i % 2 == 0) 0.3 else -0.3) + (if ((i / 7) % 2 == 0) 0.3 else -0.3)).toFloat()
-                }
+                CleanedTelemetry(
+                    t = IntArray(n) { it },
+                    speed = Array(n) { 1.0f },
+                    distance = Array(n) { distances[it] },
+                    heartRate = arrayOfNulls(n),
+                    altitude = Array(n) { if (distances[it] < 1000.0f) 100.0f else 100.2f },
+                    hasGps = true,
+                )
 
             val gap = assertNotNull(GradeAdjustedPace.gapSpeed(cleaned))
 
+            val peak = gap.maxOf { it!!.toDouble() }
+            // Steeper than the 0.6 % an even pace gives, but within the 120 m bound.
+            assertTrue(peak > 1.0062, "peak GAP / pace $peak")
+            assertTrue(peak < 1.0091, "peak GAP / pace $peak")
             assertWithinOnePercentOverFiveSeconds(cleaned, gap)
         }
 
@@ -380,8 +397,59 @@ class GradeAdjustedPaceTest {
 
             val gap = assertNotNull(GradeAdjustedPace.gapSpeed(cleaned))
 
-            // Sample 80 (80 m) anchors ahead on [140, 200]: empty, so the sample at 100 m stands in, still on the line.
+            // Sample 80 (80 m) anchors ahead on [180, 240]: empty, so the first sample past it (300 m) stands in, and
+            // the sample at 300 m anchors behind on the last sample before its empty window (100 m); both still on the line.
             gap.forEachIndexed { k, it -> assertEquals(1.3014, it!!.toDouble(), 1e-3, "GAP at $k") }
+        }
+
+        @Test
+        fun `an empty anchor window looks outwards, so a short stretch between two gaps reads no hill from 0,2 m`() {
+            // Recorded 0 to 300 m, 600 to 610 m (open sky between two tunnels) and 1000 to 1300 m, 1 m apart; flat,
+            // with the reading one 0.2 m step higher from 605 m. Taking the sample nearest each empty window's centre
+            // would anchor the 605 m sample on 600 m and 610 m, a 10 m span: a 2 % "hill", GAP 11 % above pace.
+            val distances = (0..300) + (600..610) + (1000..1300)
+            val n = distances.size
+            val cleaned =
+                CleanedTelemetry(
+                    t = IntArray(n) { it },
+                    speed = Array(n) { 1.0f },
+                    distance = Array(n) { distances[it].toFloat() },
+                    heartRate = arrayOfNulls(n),
+                    altitude = Array(n) { if (distances[it] < 605) 100.0f else 100.2f },
+                    hasGps = true,
+                )
+
+            val gap = assertNotNull(GradeAdjustedPace.gapSpeed(cleaned))
+
+            gap.forEachIndexed { k, it -> assertEquals(1.0, it!!.toDouble(), 0.01, "GAP at ${distances[k]} m") }
+        }
+
+        @Test
+        fun `a 0,2 m step just past a 200 m stretch without altitude keeps GAP within 1 percent of pace over 5 s`() {
+            // Flat, 1 m a second, altitude missing from 101 to 299 m and one 0.2 m step at 340 m. Taking the sample
+            // nearest an empty window's centre would anchor the 300 m sample on itself and on 390 m, a 90 m span.
+            val n = 1001
+            val cleaned =
+                CleanedTelemetry(
+                    t = IntArray(n) { it },
+                    speed = Array(n) { 1.0f },
+                    distance = Array(n) { it.toFloat() },
+                    heartRate = arrayOfNulls(n),
+                    altitude =
+                        Array(n) {
+                            when {
+                                it in 101..299 -> null
+                                it < 340 -> 100.0f
+                                else -> 100.2f
+                            }
+                        },
+                    hasGps = true,
+                )
+
+            val gap = assertNotNull(GradeAdjustedPace.gapSpeed(cleaned))
+
+            assertWithinOnePercentOverFiveSeconds(cleaned, gap)
+            gap.forEachIndexed { k, it -> assertTrue(it!! < 1.0091f, "GAP at $k m is $it") }
         }
 
         @Test

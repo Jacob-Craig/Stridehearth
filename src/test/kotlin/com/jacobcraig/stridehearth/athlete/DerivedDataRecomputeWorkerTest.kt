@@ -264,7 +264,7 @@ class DerivedDataRecomputeWorkerTest {
 
         assertEquals(RecomputeResult(1, 0), drain())
 
-        assertEquals(3, row(run)?.version)
+        assertEquals(DERIVED_DATA_VERSION.toInt(), row(run)?.version)
         assertEquals(120, gapLength(run))
         assertEquals(RecomputeResult(0, 0), drain())
     }
