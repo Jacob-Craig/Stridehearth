@@ -18,3 +18,4 @@ This directory documents the architectural and engineering decisions for the Str
 - [0012-publish-as-a-new-repository-with-squashed-history.md](0012-publish-as-a-new-repository-with-squashed-history.md): Publish as a New Repository with Squashed History
 - [0013-derived-analytics-read-cleaned-activity-details.md](0013-derived-analytics-read-cleaned-activity-details.md): Derived Analytics Read Cleaned Activity Details, Computed on Demand
 - [0014-recompute-derived-activity-data-in-one-versioned-refresh.md](0014-recompute-derived-activity-data-in-one-versioned-refresh.md): Recompute Derived Activity Data in One Versioned Refresh, Backfilled by a Background Worker
+- [0015-athlete-local-dates-come-from-a-stored-iana-time-zone.md](0015-athlete-local-dates-come-from-a-stored-iana-time-zone.md): Athlete-Local Dates Come from a Stored IANA Time Zone

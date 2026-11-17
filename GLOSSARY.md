@@ -131,6 +131,22 @@ How far a Run's Efficiency Factor fell from the first half to the second, as a p
 It is only reported for a steady state: at least 30 minutes of Moving Time and a 30-second rolling Grade-Adjusted Pace that varies by less than 12% (coefficient of variation). Otherwise it is absent with the reason (no pace data, no heart rate, too short, heart rate missing in one half, not steady). Derived, so recomputed, never edited.
 _Avoid_: Cardiac drift, Pa:HR, heart-rate drift
 
+**Threshold**:
+A physiological reference value an athlete records with the date it took effect: max HR, resting HR and lactate-threshold heart rate (LTHR) in bpm, threshold pace (kept as a speed, shown as a pace per km) and critical power in watts. Each kind keeps its own dated history; the value in force on a date is the latest entry on or before it, and before a kind's first entry that entry applies backwards. Dates are the athlete's local dates (Athlete Time Zone). Changing a Threshold recomputes the derived data that depends on it from its date onwards.
+_Avoid_: FTP setting, profile value
+
+**Zone**:
+An intensity band derived from a Threshold: five heart-rate Zones as percentages of LTHR and five pace Zones as percentages of threshold pace (Friel's running zones), each also grouped into Seiler's three (Zones 1-2 below the first threshold, 3-4 between the thresholds, 5 above the second).
+_Avoid_: Level, bucket
+
+**Threshold Proposal**:
+A value another feature (such as a Critical Speed fit) suggests for one of an athlete's Thresholds. It never takes effect on its own: it becomes a Threshold entry only when the athlete accepts it, and a dismissed one is not suggested again for a value within 3% of it.
+_Avoid_: Auto-update, recommendation
+
+**Athlete Time Zone**:
+The time zone an athlete's calendar days are counted in, such as the day an Activity falls on for the Thresholds in force then. Set from the athlete's browser when they first sign in, changeable in Settings, and UTC until set.
+_Avoid_: Locale, timezone offset
+
 **Dashboard**:
 The athlete's primary landing view summarizing Personal Records, aggregate training volume, and performance trends across recorded Activities.
 _Avoid_: Statistics page, homepage, stats hub
