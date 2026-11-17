@@ -39,6 +39,7 @@ const coordinates = [
 function telemetry(
   streams: Partial<ActivityTelemetryStreamsDto> = {},
   route: ActivityTelemetryResponseDto['route'] = { type: 'LineString', coordinates },
+  derivedStreams: ActivityTelemetryResponseDto['derivedStreams'] = { gapSpeed: null },
 ): ActivityTelemetryResponseDto {
   const unrecorded = Object.fromEntries(
     Object.keys(zActivityTelemetryStreamsDto.shape).map((stream) => [stream, null]),
@@ -48,6 +49,7 @@ function telemetry(
     sport: 'RUN',
     route,
     bestEfforts: [],
+    derivedStreams,
     telemetry: {
       ...unrecorded,
       t: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],

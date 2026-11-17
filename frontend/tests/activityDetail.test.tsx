@@ -112,6 +112,7 @@ function telemetry(): ActivityTelemetryResponseDto {
       ],
     },
     bestEfforts: [],
+    derivedStreams: { gapSpeed: null },
     telemetry: {
       ...unrecorded,
       t: [0, 1, 2],

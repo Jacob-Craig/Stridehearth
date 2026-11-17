@@ -52,6 +52,9 @@ class ActivityTelemetryApiIntegrationTest {
     private lateinit var activityBestEffortRepository: ActivityBestEffortRepository
 
     @Autowired
+    private lateinit var derivedMetricsRepository: ActivityDerivedMetricsRepository
+
+    @Autowired
     private lateinit var userRepository: UserRepository
 
     private lateinit var runner: User
@@ -112,6 +115,44 @@ class ActivityTelemetryApiIntegrationTest {
     }
 
     @Test
+    fun `derivedStreams carries the stored GAP stream in m per s, parallel to t`() {
+        val activity = activityWithTelemetry(runner)
+        derivedMetricsRepository.upsert(activity.id!!, DERIVED_METRICS_VERSION, arrayOf(3.25f, null, 4.5f))
+
+        mockMvc
+            .perform(get("/api/activities/{id}/telemetry", activity.id))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.derivedStreams.gapSpeed.length()").value(3))
+            .andExpect(jsonPath("$.derivedStreams.gapSpeed[0]").value(3.25))
+            .andExpect(jsonPath("$.derivedStreams.gapSpeed[1]").doesNotExist())
+            .andExpect(jsonPath("$.derivedStreams.gapSpeed[2]").value(4.5))
+    }
+
+    @Test
+    fun `derivedStreams gapSpeed is null without a GAP stream, or when it is not parallel to t`() {
+        val withoutGap = activityWithTelemetry(runner)
+        val stale = activityWithTelemetry(runner)
+        derivedMetricsRepository.upsert(stale.id!!, DERIVED_METRICS_VERSION, arrayOf(3.0f, 3.0f))
+
+        for (activity in listOf(withoutGap, stale)) {
+            val body = readJson(get("/api/activities/{id}/telemetry", activity.id))
+            assertTrue(body.path("derivedStreams").isObject, "derivedStreams is always present")
+            assertTrue(body.path("derivedStreams").path("gapSpeed").isNull, "gapSpeed for ${activity.id}")
+        }
+    }
+
+    @Test
+    fun `another athlete cannot read an Activity's GAP stream`() {
+        val activity = activityWithTelemetry(otherUser)
+        derivedMetricsRepository.upsert(activity.id!!, DERIVED_METRICS_VERSION, arrayOf(3.0f, 3.0f, 3.0f))
+
+        mockMvc
+            .perform(get("/api/activities/{id}/telemetry", activity.id))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.derivedStreams").doesNotExist())
+    }
+
+    @Test
     fun `another user's activity returns 404`() {
         val activity = activityWithTelemetry(otherUser)
 
@@ -161,6 +202,7 @@ class ActivityTelemetryApiIntegrationTest {
     @Test
     fun `OpenAPI declares ActivityTelemetryResponseDTO with exactly the keys of the streamed telemetry JSON`() {
         val activity = activityWithTelemetry(runner)
+        derivedMetricsRepository.upsert(activity.id!!, DERIVED_METRICS_VERSION, arrayOf(3.0f, 3.0f, 3.0f))
         activityBestEffortRepository.save(
             ActivityBestEffort(
                 activityId = activity.id!!,
@@ -197,6 +239,7 @@ class ActivityTelemetryApiIntegrationTest {
         assertSchemaDeclaresExactly(schemas, "ActivityTelemetryStreamsDTO", telemetry.path("telemetry"))
         assertSchemaDeclaresExactly(schemas, "ActivityTelemetryBestEffortDTO", telemetry.path("bestEfforts").path(0))
         assertSchemaDeclaresExactly(schemas, "GeoJsonLineStringDTO", telemetry.path("route"))
+        assertSchemaDeclaresExactly(schemas, "ActivityDerivedStreamsDTO", telemetry.path("derivedStreams"))
     }
 
     private fun readJson(request: RequestBuilder): JsonNode =

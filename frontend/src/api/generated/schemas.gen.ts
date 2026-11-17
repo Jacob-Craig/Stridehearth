@@ -1889,6 +1889,28 @@ export const EffortWindowDTOSchema = {
     ]
 } as const;
 
+export const ActivityDerivedStreamsDTOSchema = {
+    type: 'object',
+    properties: {
+        gapSpeed: {
+            type: [
+                'array',
+                'null'
+            ],
+            description: 'Grade-Adjusted Pace as a speed in metres per second; null for sports without it. An element is null where cleaned speed is missing',
+            items: {
+                type: [
+                    'number',
+                    'null'
+                ]
+            }
+        }
+    },
+    required: [
+        'gapSpeed'
+    ]
+} as const;
+
 export const ActivityTelemetryBestEffortDTOSchema = {
     type: 'object',
     properties: {
@@ -1977,6 +1999,10 @@ export const ActivityTelemetryResponseDTOSchema = {
                 $ref: '#/components/schemas/ActivityTelemetryBestEffortDTO'
             }
         },
+        derivedStreams: {
+            $ref: '#/components/schemas/ActivityDerivedStreamsDTO',
+            description: 'Streams derived from the Activity Details, parallel to telemetry.t'
+        },
         telemetry: {
             $ref: '#/components/schemas/ActivityTelemetryStreamsDTO'
         }
@@ -1984,6 +2010,7 @@ export const ActivityTelemetryResponseDTOSchema = {
     required: [
         'activityId',
         'bestEfforts',
+        'derivedStreams',
         'route',
         'sport',
         'telemetry'

@@ -403,7 +403,8 @@ class ActivityDetailsRepository(
 
     /**
      * Retrieves telemetry as a JSON string in the nested telemetry contract:
-     * `{ activityId, sport, route: GeoJSON LineString | null, telemetry: { t, routeIndex, heartRate, ... } }`.
+     * `{ activityId, sport, route: GeoJSON LineString | null, bestEfforts, derivedStreams: { gapSpeed },
+     * telemetry: { t, routeIndex, heartRate, ... } }`.
      * Enforces user authorization by requiring a match on `activity.user_id = :userId`.
      *
      * The route is deliberately NOT simplified: `telemetry.routeIndex[i]` is an index into the recorded
@@ -446,6 +447,10 @@ class ActivityDetailsRepository(
                         WHERE abe.activity_id = a.id
                     ),
                     '[]'::jsonb
+                ),
+                -- Derived streams are emitted only while parallel to t: a stale row never misaligns the charts.
+                'derivedStreams', jsonb_build_object(
+                    'gapSpeed', CASE WHEN cardinality(m.gap_speed) = cardinality(d.t) THEN m.gap_speed END
                 ),
                 'telemetry', (
                 jsonb_build_object(
@@ -535,6 +540,7 @@ class ActivityDetailsRepository(
             )::text
             FROM activity_details d
             JOIN activity a ON a.id = d.activity_id
+            LEFT JOIN activity_derived_metrics m ON m.activity_id = a.id
             WHERE a.id = :activityId AND a.user_id = :userId
             """.trimIndent()
 

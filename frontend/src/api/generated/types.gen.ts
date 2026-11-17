@@ -462,6 +462,13 @@ export type EffortWindowDto = {
     endDistanceMeters: number;
 };
 
+export type ActivityDerivedStreamsDto = {
+    /**
+     * Grade-Adjusted Pace as a speed in metres per second; null for sports without it. An element is null where cleaned speed is missing
+     */
+    gapSpeed: Array<number | null> | null;
+};
+
 export type ActivityTelemetryBestEffortDto = {
     benchmarkDistance: 'FOUR_HUNDRED_METERS' | 'ONE_KILOMETER' | 'ONE_MILE' | 'FIVE_KILOMETERS' | 'TEN_KILOMETERS' | 'HALF_MARATHON';
     elapsedTimeSeconds: number;
@@ -484,6 +491,10 @@ export type ActivityTelemetryResponseDto = {
      * Best Efforts, shortest Benchmark Distance first
      */
     bestEfforts: Array<ActivityTelemetryBestEffortDto>;
+    /**
+     * Streams derived from the Activity Details, parallel to telemetry.t
+     */
+    derivedStreams: ActivityDerivedStreamsDto;
     telemetry: ActivityTelemetryStreamsDto;
 };
 

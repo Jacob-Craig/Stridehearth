@@ -525,6 +525,10 @@ export const zActivityDetailDto = z.object({
     bestEfforts: z.array(zActivityBestEffortDto)
 });
 
+export const zActivityDerivedStreamsDto = z.object({
+    gapSpeed: z.array(z.number().nullable()).nullable()
+});
+
 export const zActivityTelemetryBestEffortDto = z.object({
     benchmarkDistance: z.enum([
         'FOUR_HUNDRED_METERS',
@@ -638,6 +642,7 @@ export const zActivityTelemetryResponseDto = z.object({
     ]),
     route: zGeoJsonLineStringDto.nullable(),
     bestEfforts: z.array(zActivityTelemetryBestEffortDto),
+    derivedStreams: zActivityDerivedStreamsDto,
     telemetry: zActivityTelemetryStreamsDto
 });
 
