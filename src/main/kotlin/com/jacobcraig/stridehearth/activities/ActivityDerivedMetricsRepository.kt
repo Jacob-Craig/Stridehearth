@@ -1,14 +1,15 @@
 package com.jacobcraig.stridehearth.activities
 
-import com.jacobcraig.stridehearth.analytics.GradeAdjustedPace
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Repository
 
 /**
- * Data access for `activity_derived_metrics`, one row per **Activity** holding its derived metrics (the
- * **Grade-Adjusted Pace** stream). Raw SQL through [JdbcClient], like `activity_details`: no JPA entity maps it.
+ * Data access for `activity_derived_metrics`: one row per **Activity**, of every sport, holding its derived data
+ * (the **Grade-Adjusted Pace** stream) and the `algorithm_version` that computed it (ADR-0014). The row is the
+ * ledger of what has been computed, so a column that does not apply to an Activity is NULL rather than the row
+ * missing. Raw SQL through [JdbcClient], like `activity_details`: no JPA entity maps it.
  *
- * Written only by [DerivedMetricsRefresh]; a row is removed with its Activity by `ON DELETE CASCADE`.
+ * Written only by [DerivedDataRefresh]; a row is removed with its Activity by `ON DELETE CASCADE`.
  */
 @Repository
 class ActivityDerivedMetricsRepository(
@@ -36,71 +37,49 @@ class ActivityDerivedMetricsRepository(
             .update()
     }
 
-    /**
-     * Stores [gapSpeed] for [activityId] only when no row exists or the stored row is of an older version than
-     * [version], and only while the Activity's sport still carries derived metrics. Returns whether it wrote.
-     * A Backfill writes this way, so it never overwrites what a concurrent import or edit wrote.
-     */
-    fun upsertIfOlderVersion(
-        activityId: Long,
-        version: Short,
-        gapSpeed: Array<Float?>?,
-    ): Boolean =
-        jdbcClient
-            .sql(
-                """
-                INSERT INTO activity_derived_metrics (activity_id, algorithm_version, gap_speed, computed_at)
-                SELECT a.id, :version, :gapSpeed::real[], now()
-                FROM activity a
-                WHERE a.id = :activityId AND a.sport IN (:sports)
-                ON CONFLICT (activity_id) DO UPDATE
-                SET algorithm_version = EXCLUDED.algorithm_version,
-                    gap_speed = EXCLUDED.gap_speed,
-                    computed_at = EXCLUDED.computed_at
-                WHERE activity_derived_metrics.algorithm_version < EXCLUDED.algorithm_version
-                """.trimIndent(),
-            ).param("activityId", activityId)
-            .param("version", version)
-            .param("gapSpeed", gapSpeed?.toSqlArrayLiteral())
-            .param("sports", GradeAdjustedPace.GAP_SPORTS.map { it.name })
-            .update() > 0
-
-    fun deleteByActivityId(activityId: Long) {
-        jdbcClient
-            .sql("DELETE FROM activity_derived_metrics WHERE activity_id = :activityId")
-            .param("activityId", activityId)
-            .update()
-    }
+    /** Which of [activityIds] still exist as Activities. */
+    fun findExistingActivityIds(activityIds: Collection<Long>): Set<Long> =
+        activityIds.distinct().chunkedForIdLookup().flatMapTo(mutableSetOf()) { chunk ->
+            jdbcClient
+                .sql("SELECT id FROM activity WHERE id IN (:ids)")
+                .param("ids", chunk)
+                .query { rs, _ -> rs.getLong("id") }
+                .list()
+        }
 
     /**
-     * The next [limit] Activities after [afterActivityId], in id order, whose derived metrics a Backfill must
-     * compute: a sport that carries them, stored Activity Details, and no row or a row older than [version].
+     * The next [limit] Activities after [afterActivityId], in id order, whose derived data must be computed: every
+     * Activity, of any sport and with or without Activity Details, that has no row or a row older than [version].
+     * With [onlyUserIds], only those athletes' Activities.
      */
-    fun findNextBackfillPage(
+    fun findRecomputePage(
         afterActivityId: Long,
         limit: Int,
         version: Short,
-    ): List<Long> =
-        jdbcClient
+        onlyUserIds: Collection<Long>? = null,
+    ): List<Long> {
+        if (onlyUserIds != null && onlyUserIds.isEmpty()) return emptyList()
+        val userFilter = if (onlyUserIds == null) "" else "AND a.user_id IN (:userIds)"
+        return jdbcClient
             .sql(
                 """
                 SELECT a.id
                 FROM activity a
-                JOIN activity_details d ON d.activity_id = a.id
                 LEFT JOIN activity_derived_metrics m ON m.activity_id = a.id
                 WHERE a.id > :afterId
-                  AND a.sport IN (:sports)
                   AND (m.activity_id IS NULL OR m.algorithm_version < :version)
+                  $userFilter
                 ORDER BY a.id ASC
                 LIMIT :limit
                 """.trimIndent(),
             ).param("afterId", afterActivityId)
-            .param("sports", GradeAdjustedPace.GAP_SPORTS.map { it.name })
             .param("version", version)
             .param("limit", limit)
+            .apply { if (onlyUserIds != null) param("userIds", onlyUserIds.distinct()) }
             .query { rs, _ -> rs.getLong("id") }
             .list()
+    }
 
-    /** A PostgreSQL array literal such as `{1.5,NULL,2}`; floats print without locale or exponent surprises. */
+    /** A PostgreSQL array literal such as `{1.5,NULL,2}`, bound as one text parameter and cast to `real[]`. */
     private fun Array<Float?>.toSqlArrayLiteral(): String = joinToString(",", "{", "}") { it?.toString() ?: "NULL" }
 }

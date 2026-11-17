@@ -21,7 +21,7 @@ class ActivityService(
     private val activityBestEffortRepository: ActivityBestEffortRepository,
     private val activityDetailsRepository: ActivityDetailsRepository,
     private val bestEffortRefresh: BestEffortRefresh,
-    private val derivedMetricsRefresh: DerivedMetricsRefresh,
+    private val derivedDataRefresh: DerivedDataRefresh,
     private val heatmapRouteRepository: HeatmapRouteRepository,
 ) {
     /** Logs a `MANUAL` **Activity** for [userId], recording its creation as an **Activity History Entry**. */
@@ -52,6 +52,7 @@ class ActivityService(
                     source = ActivitySource.MANUAL,
                 ),
             )
+        derivedDataRefresh.refresh(saved)
         activityHistory.record(saved, ActivityChange.Created.MANUAL)
         return saved.toSummaryDto(hasActivityDetails = false)
     }
@@ -121,8 +122,9 @@ class ActivityService(
     }
 
     /**
-     * Applies an edit (with [metrics] only when they are editable), recording history and, on a sport change,
-     * refreshing Best Efforts and derived metrics and recomputing the Activity's heatmap route.
+     * Applies an edit (with [metrics] only when they are editable), recording history; on a sport change it
+     * refreshes Best Efforts and derived data and recomputes the Activity's heatmap route, and on a `startedAt`
+     * change it refreshes derived data.
      */
     private fun applyEdit(
         activity: Activity,
@@ -131,15 +133,19 @@ class ActivityService(
         metrics: ProtectedMetrics?,
     ) {
         val oldSport = activity.sport
+        val oldStartedAt = activity.startedAt
         val changes =
             activity.applyMetadataChanges(title, sport) + (metrics?.let { activity.applyProtectedMetricChanges(it) } ?: emptyList())
 
         activityRepository.save(activity)
+        val previousStartedAt = oldStartedAt.takeIf { it != activity.startedAt }
         if (activity.sport != oldSport) {
             bestEffortRefresh.refresh(activity)
-            derivedMetricsRefresh.refresh(activity)
+            derivedDataRefresh.refresh(activity, previousStartedAt = previousStartedAt, previousSport = oldSport)
             // After the refresh, which flushes the edit: a heatmap route insert key-share locks the Activity's row.
             heatmapRouteRepository.recomputeForSport(listOf(activity.id!!), activity.sport)
+        } else if (previousStartedAt != null) {
+            derivedDataRefresh.refresh(activity, previousStartedAt = previousStartedAt)
         }
         // After the refresh: the entry's insert runs at once and key-share locks the Activity's row, which must
         // come after the Personal Record lock (ADR-0006).
@@ -148,7 +154,10 @@ class ActivityService(
         }
     }
 
-    /** Deletes the athlete's Activity [id] and refreshes its **Best Efforts**, returning false if it doesn't exist for them. */
+    /**
+     * Deletes the athlete's Activity [id] and refreshes its **Best Efforts** and derived data, returning false if it
+     * doesn't exist for them.
+     */
     @Transactional
     fun deleteActivity(
         id: Long,
@@ -157,6 +166,7 @@ class ActivityService(
         val existingActivity = activityRepository.findByIdAndUserId(id, userId) ?: return false
         activityRepository.delete(existingActivity)
         bestEffortRefresh.refresh(existingActivity)
+        derivedDataRefresh.refresh(existingActivity)
         return true
     }
 
@@ -177,18 +187,22 @@ class ActivityService(
 
         val edited = mutableListOf<Pair<Activity, List<FieldChange>>>()
         val reclassified = mutableListOf<Activity>()
+        val previousSports = mutableMapOf<Long, ActivitySport>()
         for (activity in ownedActivities) {
             val oldSport = activity.sport
             val changes = activity.applyMetadataChanges(change.title, change.sport)
             if (changes.isNotEmpty()) {
                 activityRepository.save(activity)
                 edited += activity to changes
-                if (activity.sport != oldSport) reclassified += activity
+                if (activity.sport != oldSport) {
+                    reclassified += activity
+                    previousSports[activity.id!!] = oldSport
+                }
             }
         }
         if (reclassified.isNotEmpty()) {
             bestEffortRefresh.refresh(reclassified)
-            derivedMetricsRefresh.refresh(reclassified)
+            derivedDataRefresh.refresh(reclassified, previousSports)
             // Every reclassified Activity now has the batch's sport; after the refresh, as for history below.
             heatmapRouteRepository.recomputeForSport(reclassified.map { it.id!! }, change.sport!!)
         }
@@ -198,7 +212,7 @@ class ActivityService(
     }
 
     /**
-     * Deletes the athlete's [activityIds], refreshing their **Best Efforts** in one call, and returns how many
+     * Deletes the athlete's [activityIds], refreshing their **Best Efforts** and derived data, and returns how many
      * were deleted. All or nothing, like [batchUpdateActivities]: null, deleting nothing, unless every requested
      * Activity exists and belongs to [userId].
      */
@@ -210,6 +224,7 @@ class ActivityService(
         val ownedActivities = findAllOwnedActivities(activityIds, userId) ?: return null
         activityRepository.deleteAll(ownedActivities)
         bestEffortRefresh.refresh(ownedActivities)
+        derivedDataRefresh.refresh(ownedActivities)
         return ownedActivities.size
     }
 

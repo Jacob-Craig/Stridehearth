@@ -34,7 +34,7 @@ class ActivityServiceTest {
     private val activityHistory: ActivityHistory = mock()
     private val activityBestEffortRepository: ActivityBestEffortRepository = mock()
     private val bestEffortRefresh: BestEffortRefresh = mock()
-    private val derivedMetricsRefresh: DerivedMetricsRefresh = mock()
+    private val derivedDataRefresh: DerivedDataRefresh = mock()
     private val heatmapRouteRepository: HeatmapRouteRepository = mock()
     private val activityService =
         ActivityService(
@@ -45,7 +45,7 @@ class ActivityServiceTest {
             activityBestEffortRepository,
             activityDetailsRepository,
             bestEffortRefresh,
-            derivedMetricsRefresh,
+            derivedDataRefresh,
             heatmapRouteRepository,
         )
     private val owner = User(id = 7L, email = "a@b.com", passwordHash = "x", username = "alice")
@@ -281,6 +281,9 @@ class ActivityServiceTest {
         assertEquals(owner, captor.firstValue.user)
         assertEquals(ActivitySport.RUN, captor.firstValue.sport)
         assertEquals(ActivitySource.MANUAL, captor.firstValue.source)
+        val order = inOrder(derivedDataRefresh, activityHistory)
+        order.verify(derivedDataRefresh).refresh(captor.firstValue)
+        order.verify(activityHistory).record(any(), any())
     }
 
     @Test
@@ -317,10 +320,10 @@ class ActivityServiceTest {
 
         activityService.updateActivity(1L, 7L, ActivityUpdateRequestDTO(title = "Run 1", sport = ActivitySport.RIDE))
 
-        val order = inOrder(activityRepository, bestEffortRefresh, derivedMetricsRefresh, heatmapRouteRepository, activityHistory)
+        val order = inOrder(activityRepository, bestEffortRefresh, derivedDataRefresh, heatmapRouteRepository, activityHistory)
         order.verify(activityRepository).save(activity)
         order.verify(bestEffortRefresh).refresh(activity)
-        order.verify(derivedMetricsRefresh).refresh(activity)
+        order.verify(derivedDataRefresh).refresh(activity, previousSport = ActivitySport.RUN)
         order.verify(heatmapRouteRepository).recomputeForSport(listOf(1L), ActivitySport.RIDE)
         order.verify(activityHistory).record(any(), any())
         assertEquals(ActivitySport.RIDE, activity.sport)
@@ -334,7 +337,7 @@ class ActivityServiceTest {
         activityService.updateActivity(1L, 7L, ActivityUpdateRequestDTO(title = "Renamed", sport = ActivitySport.RUN))
 
         verifyNoInteractions(bestEffortRefresh)
-        verifyNoInteractions(derivedMetricsRefresh)
+        verifyNoInteractions(derivedDataRefresh)
     }
 
     @Test
@@ -344,9 +347,10 @@ class ActivityServiceTest {
 
         assertTrue(activityService.deleteActivity(1L, 7L))
 
-        val order = inOrder(activityRepository, bestEffortRefresh)
+        val order = inOrder(activityRepository, bestEffortRefresh, derivedDataRefresh)
         order.verify(activityRepository).delete(activity)
         order.verify(bestEffortRefresh).refresh(activity)
+        order.verify(derivedDataRefresh).refresh(activity)
     }
 
     @Test
@@ -357,11 +361,11 @@ class ActivityServiceTest {
 
         activityService.batchUpdateActivities(listOf(1L, 2L), 7L, BatchMetadataChange.of(title = null, sport = ActivitySport.RIDE)!!)
 
-        val order = inOrder(bestEffortRefresh, derivedMetricsRefresh)
+        val order = inOrder(bestEffortRefresh, derivedDataRefresh)
         order.verify(bestEffortRefresh).refresh(listOf(reclassified))
-        order.verify(derivedMetricsRefresh).refresh(listOf(reclassified))
+        order.verify(derivedDataRefresh).refresh(listOf(reclassified), mapOf(1L to ActivitySport.RUN))
         verifyNoMoreInteractions(bestEffortRefresh)
-        verifyNoMoreInteractions(derivedMetricsRefresh)
+        verifyNoMoreInteractions(derivedDataRefresh)
     }
 
     @Test
@@ -371,7 +375,7 @@ class ActivityServiceTest {
         activityService.batchUpdateActivities(listOf(1L, 2L), 7L, BatchMetadataChange.of(title = "Renamed", sport = null)!!)
 
         verifyNoInteractions(bestEffortRefresh)
-        verifyNoInteractions(derivedMetricsRefresh)
+        verifyNoInteractions(derivedDataRefresh)
     }
 
     @Test
@@ -382,9 +386,33 @@ class ActivityServiceTest {
 
         assertEquals(2, activityService.batchDeleteActivities(listOf(1L, 2L), 7L))
 
-        val order = inOrder(activityRepository, bestEffortRefresh)
+        val order = inOrder(activityRepository, bestEffortRefresh, derivedDataRefresh)
         order.verify(activityRepository).deleteAll(listOf(first, second))
         order.verify(bestEffortRefresh).refresh(listOf(first, second))
+        order.verify(derivedDataRefresh).refresh(listOf(first, second))
         verifyNoMoreInteractions(bestEffortRefresh)
+        verifyNoMoreInteractions(derivedDataRefresh)
+    }
+
+    @Test
+    fun `editing only the start of an editable Activity refreshes its derived data with the previous start`() {
+        val activity = run(1L).apply { source = ActivitySource.MANUAL }
+        whenever(activityRepository.findByIdAndUserId(1L, 7L)).thenReturn(activity)
+        val request =
+            ActivityUpdateRequestDTO(
+                title = "Run 1",
+                sport = ActivitySport.RUN,
+                startedAt = Instant.parse("2026-02-01T00:00:00Z"),
+                distance = 5.0,
+                timeTakenSeconds = 1800,
+            )
+
+        activityService.updateActivity(1L, 7L, request)
+
+        val order = inOrder(activityRepository, derivedDataRefresh, activityHistory)
+        order.verify(activityRepository).save(activity)
+        order.verify(derivedDataRefresh).refresh(activity, previousStartedAt = Instant.parse("2026-01-01T00:00:00Z"))
+        order.verify(activityHistory).record(any(), any())
+        verifyNoInteractions(bestEffortRefresh)
     }
 }

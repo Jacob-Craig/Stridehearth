@@ -88,12 +88,13 @@ class ActivityDetailsService(
     }
 
     /**
-     * Reads an Activity's stored details as **Telemetry Cleaning** needs them, or `null` when none are stored.
-     * A pure read: it never writes. When the stored details lack distance the route is read too, so cleaning can
-     * synthesize distance in memory exactly as the parser would; the stored row is left unchanged.
+     * Reads an Activity's stored details as derived analytics need them (the series **Telemetry Cleaning** reads,
+     * and power), or `null` when none are stored. A pure read: it never writes. When the stored details lack
+     * distance the route is read too, so cleaning can synthesize distance in memory exactly as the parser would;
+     * the stored row is left unchanged.
      */
-    fun findCleaningSeries(activityId: Long): FitTelemetry? {
-        val stored = activityDetailsRepository.findStoredCleaningSeries(activityId) ?: return null
+    fun findAnalyticsSeries(activityId: Long): FitTelemetry? {
+        val stored = activityDetailsRepository.findStoredAnalyticsSeries(activityId) ?: return null
         if (stored.hasDistance) return stored
         val (lons, lats) = activityDetailsRepository.findStoredRoute(activityId)
         return stored.copy(lons = lons, lats = lats)

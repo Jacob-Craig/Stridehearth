@@ -1,6 +1,8 @@
 package com.jacobcraig.stridehearth.activities
 
 import com.jacobcraig.stridehearth.TestcontainersConfiguration
+import com.jacobcraig.stridehearth.athlete.AthleteRollups
+import com.jacobcraig.stridehearth.athlete.RollupMarks
 import com.jacobcraig.stridehearth.system.ActivitySport
 import com.jacobcraig.stridehearth.system.ParserVersion
 import com.jacobcraig.stridehearth.system.fit.FitActivityParser
@@ -23,14 +25,16 @@ import java.time.Instant
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /**
- * The derived-metrics refresh, tested through the import and edit paths against real Postgres: each test
- * changes an **Activity** and checks its `activity_derived_metrics` row (its **Grade-Adjusted Pace** stream).
+ * The derived-data refresh, tested through the import, manual-create, edit and delete paths against real Postgres:
+ * each test changes an **Activity** and checks its `activity_derived_metrics` row (its **Grade-Adjusted Pace**
+ * stream), which every Activity of every sport has, or the athlete rollups the change marks.
  */
 @SpringBootTest
 @Import(TestcontainersConfiguration::class)
-class DerivedMetricsRefreshTest {
+class DerivedDataRefreshTest {
     @MockitoSpyBean
     private lateinit var fitActivityParser: FitActivityParser
 
@@ -44,7 +48,10 @@ class DerivedMetricsRefreshTest {
     private lateinit var activityRepository: ActivityRepository
 
     @Autowired
-    private lateinit var derivedMetricsRefresh: DerivedMetricsRefresh
+    private lateinit var derivedDataRefresh: DerivedDataRefresh
+
+    @Autowired
+    private lateinit var athleteRollups: AthleteRollups
 
     @Autowired
     private lateinit var userRepository: UserRepository
@@ -119,7 +126,7 @@ class DerivedMetricsRefreshTest {
             .query(
                 """
                 SELECT m.algorithm_version, m.gap_speed, cardinality(d.t) AS samples
-                FROM activity_derived_metrics m JOIN activity_details d ON d.activity_id = m.activity_id
+                FROM activity_derived_metrics m LEFT JOIN activity_details d ON d.activity_id = m.activity_id
                 WHERE m.activity_id = ?
                 """.trimIndent(),
                 { rs, _ ->
@@ -141,39 +148,76 @@ class DerivedMetricsRefreshTest {
 
         val stored = assertNotNull(row(run))
 
-        assertEquals(DERIVED_METRICS_VERSION.toInt(), stored.version)
+        assertEquals(DERIVED_DATA_VERSION.toInt(), stored.version)
         assertEquals(stored.samples, stored.gapSpeed!!.size)
         // Mid-climb, 5 percent uphill at 3 m/s: 3 x C(0.05) / C(0) = 3 x 1.3014.
         assertEquals(3.0 * 1.3014, stored.gapSpeed[150]!!.toDouble(), 0.03)
     }
 
     @Test
-    fun `importing a walk or a hike stores GAP, importing a ride stores none`() {
+    fun `importing a walk or a hike stores GAP, importing a ride stores a row with no GAP`() {
         val walk = import(sport = ActivitySport.WALK, details = climbingDetails(speed = 1.4f), externalId = "walk")
         val hike = import(sport = ActivitySport.HIKE, details = climbingDetails(speed = 1.0f), externalId = "hike")
         val ride = import(sport = ActivitySport.RIDE, details = climbingDetails(speed = 8.0f), externalId = "ride")
 
-        assertNotNull(row(walk))
-        assertNotNull(row(hike))
-        assertNull(row(ride))
+        assertNotNull(row(walk)!!.gapSpeed)
+        assertNotNull(row(hike)!!.gapSpeed)
+        val rideRow = assertNotNull(row(ride))
+        assertEquals(DERIVED_DATA_VERSION.toInt(), rideRow.version)
+        assertNull(rideRow.gapSpeed)
     }
 
     @Test
-    fun `an Activity imported without Activity Details has no row`() {
+    fun `an Activity imported without Activity Details gets a row with no GAP at the current version`() {
         val run = import(details = null)
 
-        assertEquals(
-            0,
-            jdbcTemplate.queryForObject("SELECT count(*) FROM activity_derived_metrics WHERE activity_id = ?", Int::class.java, run.id),
+        val stored = assertNotNull(row(run))
+        assertEquals(DERIVED_DATA_VERSION.toInt(), stored.version)
+        assertNull(stored.gapSpeed)
+    }
+
+    private fun manualMetrics(startedAt: String = "2026-03-02T08:00:00Z") =
+        ProtectedMetrics(
+            startedAt = Instant.parse(startedAt),
+            distance = 5.0,
+            timeTakenSeconds = 1500,
+            averagePaceKmh = null,
+            averageHeartRate = null,
+            calories = null,
         )
+
+    private fun logManual(sport: ActivitySport = ActivitySport.RUN): Activity {
+        val created = activityService.createManualActivity(runner.id!!, "Treadmill", sport, manualMetrics())
+        return activityRepository.findById(created.id).get()
+    }
+
+    private fun computedAt(activity: Activity): Instant =
+        jdbcTemplate.queryForObject(
+            "SELECT computed_at FROM activity_derived_metrics WHERE activity_id = ?",
+            { rs, _ -> rs.getTimestamp(1).toInstant() },
+            activity.id,
+        )!!
+
+    /** Runs [work] in one transaction and returns the athlete rollups it marked, read just before it commits. */
+    private fun marksOf(work: () -> Unit): Map<Long, RollupMarks> =
+        transactionTemplate.execute {
+            work()
+            athleteRollups.pendingMarks()
+        }!!
+
+    @Test
+    fun `logging a manual Activity writes its row`() {
+        val stored = assertNotNull(row(logManual()))
+        assertEquals(DERIVED_DATA_VERSION.toInt(), stored.version)
+        assertNull(stored.gapSpeed)
     }
 
     @Test
-    fun `editing the sport from run to ride removes the GAP stream, and back to run restores it`() {
+    fun `editing the sport from run to ride clears the GAP stream, and back to run restores it`() {
         val run = import()
 
         activityService.updateActivity(run.id!!, runner.id!!, ActivityUpdateRequestDTO(title = "Ride now", sport = ActivitySport.RIDE))
-        assertNull(row(run))
+        assertNull(assertNotNull(row(run)).gapSpeed)
 
         activityService.updateActivity(run.id!!, runner.id!!, ActivityUpdateRequestDTO(title = "Run again", sport = ActivitySport.RUN))
         assertEquals(row(run)!!.samples, row(run)!!.gapSpeed!!.size)
@@ -189,16 +233,16 @@ class DerivedMetricsRefreshTest {
             runner.id!!,
             BatchMetadataChange.of(null, ActivitySport.RIDE)!!,
         )
-        assertNull(row(first))
-        assertNull(row(second))
+        assertNull(assertNotNull(row(first)).gapSpeed)
+        assertNull(assertNotNull(row(second)).gapSpeed)
 
         activityService.batchUpdateActivities(
             listOf(first.id!!, second.id!!),
             runner.id!!,
             BatchMetadataChange.of(null, ActivitySport.HIKE)!!,
         )
-        assertNotNull(row(first))
-        assertNotNull(row(second))
+        assertNotNull(row(first)!!.gapSpeed)
+        assertNotNull(row(second)!!.gapSpeed)
     }
 
     @Test
@@ -262,7 +306,7 @@ class DerivedMetricsRefreshTest {
         val run = import()
         val entries = historyEntryCount(run)
 
-        transactionTemplate.execute { derivedMetricsRefresh.refresh(activityRepository.findById(run.id!!).get()) }
+        transactionTemplate.execute { derivedDataRefresh.refresh(activityRepository.findById(run.id!!).get()) }
 
         assertEquals(entries, historyEntryCount(run))
     }
@@ -271,6 +315,71 @@ class DerivedMetricsRefreshTest {
     fun `refresh requires the caller's transaction`() {
         val run = import()
 
-        assertThrows<IllegalTransactionStateException> { derivedMetricsRefresh.refresh(run) }
+        assertThrows<IllegalTransactionStateException> { derivedDataRefresh.refresh(run) }
+    }
+
+    @Test
+    fun `editing a manual Activity's start recomputes its row and marks the rollups at the old and new starts`() {
+        val manual = logManual()
+        val before = computedAt(manual)
+        val request =
+            ActivityUpdateRequestDTO(
+                title = "Treadmill",
+                sport = ActivitySport.RUN,
+                startedAt = Instant.parse("2026-02-01T08:00:00Z"),
+                distance = 5.0,
+                timeTakenSeconds = 1500,
+            )
+
+        val marks = marksOf { activityService.updateActivity(manual.id!!, runner.id!!, request) }
+
+        val starts = setOf(Instant.parse("2026-03-02T08:00:00Z"), Instant.parse("2026-02-01T08:00:00Z"))
+        assertEquals(mapOf(runner.id!! to RollupMarks(Instant.parse("2026-02-01T08:00:00Z"), starts)), marks)
+        assertTrue(computedAt(manual) > before, "the row was recomputed")
+    }
+
+    @Test
+    fun `a ride marks only the daily rollups, and a sport edit away from run marks peaks too`() {
+        val start = Instant.parse("2026-03-01T08:00:00Z")
+        val ride = import(sport = ActivitySport.RIDE, externalId = "ride")
+        val run = import(externalId = "run")
+
+        assertEquals(
+            mapOf(runner.id!! to RollupMarks(start, emptySet())),
+            marksOf { derivedDataRefresh.refresh(activityRepository.findById(ride.id!!).get()) },
+        )
+        assertEquals(
+            mapOf(runner.id!! to RollupMarks(start, setOf(start))),
+            marksOf {
+                activityService.updateActivity(run.id!!, runner.id!!, ActivityUpdateRequestDTO(title = "Ride", sport = ActivitySport.RIDE))
+            },
+        )
+    }
+
+    @Test
+    fun `deleting Activities marks their athlete's rollups`() {
+        val start = Instant.parse("2026-03-01T08:00:00Z")
+        val first = import(externalId = "a")
+        val second = import(externalId = "b")
+        val third = import(externalId = "c")
+
+        assertEquals(
+            mapOf(runner.id!! to RollupMarks(start, setOf(start))),
+            marksOf { activityService.deleteActivity(first.id!!, runner.id!!) },
+        )
+        assertEquals(
+            mapOf(runner.id!! to RollupMarks(start, setOf(start))),
+            marksOf { activityService.batchDeleteActivities(listOf(second.id!!, third.id!!), runner.id!!) },
+        )
+        assertEquals(
+            0,
+            jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM activity_derived_metrics WHERE activity_id IN (?, ?, ?)",
+                Int::class.java,
+                first.id,
+                second.id,
+                third.id,
+            ),
+        )
     }
 }

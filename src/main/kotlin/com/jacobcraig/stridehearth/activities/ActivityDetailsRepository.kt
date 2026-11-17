@@ -71,16 +71,16 @@ class ActivityDetailsRepository(
             .orElse(null)
 
     /**
-     * Reads, exactly as stored, the series **Telemetry Cleaning** needs: `t`, `distance`, `routeIndex`, speed,
-     * heart rate, cadence and altitude (with their enhanced and fractional variants). Like
-     * [findStoredScanningSeries] the route is not read. A pure read: it never writes.
+     * Reads, exactly as stored, the series derived analytics need: `t`, `distance`, `routeIndex`, speed, heart
+     * rate, cadence and altitude (with their enhanced and fractional variants), which **Telemetry Cleaning** reads,
+     * and power. Like [findStoredScanningSeries] the route is not read. A pure read: it never writes.
      */
-    fun findStoredCleaningSeries(activityId: Long): FitTelemetry? =
+    fun findStoredAnalyticsSeries(activityId: Long): FitTelemetry? =
         jdbcClient
             .sql(
                 """
                 SELECT t, distance, route_index, enhanced_speed, speed, heart_rate, cadence, fractional_cadence,
-                       altitude, enhanced_altitude
+                       altitude, enhanced_altitude, power
                 FROM activity_details WHERE activity_id = :activityId
                 """.trimIndent(),
             ).param("activityId", activityId)
@@ -102,6 +102,7 @@ class ActivityDetailsRepository(
                     fractionalCadence = rs.getFloatArray("fractional_cadence") ?: emptyArray(),
                     altitude = rs.getFloatArray("altitude") ?: emptyArray(),
                     enhancedAltitude = rs.getFloatArray("enhanced_altitude") ?: emptyArray(),
+                    power = rs.getShortArray("power") ?: emptyArray(),
                 )
             }.optional()
             .orElse(null)
@@ -135,6 +136,22 @@ class ActivityDetailsRepository(
             .query(Long::class.javaObjectType)
             .single()
     }
+
+    /**
+     * Takes the same no-key-update lock as [lockActivity] on each of [activityIds]' rows, in ascending id order so
+     * that two callers locking overlapping sets wait rather than deadlock, and returns the ids that still exist (in
+     * that order): an Activity deleted meanwhile is skipped. Requires a transaction.
+     */
+    fun lockActivities(activityIds: Collection<Long>): List<Long> =
+        if (activityIds.isEmpty()) {
+            emptyList()
+        } else {
+            jdbcClient
+                .sql("SELECT id FROM activity WHERE id IN (:ids) ORDER BY id FOR NO KEY UPDATE")
+                .param("ids", activityIds.distinct())
+                .query { rs, _ -> rs.getLong("id") }
+                .list()
+        }
 
     /**
      * Reads what is stored for an Activity, as far as [ActivityDetailsService]'s rule needs it.

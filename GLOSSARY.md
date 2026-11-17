@@ -22,8 +22,12 @@ Replacing an Activity's stored Activity Details and Laps with ones decoded from 
 _Avoid_: Re-parse, migration
 
 **Backfill**:
-Filling in something an Activity lacks (Activity Details, their distance, Laps, Best Efforts, or derived metrics such as Grade-Adjusted Pace) without replacing anything it already has. Derived metrics computed by an older version of their algorithm count as lacking.
+Filling in something an Activity lacks (Activity Details, their distance, Laps, Best Efforts, or derived data such as Grade-Adjusted Pace) without replacing anything it already has. Replacing derived data that is out of date is a Recompute.
 _Avoid_: Repair, fix-up
+
+**Recompute (derived data)**:
+Replacing an Activity's stored derived data (such as its Grade-Adjusted Pace) because something it was computed from changed: its Activity Details, its sport or start time, or the version of the algorithm that computed it. It never changes the Activity itself, so it leaves no Activity History Entry.
+_Avoid_: Reprocess, regenerate, migration
 
 **Activity Source**:
 The origin or mechanism by which an activity was ingested into the system (e.g. manual entry, FIT file upload).

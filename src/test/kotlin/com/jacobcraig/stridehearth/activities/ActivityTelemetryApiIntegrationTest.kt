@@ -117,7 +117,7 @@ class ActivityTelemetryApiIntegrationTest {
     @Test
     fun `derivedStreams carries the stored GAP stream in m per s, parallel to t`() {
         val activity = activityWithTelemetry(runner)
-        derivedMetricsRepository.upsert(activity.id!!, DERIVED_METRICS_VERSION, arrayOf(3.25f, null, 4.5f))
+        derivedMetricsRepository.upsert(activity.id!!, DERIVED_DATA_VERSION, arrayOf(3.25f, null, 4.5f))
 
         mockMvc
             .perform(get("/api/activities/{id}/telemetry", activity.id))
@@ -132,7 +132,7 @@ class ActivityTelemetryApiIntegrationTest {
     fun `derivedStreams gapSpeed is null without a GAP stream, or when it is not parallel to t`() {
         val withoutGap = activityWithTelemetry(runner)
         val stale = activityWithTelemetry(runner)
-        derivedMetricsRepository.upsert(stale.id!!, DERIVED_METRICS_VERSION, arrayOf(3.0f, 3.0f))
+        derivedMetricsRepository.upsert(stale.id!!, DERIVED_DATA_VERSION, arrayOf(3.0f, 3.0f))
 
         for (activity in listOf(withoutGap, stale)) {
             val body = readJson(get("/api/activities/{id}/telemetry", activity.id))
@@ -144,7 +144,7 @@ class ActivityTelemetryApiIntegrationTest {
     @Test
     fun `another athlete cannot read an Activity's GAP stream`() {
         val activity = activityWithTelemetry(otherUser)
-        derivedMetricsRepository.upsert(activity.id!!, DERIVED_METRICS_VERSION, arrayOf(3.0f, 3.0f, 3.0f))
+        derivedMetricsRepository.upsert(activity.id!!, DERIVED_DATA_VERSION, arrayOf(3.0f, 3.0f, 3.0f))
 
         mockMvc
             .perform(get("/api/activities/{id}/telemetry", activity.id))
@@ -202,7 +202,7 @@ class ActivityTelemetryApiIntegrationTest {
     @Test
     fun `OpenAPI declares ActivityTelemetryResponseDTO with exactly the keys of the streamed telemetry JSON`() {
         val activity = activityWithTelemetry(runner)
-        derivedMetricsRepository.upsert(activity.id!!, DERIVED_METRICS_VERSION, arrayOf(3.0f, 3.0f, 3.0f))
+        derivedMetricsRepository.upsert(activity.id!!, DERIVED_DATA_VERSION, arrayOf(3.0f, 3.0f, 3.0f))
         activityBestEffortRepository.save(
             ActivityBestEffort(
                 activityId = activity.id!!,

@@ -47,7 +47,7 @@ class ActivityImportServiceTest {
     private val activityDetailsService: ActivityDetailsService = mock()
     private val activityHistory: ActivityHistory = mock()
     private val bestEffortRefresh: BestEffortRefresh = mock()
-    private val derivedMetricsRefresh: DerivedMetricsRefresh = mock()
+    private val derivedDataRefresh: DerivedDataRefresh = mock()
     private val transactionTemplate: TransactionTemplate = mock()
 
     private val service =
@@ -58,7 +58,7 @@ class ActivityImportServiceTest {
             activityDetailsService = activityDetailsService,
             activityHistory = activityHistory,
             bestEffortRefresh = bestEffortRefresh,
-            derivedMetricsRefresh = derivedMetricsRefresh,
+            derivedDataRefresh = derivedDataRefresh,
             transactionTemplate = transactionTemplate,
         )
 
@@ -211,7 +211,7 @@ class ActivityImportServiceTest {
         verify(activityRepository, never()).save(any())
         verify(activityHistory, never()).record(any(), any())
         verify(bestEffortRefresh, never()).refresh(any<Activity>(), anyOrNull())
-        verify(derivedMetricsRefresh, never()).refresh(any<Activity>(), anyOrNull())
+        verify(derivedDataRefresh, never()).refresh(any<Activity>(), anyOrNull(), anyOrNull(), anyOrNull())
     }
 
     @Test
@@ -372,21 +372,24 @@ class ActivityImportServiceTest {
 
         importing(parsedRun("fresh-be-1", qualifyingDetails))
 
-        val order = inOrder(bestEffortRefresh, derivedMetricsRefresh, activityHistory)
+        val order = inOrder(bestEffortRefresh, derivedDataRefresh, activityHistory)
         order.verify(bestEffortRefresh).refresh(saved, qualifyingDetails)
-        order.verify(derivedMetricsRefresh).refresh(saved, qualifyingDetails)
+        order.verify(derivedDataRefresh).refresh(saved, qualifyingDetails)
         order.verify(activityHistory).record(any(), any())
     }
 
     @Test
-    fun `a new Activity without Activity Details is not refreshed`() {
+    fun `a new Activity without Activity Details gets no Best Efforts but still gets its derived-data row`() {
         whenever(userRepository.getReferenceById(42L)).thenReturn(owner)
-        whenever(activityRepository.save(any<Activity>())).thenReturn(activity(502L, "fresh-no-details"))
+        val saved = activity(502L, "fresh-no-details")
+        whenever(activityRepository.save(any<Activity>())).thenReturn(saved)
 
         importing(parsedRun("fresh-no-details"))
 
         verify(bestEffortRefresh, never()).refresh(any<Activity>(), anyOrNull())
-        verify(derivedMetricsRefresh, never()).refresh(any<Activity>(), anyOrNull())
+        val order = inOrder(derivedDataRefresh, activityHistory)
+        order.verify(derivedDataRefresh).refresh(saved, null)
+        order.verify(activityHistory).record(any(), any())
     }
 
     @Test
@@ -396,9 +399,9 @@ class ActivityImportServiceTest {
 
         importing(parsedRun("upgrade-be-1", qualifyingDetails))
 
-        val order = inOrder(bestEffortRefresh, derivedMetricsRefresh, activityHistory)
+        val order = inOrder(bestEffortRefresh, derivedDataRefresh, activityHistory)
         order.verify(bestEffortRefresh).refresh(existing, qualifyingDetails)
-        order.verify(derivedMetricsRefresh).refresh(existing, qualifyingDetails)
+        order.verify(derivedDataRefresh).refresh(existing, qualifyingDetails)
         order.verify(activityHistory).record(any(), any())
     }
 
@@ -412,7 +415,7 @@ class ActivityImportServiceTest {
         assertEquals(listOf(lapless), assertIs<ImportOutcome.Upgraded>(outcome).upgrades.map { it.activity })
         assertEquals(listOf(701L to ActivityChange.Upgraded(details = null, laps = LapsUpgrade.Backfilled(1))), recordedHistory())
         verify(bestEffortRefresh, never()).refresh(any<Activity>(), anyOrNull())
-        verify(derivedMetricsRefresh, never()).refresh(any<Activity>(), anyOrNull())
+        verify(derivedDataRefresh, never()).refresh(any<Activity>(), anyOrNull(), anyOrNull(), anyOrNull())
         verify(bestEffortRefresh, never()).refresh(any<Collection<Activity>>())
     }
 }
