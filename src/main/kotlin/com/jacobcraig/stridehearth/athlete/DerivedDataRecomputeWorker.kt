@@ -31,7 +31,7 @@ data class RecomputeResult(
  * to commit, and an Activity deleted meanwhile is skipped. A page that loses a lock race (a deadlock with a batch
  * edit that locks the same Activities in another order) is retried. A page that fails any other way is retried
  * one Activity per transaction, so one Activity whose Activity Details cannot be analysed is logged and skipped
- * rather than stopping the scan; it stays a candidate and is tried again on the next run.
+ * rather than stopping the scan; it stays a candidate and is tried again on the next pass.
  */
 @Component
 class DerivedDataRecomputeWorker(
@@ -44,8 +44,21 @@ class DerivedDataRecomputeWorker(
     private val logger = LoggerFactory.getLogger(DerivedDataRecomputeWorker::class.java)
 
     /**
+     * Where the next [drain] starts: after the last page a drain finished, or 0 once a drain has scanned every
+     * candidate. Kept in memory only (a restart starts again from 0), and written by one drain at a time: the
+     * schedule's single thread, or a test.
+     */
+    @Volatile
+    private var resumeAfterId = 0L
+
+    /**
      * Recomputes candidate Activities, [pageSize] per page, for at most [maxPages] pages: every athlete's, or only
      * those of [onlyUserIds]. It opens one transaction per page itself, so it must not be called inside one.
+     *
+     * It resumes after the last page the previous drain finished, in id order, and wraps around to the lowest id
+     * once, stopping where it started. So Activities that keep failing are retried once per pass over all the
+     * candidates, rather than at the start of every run, where enough of them would use up every run's pages and
+     * keep the Activities after them from ever being reached.
      *
      * @throws PessimisticLockingFailureException when a page still loses its lock race after [LOCK_ATTEMPTS]
      *   tries; the pages before it stay committed, and the next run resumes.
@@ -57,12 +70,25 @@ class DerivedDataRecomputeWorker(
         onlyUserIds: Collection<Long>? = null,
     ): RecomputeResult {
         val limit = pageSize.coerceAtLeast(1)
-        var afterId = 0L
+        val startedAfter = resumeAfterId
+        var afterId = startedAfter
+        // Activities above startedAfter were scanned before wrapping around; after it, the scan ends at startedAfter.
+        var wrapped = startedAfter == 0L
         var recomputed = 0
         var failed = 0
-        repeat(maxPages) {
-            val candidates = derivedMetricsRepository.findRecomputePage(afterId, limit, DERIVED_DATA_VERSION, onlyUserIds)
-            if (candidates.isEmpty()) return RecomputeResult(recomputed, failed)
+        var pages = 0
+        while (pages < maxPages) {
+            val page = derivedMetricsRepository.findRecomputePage(afterId, limit, DERIVED_DATA_VERSION, onlyUserIds)
+            val candidates = if (wrapped && startedAfter > 0) page.filter { it <= startedAfter } else page
+            if (candidates.isEmpty()) {
+                if (wrapped) {
+                    resumeAfterId = 0L
+                    return RecomputeResult(recomputed, failed)
+                }
+                wrapped = true
+                afterId = 0L
+                continue
+            }
             try {
                 recomputed += recomputeInTransaction(candidates)
             } catch (e: PessimisticLockingFailureException) {
@@ -81,6 +107,8 @@ class DerivedDataRecomputeWorker(
                 }
             }
             afterId = candidates.last()
+            resumeAfterId = afterId
+            pages++
         }
         return RecomputeResult(recomputed, failed)
     }

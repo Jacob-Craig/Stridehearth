@@ -230,14 +230,23 @@ class ActivityService(
         return ownedActivities.size
     }
 
-    /** Every one of [activityIds] as the athlete's Activities, or null if any is missing or another athlete's. */
+    /**
+     * Every one of [activityIds] as the athlete's Activities, in ascending id order, or null if any is missing or
+     * another athlete's.
+     *
+     * The order is the lock order: a batch deletes them, and records their Activity History Entries, in this
+     * order, and `hibernate.order_updates` flushes its updates by id, so a batch takes its Activities' row locks
+     * in the order the derived-data recompute worker locks a page in. The lookup's own order (no ORDER BY, and
+     * chunked) could otherwise deadlock with a worker page, and a batch request, unlike a page, is not retried
+     * (ADR-0014). No row is locked up front, because ADR-0006 takes the Personal Record lock before any row lock.
+     */
     private fun findAllOwnedActivities(
         activityIds: Collection<Long>,
         userId: Long,
     ): List<Activity>? {
         val requestedIds = activityIds.distinct()
         val owned = requestedIds.chunkedForIdLookup().flatMap { activityRepository.findByIdInAndUserId(it, userId) }
-        return owned.takeIf { requestedIds.isNotEmpty() && it.size == requestedIds.size }
+        return owned.takeIf { requestedIds.isNotEmpty() && it.size == requestedIds.size }?.sortedBy { it.id }
     }
 }
 

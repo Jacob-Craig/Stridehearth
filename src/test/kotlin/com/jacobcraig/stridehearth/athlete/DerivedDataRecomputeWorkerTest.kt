@@ -15,6 +15,7 @@ import com.jacobcraig.stridehearth.system.ParserVersion
 import com.jacobcraig.stridehearth.system.fit.FitTelemetry
 import com.jacobcraig.stridehearth.users.User
 import com.jacobcraig.stridehearth.users.UserRepository
+import jakarta.persistence.EntityManagerFactory
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -78,6 +79,9 @@ class DerivedDataRecomputeWorkerTest {
 
     @Autowired
     private lateinit var transactionTemplate: TransactionTemplate
+
+    @Autowired
+    private lateinit var entityManagerFactory: EntityManagerFactory
 
     private lateinit var runner: User
     private lateinit var otherRunner: User
@@ -337,6 +341,41 @@ class DerivedDataRecomputeWorkerTest {
     }
 
     @Test
+    fun `Activities that keep failing do not stop later drains reaching the Activities after them`() {
+        val poisoned = List(3) { historical() }
+        val healthy = historical()
+        val poisonIds = poisoned.map { it.id }.toSet()
+        doAnswer { invocation ->
+            if (invocation.getArgument<Collection<Activity>>(0).any { it.id in poisonIds }) throw IllegalStateException("poison")
+            invocation.callRealMethod()
+        }.whenever(refreshSpy).refresh(any<Collection<Activity>>(), any())
+
+        // One run covers two pages: more failing Activities than that sit before the healthy one.
+        assertEquals(RecomputeResult(activitiesRecomputed = 0, activitiesFailed = 2), drain(pageSize = 1, maxPages = 2))
+        assertNull(row(healthy))
+
+        // The next run resumes after them rather than retrying them: the third failure, then the healthy Activity.
+        assertEquals(RecomputeResult(activitiesRecomputed = 1, activitiesFailed = 1), drain(pageSize = 1, maxPages = 2))
+        assertEquals(120, gapLength(healthy))
+    }
+
+    @Test
+    fun `a drain that resumes part-way wraps around once and stops where it started`() {
+        val first = historical()
+        val second = historical()
+        val third = historical()
+
+        assertEquals(RecomputeResult(1, 0), drain(pageSize = 1, maxPages = 1))
+        assertEquals(120, gapLength(first))
+
+        // Unbounded: from after the first to the end, then from the start up to where it began; nothing twice.
+        jdbcTemplate.update("DELETE FROM activity_derived_metrics WHERE activity_id = ?", first.id)
+        assertEquals(RecomputeResult(3, 0), drain())
+        listOf(first, second, third).forEach { assertEquals(120, gapLength(it)) }
+        assertEquals(RecomputeResult(0, 0), drain())
+    }
+
+    @Test
     fun `a page that loses a lock race is retried`() {
         val run = historical()
         val calls = AtomicInteger()
@@ -369,6 +408,11 @@ class DerivedDataRecomputeWorkerTest {
         assertEquals(DerivedDataRecomputeWorker.LOCK_ATTEMPTS, calls.get())
         assertEquals(120, gapLength(first))
         assertNull(row(second))
+    }
+
+    @Test
+    fun `updates are flushed in primary-key order, so a batch edit locks Activities in the order a page does`() {
+        assertEquals("true", entityManagerFactory.properties["hibernate.order_updates"]?.toString())
     }
 
     @Test

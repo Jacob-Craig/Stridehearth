@@ -9,6 +9,7 @@ import com.jacobcraig.stridehearth.users.UserRepository
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.mockito.kotlin.any
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.inOrder
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
@@ -368,6 +369,34 @@ class ActivityServiceTest {
         order.verify(derivedDataRefresh).refresh(listOf(reclassified), mapOf(1L to ActivitySport.RUN))
         verifyNoMoreInteractions(bestEffortRefresh)
         verifyNoMoreInteractions(derivedDataRefresh)
+    }
+
+    @Test
+    fun `a batch edit changes its Activities and records their history in ascending id order, like the recompute worker`() {
+        // The lookup returns them out of id order (it has no ORDER BY, and requests are chunked).
+        val second = run(2L)
+        val first = run(1L)
+        whenever(activityRepository.findByIdInAndUserId(listOf(2L, 1L), 7L)).thenReturn(listOf(second, first))
+
+        activityService.batchUpdateActivities(listOf(2L, 1L), 7L, BatchMetadataChange.of(title = null, sport = ActivitySport.RIDE)!!)
+
+        val order = inOrder(activityRepository, derivedDataRefresh, activityHistory)
+        order.verify(activityRepository).save(first)
+        order.verify(activityRepository).save(second)
+        order.verify(derivedDataRefresh).refresh(listOf(first, second), mapOf(1L to ActivitySport.RUN, 2L to ActivitySport.RUN))
+        order.verify(activityHistory).record(eq(first), any())
+        order.verify(activityHistory).record(eq(second), any())
+    }
+
+    @Test
+    fun `a batch delete deletes its Activities in ascending id order, like the recompute worker`() {
+        val second = run(2L)
+        val first = run(1L)
+        whenever(activityRepository.findByIdInAndUserId(listOf(2L, 1L), 7L)).thenReturn(listOf(second, first))
+
+        assertEquals(2, activityService.batchDeleteActivities(listOf(2L, 1L), 7L))
+
+        verify(activityRepository).deleteAll(listOf(first, second))
     }
 
     @Test

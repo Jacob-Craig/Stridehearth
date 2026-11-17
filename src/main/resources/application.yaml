@@ -21,6 +21,10 @@ spring:
       # but prevents it from trying to auto-create tables, which conflicts with Flyway.
       ddl-auto: validate
     show-sql: false
+    properties:
+      # Flush a transaction's updates in primary-key order, so a batch edit takes its Activities' row locks in the
+      # same order as the derived-data recompute worker and cannot deadlock with it (ADR-0014).
+      hibernate.order_updates: true
 
 # The OpenAPI docs (and Swagger UI, if it is ever added) are served only with the `dev` profile.
 springdoc:
