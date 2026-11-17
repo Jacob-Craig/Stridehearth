@@ -380,6 +380,75 @@ class ActivityDetailApiIntegrationTest {
             .andExpect(jsonPath("$.runMetrics").doesNotExist())
     }
 
+    /** Stores a Training Load (or the reason there is none) for [activity] as the derived-data refresh would. */
+    private fun saveTrainingLoad(
+        activity: Activity,
+        load: Double? = null,
+        method: String? = null,
+        reason: String? = null,
+    ) = jdbcTemplate.update(
+        """
+        INSERT INTO activity_derived_metrics (activity_id, algorithm_version, training_load, training_load_method,
+            training_load_unavailable_reason)
+        VALUES (?, 3, ?, ?, ?)
+        ON CONFLICT (activity_id) DO UPDATE SET training_load = EXCLUDED.training_load,
+            training_load_method = EXCLUDED.training_load_method,
+            training_load_unavailable_reason = EXCLUDED.training_load_unavailable_reason
+        """.trimIndent(),
+        activity.id,
+        load,
+        method,
+        reason,
+    )
+
+    @Test
+    fun `GET api activities id returns the Training Load and its method`() {
+        val run = saveActivity(runner)
+        saveTrainingLoad(run, load = 87.4, method = "RTSS")
+
+        mockMvc
+            .perform(get("/api/activities/{id}", run.id).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.trainingLoad.value").value(87.4))
+            .andExpect(jsonPath("$.trainingLoad.method").value("RTSS"))
+            .andExpect(jsonPath("$.trainingLoadUnavailableReason").value(nullValue()))
+    }
+
+    @Test
+    fun `GET api activities id returns a null Training Load with the reason`() {
+        val run = saveActivity(runner)
+        saveTrainingLoad(run, reason = "NO_THRESHOLDS")
+
+        mockMvc
+            .perform(get("/api/activities/{id}", run.id).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.trainingLoad").value(nullValue()))
+            .andExpect(jsonPath("$.trainingLoadUnavailableReason").value("NO_THRESHOLDS"))
+    }
+
+    @Test
+    fun `GET api activities id has neither a Training Load nor a reason before it is computed`() {
+        val run = saveActivity(runner)
+        jdbcTemplate.update("DELETE FROM activity_derived_metrics WHERE activity_id = ?", run.id)
+
+        mockMvc
+            .perform(get("/api/activities/{id}", run.id).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.trainingLoad").value(nullValue()))
+            .andExpect(jsonPath("$.trainingLoadUnavailableReason").value(nullValue()))
+    }
+
+    @Test
+    fun `GET api activities id never returns another athlete's Training Load`() {
+        val notMine = saveActivity(otherRunner)
+        saveTrainingLoad(notMine, load = 87.4, method = "HRSS")
+
+        mockMvc
+            .perform(get("/api/activities/{id}", notMine.id).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.trainingLoad").doesNotExist())
+    }
+
     @Test
     fun `GET api activities id returns a uniform 404 for another athlete's activity and a missing one`() {
         val notMine = saveActivity(otherRunner)

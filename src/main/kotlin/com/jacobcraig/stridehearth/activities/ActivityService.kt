@@ -74,6 +74,7 @@ class ActivityService(
             history = activityHistory.entriesFor(id),
             bestEfforts = activityBestEffortRepository.findByActivityId(id).sortedBy { it.benchmarkDistance.distanceMeters },
             runMetrics = if (activity.sport == ActivitySport.RUN) derivedMetricsRepository.findRunMetrics(id) else null,
+            trainingLoad = derivedMetricsRepository.findTrainingLoad(id),
         )
     }
 

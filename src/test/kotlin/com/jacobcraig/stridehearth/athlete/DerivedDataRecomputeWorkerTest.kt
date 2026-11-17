@@ -246,7 +246,7 @@ class DerivedDataRecomputeWorkerTest {
                 { rs, _ -> Triple(rs.getInt(1), rs.getObject(2) as Int?, rs.getObject(3) as Double?) },
                 run.id,
             )!!
-        assertEquals(2, version)
+        assertEquals(DERIVED_DATA_VERSION.toInt(), version)
         assertEquals(120, movingSeconds)
         assertNotNull(ngp)
         assertEquals(RecomputeResult(0, 0), drain())

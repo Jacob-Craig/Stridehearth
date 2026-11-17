@@ -512,6 +512,14 @@ export type ActivityDetailDto = {
      * Derived Run metrics; null for any sport but Run and for a Run whose derived data is not computed yet
      */
     runMetrics: RunMetricsDto | null;
+    /**
+     * Training Load and the method that computed it; null when it is unavailable or not computed yet
+     */
+    trainingLoad: TrainingLoadDto | null;
+    /**
+     * Why the Activity has no Training Load; null when it has one or it is not computed yet
+     */
+    trainingLoadUnavailableReason: TrainingLoadUnavailableReason | null;
 };
 
 export type ActivityHistoryEntryDto = {
@@ -566,6 +574,15 @@ export type RunMetricsDto = {
     aerobicDecouplingPercent: number | null;
     decouplingUnavailableReason: DecouplingUnavailableReason | null;
 };
+
+export type TrainingLoadDto = {
+    value: number;
+    method: TrainingLoadMethod;
+};
+
+export type TrainingLoadMethod = 'RSS' | 'RTSS' | 'HRSS';
+
+export type TrainingLoadUnavailableReason = 'NO_ACTIVITY_DETAILS' | 'NO_THRESHOLDS' | 'NO_USABLE_STREAM';
 
 export type ActivityDerivedStreamsDto = {
     /**

@@ -3052,9 +3052,19 @@
             "type" : [ "object", "null" ],
             "$ref" : "#/components/schemas/RunMetricsDTO",
             "description" : "Derived Run metrics; null for any sport but Run and for a Run whose derived data is not computed yet"
+          },
+          "trainingLoad" : {
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/TrainingLoadDTO",
+            "description" : "Training Load and the method that computed it; null when it is unavailable or not computed yet"
+          },
+          "trainingLoadUnavailableReason" : {
+            "type" : [ "string", "null" ],
+            "$ref" : "#/components/schemas/TrainingLoadUnavailableReason",
+            "description" : "Why the Activity has no Training Load; null when it has one or it is not computed yet"
           }
         },
-        "required" : [ "averageHeartRate", "averagePaceKmh", "bestEfforts", "calories", "distance", "hasProtectedMetrics", "history", "id", "laps", "ownerUsername", "runMetrics", "source", "sport", "startedAt", "timeTakenSeconds", "title" ]
+        "required" : [ "averageHeartRate", "averagePaceKmh", "bestEfforts", "calories", "distance", "hasProtectedMetrics", "history", "id", "laps", "ownerUsername", "runMetrics", "source", "sport", "startedAt", "timeTakenSeconds", "title", "trainingLoad", "trainingLoadUnavailableReason" ]
       },
       "ActivityHistoryEntryDTO" : {
         "type" : "object",
@@ -3172,6 +3182,27 @@
           }
         },
         "required" : [ "aerobicDecouplingPercent", "decouplingUnavailableReason", "efficiencyFactor", "movingSeconds", "ngpMetersPerSecond" ]
+      },
+      "TrainingLoadDTO" : {
+        "type" : "object",
+        "properties" : {
+          "value" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "method" : {
+            "$ref" : "#/components/schemas/TrainingLoadMethod"
+          }
+        },
+        "required" : [ "method", "value" ]
+      },
+      "TrainingLoadMethod" : {
+        "type" : "string",
+        "enum" : [ "RSS", "RTSS", "HRSS" ]
+      },
+      "TrainingLoadUnavailableReason" : {
+        "type" : "string",
+        "enum" : [ "NO_ACTIVITY_DETAILS", "NO_THRESHOLDS", "NO_USABLE_STREAM" ]
       },
       "ActivityDerivedStreamsDTO" : {
         "type" : "object",

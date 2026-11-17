@@ -46,6 +46,8 @@ function detailOf(summary: ActivitySummaryDto): ActivityDetailDto {
     history: [],
     bestEfforts: [],
     runMetrics: null,
+    trainingLoad: null,
+    trainingLoadUnavailableReason: null,
   };
 }
 

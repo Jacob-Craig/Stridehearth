@@ -1,5 +1,6 @@
 package com.jacobcraig.stridehearth.analytics
 
+import com.jacobcraig.stridehearth.athlete.ThresholdsOn
 import com.jacobcraig.stridehearth.system.ActivitySport
 import com.jacobcraig.stridehearth.system.fit.FitTelemetry
 
@@ -10,7 +11,9 @@ import com.jacobcraig.stridehearth.system.fit.FitTelemetry
  *
  * [gapSpeed] is the **Grade-Adjusted Pace** stream, parallel to `cleaned.t`; `null` for a sport outside
  * [GradeAdjustedPace.GAP_SPORTS] or when no sample has a cleaned speed. [runMetrics] (Moving Time, Normalized Graded
- * Pace, Efficiency Factor and Aerobic Decoupling) exist for a Run only.
+ * Pace, Efficiency Factor and Aerobic Decoupling) exist for a Run only. [trainingLoad] is the **Training Load**
+ * ([TrainingLoadCalculator]) against the Thresholds in force on the Activity's date, from the raw power and the
+ * cleaned heart rate.
  *
  * No Spring and no I/O.
  */
@@ -18,17 +21,32 @@ class ActivityAnalysis private constructor(
     val cleaned: CleanedTelemetry,
     val gapSpeed: Array<Float?>?,
     val runMetrics: RunMetrics?,
+    val trainingLoad: TrainingLoadResult,
 ) {
     companion object {
-        /** Cleans [details] for [sport], then computes every derived stream from the result. */
+        /**
+         * Cleans [details] for [sport], then computes every derived stream from the result, scoring the Training Load
+         * against [thresholds].
+         */
         fun analyse(
             details: FitTelemetry,
             sport: ActivitySport,
+            thresholds: ThresholdsOn = ThresholdsOn.NONE,
         ): ActivityAnalysis {
             val cleaned = TelemetryCleaner.clean(details, sport)
             val gapSpeed = if (sport in GradeAdjustedPace.GAP_SPORTS) GradeAdjustedPace.gapSpeed(cleaned) else null
             val runMetrics = if (sport == ActivitySport.RUN) RunMetrics.of(cleaned, gapSpeed) else null
-            return ActivityAnalysis(cleaned, gapSpeed, runMetrics)
+            val trainingLoad =
+                TrainingLoadCalculator.compute(
+                    sport = sport,
+                    t = cleaned.t,
+                    power = details.power,
+                    heartRate = cleaned.heartRate,
+                    ngpMps = runMetrics?.ngpMps,
+                    movingSeconds = runMetrics?.movingSeconds,
+                    thresholds = thresholds,
+                )
+            return ActivityAnalysis(cleaned, gapSpeed, runMetrics, trainingLoad)
         }
     }
 }

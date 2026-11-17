@@ -95,6 +95,8 @@ const activity: ActivityDetailDto = {
   history: [],
   bestEfforts: [effort],
   runMetrics: null,
+  trainingLoad: null,
+  trainingLoadUnavailableReason: null,
 };
 
 function json(body: unknown): Response {

@@ -575,6 +575,23 @@ export const zRunMetricsDto = z.object({
     decouplingUnavailableReason: zDecouplingUnavailableReason.nullable()
 });
 
+export const zTrainingLoadMethod = z.enum([
+    'RSS',
+    'RTSS',
+    'HRSS'
+]);
+
+export const zTrainingLoadDto = z.object({
+    value: z.number(),
+    method: zTrainingLoadMethod
+});
+
+export const zTrainingLoadUnavailableReason = z.enum([
+    'NO_ACTIVITY_DETAILS',
+    'NO_THRESHOLDS',
+    'NO_USABLE_STREAM'
+]);
+
 export const zActivityDetailDto = z.object({
     id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { message: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { message: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
     title: z.string(),
@@ -603,7 +620,9 @@ export const zActivityDetailDto = z.object({
     laps: z.array(zActivityLapDto),
     history: z.array(zActivityHistoryEntryDto),
     bestEfforts: z.array(zActivityBestEffortDto),
-    runMetrics: zRunMetricsDto.nullable()
+    runMetrics: zRunMetricsDto.nullable(),
+    trainingLoad: zTrainingLoadDto.nullable(),
+    trainingLoadUnavailableReason: zTrainingLoadUnavailableReason.nullable()
 });
 
 export const zActivityDerivedStreamsDto = z.object({

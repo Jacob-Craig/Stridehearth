@@ -91,6 +91,8 @@ function detail(overrides: Partial<ActivityDetailDto> = {}): ActivityDetailDto {
     history: [],
     bestEfforts: [],
     runMetrics: null,
+    trainingLoad: null,
+    trainingLoadUnavailableReason: null,
     ...overrides,
   };
 }

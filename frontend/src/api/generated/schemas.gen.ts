@@ -2041,6 +2041,22 @@ export const ActivityDetailDTOSchema = {
             ],
             $ref: '#/components/schemas/RunMetricsDTO',
             description: 'Derived Run metrics; null for any sport but Run and for a Run whose derived data is not computed yet'
+        },
+        trainingLoad: {
+            type: [
+                'object',
+                'null'
+            ],
+            $ref: '#/components/schemas/TrainingLoadDTO',
+            description: 'Training Load and the method that computed it; null when it is unavailable or not computed yet'
+        },
+        trainingLoadUnavailableReason: {
+            type: [
+                'string',
+                'null'
+            ],
+            $ref: '#/components/schemas/TrainingLoadUnavailableReason',
+            description: 'Why the Activity has no Training Load; null when it has one or it is not computed yet'
         }
     },
     required: [
@@ -2059,7 +2075,9 @@ export const ActivityDetailDTOSchema = {
         'sport',
         'startedAt',
         'timeTakenSeconds',
-        'title'
+        'title',
+        'trainingLoad',
+        'trainingLoadUnavailableReason'
     ]
 } as const;
 
@@ -2234,6 +2252,41 @@ export const RunMetricsDTOSchema = {
         'efficiencyFactor',
         'movingSeconds',
         'ngpMetersPerSecond'
+    ]
+} as const;
+
+export const TrainingLoadDTOSchema = {
+    type: 'object',
+    properties: {
+        value: {
+            type: 'number',
+            format: 'double'
+        },
+        method: {
+            $ref: '#/components/schemas/TrainingLoadMethod'
+        }
+    },
+    required: [
+        'method',
+        'value'
+    ]
+} as const;
+
+export const TrainingLoadMethodSchema = {
+    type: 'string',
+    enum: [
+        'RSS',
+        'RTSS',
+        'HRSS'
+    ]
+} as const;
+
+export const TrainingLoadUnavailableReasonSchema = {
+    type: 'string',
+    enum: [
+        'NO_ACTIVITY_DETAILS',
+        'NO_THRESHOLDS',
+        'NO_USABLE_STREAM'
     ]
 } as const;
 
