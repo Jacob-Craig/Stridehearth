@@ -25,9 +25,10 @@ import com.jacobcraig.stridehearth.system.ActivitySport
  * are less than [MIN_GRADE_SPAN_METERS] apart, and everywhere for an Activity without a GPS fix, whose barometer
  * drift must not make hills. Without altitude, GAP therefore equals the cleaned speed.
  *
- * The baseline trades resolution on short climbs for flat ground that stays flat: a 0.2 m barometer step reads as
- * at most 0.2 / 180 = 0.11 % grade (GAP 0.6 % above pace), while the middle of a 200 m climb at 5 % still reads within
- * about 1 % of Minetti's ratio for 5 %.
+ * The baseline trades resolution on short climbs for flat ground that stays flat: in an Activity at least 240 m long, a
+ * 0.2 m barometer step reads as at most 0.2 / 180 = 0.11 % grade (GAP 0.6 % above pace), while the middle of a 200 m
+ * climb at 5 % still reads within about 1 % of Minetti's ratio for 5 %. In a shorter Activity the baseline shrinks to
+ * about half its length, so the same step reads proportionally steeper (about 0.4 % grade over 100 m).
  *
  * A pure function with no persistence.
  */

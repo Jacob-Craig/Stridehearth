@@ -1,11 +1,13 @@
 package com.jacobcraig.stridehearth.analytics
 
 import com.jacobcraig.stridehearth.system.ActivitySport
+import com.jacobcraig.stridehearth.system.fit.FitActivityParser
 import com.jacobcraig.stridehearth.system.fit.FitTelemetry
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import org.springframework.core.io.ClassPathResource
 import kotlin.math.abs
 import kotlin.math.sqrt
 import kotlin.test.assertEquals
@@ -176,6 +178,24 @@ class GradeAdjustedPaceTest {
             assertWithinOnePercentOverFiveSeconds(cleaned, gap)
         }
 
+        @Test
+        fun `the sample run's 5 s rolling GAP over pace moves less than 0,1 percent from one second to the next`() {
+            // sample.fit records altitude in 0.2 m steps over gentle rolling ground. #51 measured GAP there swinging
+            // about ±2.5 % around a steady pace (its 5 s rolling ratio moved up to 1.3 % in a second under the ±10 m grade);
+            // real hills change grade far more slowly than that.
+            val details = assertNotNull(FitActivityParser().parse(ClassPathResource("runs/sample.fit")).single().telemetry)
+            val cleaned = TelemetryCleaner.clean(details, ActivitySport.RUN)
+
+            val gap = assertNotNull(GradeAdjustedPace.gapSpeed(cleaned))
+
+            val rollingGap = gap.rolling(5)
+            val rollingPace = cleaned.speed.rolling(5)
+            val ratio = rollingGap.indices.map { rollingGap[it] / rollingPace[it] }
+            ratio.zipWithNext().forEachIndexed { k, (before, after) ->
+                assertTrue(abs(after - before) < 0.001, "5 s rolling GAP / pace moves from $before to $after at ${k + 5}")
+            }
+        }
+
         @ParameterizedTest(name = "sigma {0} m, rho {1}")
         @CsvSource("1.0, 0.9", "2.0, 0.9")
         fun `a flat run with GPS-derived altitude keeps mean GAP and NGP within 1 percent of pace`(
@@ -203,7 +223,9 @@ class GradeAdjustedPaceTest {
 
             val gap = assertNotNull(GradeAdjustedPace.gapSpeed(cleaned))
 
-            // Interior: away from the first and last 15 m, where the altitude window and grade window are one-sided.
+            // Interior: away from the first and last 15 m, where the 15 m altitude smoothing window is one-sided. The
+            // grade anchors slide inwards over the first and last 120 m, but still pair mean altitude with mean distance
+            // and so read the true grade there.
             for (k in 10 until 390) {
                 val pace = cleaned.speed[k]!!
                 assertTrue(gap[k]!! > pace, "GAP at $k")
@@ -247,8 +269,9 @@ class GradeAdjustedPaceTest {
 
             val gap = assertNotNull(GradeAdjustedPace.gapSpeed(cleaned))
 
-            // Sample 200 is at 600 m, the middle of the climb. Its anchors, [450, 510] and [630, 690], reach just past
-            // the climb's foot, so it reads within 0.02 of Minetti's ratio for 5 % rather than exactly.
+            // Sample 200 is at 600 m, the middle of the climb. Its anchors, [480, 540] (0.667 m at 510 m) and [660, 720]
+            // (9.333 m at 690 m), reach 20 m beyond the climb's foot and top: 8.667 / 180 = 4.81 % grade, a ratio of
+            // about 1.289, so it reads within 0.02 of Minetti's ratio for 5 % rather than exactly.
             assertEquals(1.3014, gap[200]!! / cleaned.speed[200]!!.toDouble(), 0.02)
             // Every sample on the climb reads uphill.
             for (k in 167..233) assertTrue(gap[k]!! > cleaned.speed[k]!!, "GAP at $k")
