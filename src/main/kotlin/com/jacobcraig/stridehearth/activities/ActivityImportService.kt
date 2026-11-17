@@ -28,6 +28,7 @@ class ActivityImportService(
     private val activityDetailsService: ActivityDetailsService,
     private val activityHistory: ActivityHistory,
     private val bestEffortRefresh: BestEffortRefresh,
+    private val derivedMetricsRefresh: DerivedMetricsRefresh,
     private val transactionTemplate: TransactionTemplate,
 ) {
     /**
@@ -86,19 +87,25 @@ class ActivityImportService(
             val existing = parsed.externalId?.let { findAfterPersonalRecordLock(userId, source, it) }
             val activity = existing ?: activityRepository.save(parsed.toActivity(owner, source))
             val change = activityDetailsService.offer(activity, parsed.telemetry, parsed.laps, parsed.parserVersion)
-            // Best Efforts are refreshed only from Activity Details this offer wrote: a new Activity without
-            // any can hold none, and a laps-only Backfill or a duplicate leaves them as they are.
+            // Best Efforts and derived metrics are refreshed only from Activity Details this offer wrote: a new
+            // Activity without any can hold none, and a laps-only Backfill or a duplicate leaves them as they are.
             val writtenDetails = parsed.telemetry.takeIf { change.detailsWritten }
 
             if (existing == null) {
-                writtenDetails?.let { bestEffortRefresh.refresh(activity, it) }
+                writtenDetails?.let {
+                    bestEffortRefresh.refresh(activity, it)
+                    derivedMetricsRefresh.refresh(activity, it)
+                }
                 activityHistory.record(activity, ActivityChange.Created.of(source, change))
                 savedActivities.add(activity)
             } else {
                 when (change) {
                     ActivityDetailsChange.Unchanged -> duplicateActivities.add(existing)
                     is ActivityDetailsChange.Changed -> {
-                        writtenDetails?.let { bestEffortRefresh.refresh(existing, it) }
+                        writtenDetails?.let {
+                            bestEffortRefresh.refresh(existing, it)
+                            derivedMetricsRefresh.refresh(existing, it)
+                        }
                         activityHistory.record(existing, ActivityChange.Upgraded.of(change))
                         upgradedActivities.add(ActivityUpgrade(existing, change))
                     }

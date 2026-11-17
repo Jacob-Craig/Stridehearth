@@ -71,6 +71,42 @@ class ActivityDetailsRepository(
             .orElse(null)
 
     /**
+     * Reads, exactly as stored, the series **Telemetry Cleaning** needs: `t`, `distance`, `routeIndex`, speed,
+     * heart rate, cadence and altitude (with their enhanced and fractional variants). Like
+     * [findStoredScanningSeries] the route is not read. A pure read: it never writes.
+     */
+    fun findStoredCleaningSeries(activityId: Long): FitTelemetry? =
+        jdbcClient
+            .sql(
+                """
+                SELECT t, distance, route_index, enhanced_speed, speed, heart_rate, cadence, fractional_cadence,
+                       altitude, enhanced_altitude
+                FROM activity_details WHERE activity_id = :activityId
+                """.trimIndent(),
+            ).param("activityId", activityId)
+            .query { rs, _ ->
+                val tArr = (rs.getArray("t")?.array as? Array<*>)?.map { (it as Number).toInt() }?.toIntArray() ?: IntArray(0)
+                FitTelemetry(
+                    t = tArr,
+                    lons = DoubleArray(0),
+                    lats = DoubleArray(0),
+                    routeIndex =
+                        (rs.getArray("route_index")?.array as? Array<*>)
+                            ?.map { (it as? Number)?.toInt() }
+                            ?.toTypedArray() ?: arrayOfNulls(tArr.size),
+                    distance = rs.getFloatArray("distance") ?: arrayOfNulls(tArr.size),
+                    enhancedSpeed = rs.getFloatArray("enhanced_speed") ?: emptyArray(),
+                    speed = rs.getFloatArray("speed") ?: emptyArray(),
+                    heartRate = rs.getShortArray("heart_rate") ?: emptyArray(),
+                    cadence = rs.getShortArray("cadence") ?: emptyArray(),
+                    fractionalCadence = rs.getFloatArray("fractional_cadence") ?: emptyArray(),
+                    altitude = rs.getFloatArray("altitude") ?: emptyArray(),
+                    enhancedAltitude = rs.getFloatArray("enhanced_altitude") ?: emptyArray(),
+                )
+            }.optional()
+            .orElse(null)
+
+    /**
      * Reads the stored route's points as `lons` to `lats`, in route order; both are empty when no route (or no
      * Activity Details) is stored. A pure read: it never writes.
      */
@@ -515,6 +551,12 @@ class ActivityDetailsRepository(
     private fun ResultSet.getFloatArray(column: String): Array<Float?>? =
         (getArray(column)?.array as? Array<*>)
             ?.map { (it as? Number)?.toFloat() }
+            ?.toTypedArray()
+
+    /** Decodes a nullable `smallint[]` column, keeping null samples; `null` when the column itself is null. */
+    private fun ResultSet.getShortArray(column: String): Array<Short?>? =
+        (getArray(column)?.array as? Array<*>)
+            ?.map { (it as? Number)?.toShort() }
             ?.toTypedArray()
 
     /** Creates a PostgreSQL SQL array for primitive integer values. */

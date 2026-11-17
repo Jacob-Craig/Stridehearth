@@ -87,6 +87,18 @@ class ActivityDetailsService(
         return stored.copy(lons = lons, lats = lats, distance = distance)
     }
 
+    /**
+     * Reads an Activity's stored details as **Telemetry Cleaning** needs them, or `null` when none are stored.
+     * A pure read: it never writes. When the stored details lack distance the route is read too, so cleaning can
+     * synthesize distance in memory exactly as the parser would; the stored row is left unchanged.
+     */
+    fun findCleaningSeries(activityId: Long): FitTelemetry? {
+        val stored = activityDetailsRepository.findStoredCleaningSeries(activityId) ?: return null
+        if (stored.hasDistance) return stored
+        val (lons, lats) = activityDetailsRepository.findStoredRoute(activityId)
+        return stored.copy(lons = lons, lats = lats)
+    }
+
     private fun write(
         activityId: Long,
         change: ActivityDetailsChange.Changed,

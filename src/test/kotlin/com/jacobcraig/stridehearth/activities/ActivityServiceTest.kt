@@ -34,6 +34,7 @@ class ActivityServiceTest {
     private val activityHistory: ActivityHistory = mock()
     private val activityBestEffortRepository: ActivityBestEffortRepository = mock()
     private val bestEffortRefresh: BestEffortRefresh = mock()
+    private val derivedMetricsRefresh: DerivedMetricsRefresh = mock()
     private val heatmapRouteRepository: HeatmapRouteRepository = mock()
     private val activityService =
         ActivityService(
@@ -44,6 +45,7 @@ class ActivityServiceTest {
             activityBestEffortRepository,
             activityDetailsRepository,
             bestEffortRefresh,
+            derivedMetricsRefresh,
             heatmapRouteRepository,
         )
     private val owner = User(id = 7L, email = "a@b.com", passwordHash = "x", username = "alice")
@@ -315,9 +317,12 @@ class ActivityServiceTest {
 
         activityService.updateActivity(1L, 7L, ActivityUpdateRequestDTO(title = "Run 1", sport = ActivitySport.RIDE))
 
-        val order = inOrder(activityRepository, bestEffortRefresh)
+        val order = inOrder(activityRepository, bestEffortRefresh, derivedMetricsRefresh, heatmapRouteRepository, activityHistory)
         order.verify(activityRepository).save(activity)
         order.verify(bestEffortRefresh).refresh(activity)
+        order.verify(derivedMetricsRefresh).refresh(activity)
+        order.verify(heatmapRouteRepository).recomputeForSport(listOf(1L), ActivitySport.RIDE)
+        order.verify(activityHistory).record(any(), any())
         assertEquals(ActivitySport.RIDE, activity.sport)
     }
 
@@ -329,6 +334,7 @@ class ActivityServiceTest {
         activityService.updateActivity(1L, 7L, ActivityUpdateRequestDTO(title = "Renamed", sport = ActivitySport.RUN))
 
         verifyNoInteractions(bestEffortRefresh)
+        verifyNoInteractions(derivedMetricsRefresh)
     }
 
     @Test
@@ -351,8 +357,11 @@ class ActivityServiceTest {
 
         activityService.batchUpdateActivities(listOf(1L, 2L), 7L, BatchMetadataChange.of(title = null, sport = ActivitySport.RIDE)!!)
 
-        verify(bestEffortRefresh).refresh(listOf(reclassified))
+        val order = inOrder(bestEffortRefresh, derivedMetricsRefresh)
+        order.verify(bestEffortRefresh).refresh(listOf(reclassified))
+        order.verify(derivedMetricsRefresh).refresh(listOf(reclassified))
         verifyNoMoreInteractions(bestEffortRefresh)
+        verifyNoMoreInteractions(derivedMetricsRefresh)
     }
 
     @Test
@@ -362,6 +371,7 @@ class ActivityServiceTest {
         activityService.batchUpdateActivities(listOf(1L, 2L), 7L, BatchMetadataChange.of(title = "Renamed", sport = null)!!)
 
         verifyNoInteractions(bestEffortRefresh)
+        verifyNoInteractions(derivedMetricsRefresh)
     }
 
     @Test

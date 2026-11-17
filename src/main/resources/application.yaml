@@ -30,6 +30,9 @@ springdoc:
     enabled: false
 
 stridehearth:
+  # Recompute missing or out-of-date derived metrics (Grade-Adjusted Pace) in the background at startup.
+  derived-metrics:
+    backfill-on-startup: true
   storage:
     temp-dir: ./temp-batches
   import:

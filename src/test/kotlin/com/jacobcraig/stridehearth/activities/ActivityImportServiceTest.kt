@@ -47,6 +47,7 @@ class ActivityImportServiceTest {
     private val activityDetailsService: ActivityDetailsService = mock()
     private val activityHistory: ActivityHistory = mock()
     private val bestEffortRefresh: BestEffortRefresh = mock()
+    private val derivedMetricsRefresh: DerivedMetricsRefresh = mock()
     private val transactionTemplate: TransactionTemplate = mock()
 
     private val service =
@@ -57,6 +58,7 @@ class ActivityImportServiceTest {
             activityDetailsService = activityDetailsService,
             activityHistory = activityHistory,
             bestEffortRefresh = bestEffortRefresh,
+            derivedMetricsRefresh = derivedMetricsRefresh,
             transactionTemplate = transactionTemplate,
         )
 
@@ -209,6 +211,7 @@ class ActivityImportServiceTest {
         verify(activityRepository, never()).save(any())
         verify(activityHistory, never()).record(any(), any())
         verify(bestEffortRefresh, never()).refresh(any<Activity>(), anyOrNull())
+        verify(derivedMetricsRefresh, never()).refresh(any<Activity>(), anyOrNull())
     }
 
     @Test
@@ -369,7 +372,10 @@ class ActivityImportServiceTest {
 
         importing(parsedRun("fresh-be-1", qualifyingDetails))
 
-        verify(bestEffortRefresh).refresh(saved, qualifyingDetails)
+        val order = inOrder(bestEffortRefresh, derivedMetricsRefresh, activityHistory)
+        order.verify(bestEffortRefresh).refresh(saved, qualifyingDetails)
+        order.verify(derivedMetricsRefresh).refresh(saved, qualifyingDetails)
+        order.verify(activityHistory).record(any(), any())
     }
 
     @Test
@@ -380,6 +386,7 @@ class ActivityImportServiceTest {
         importing(parsedRun("fresh-no-details"))
 
         verify(bestEffortRefresh, never()).refresh(any<Activity>(), anyOrNull())
+        verify(derivedMetricsRefresh, never()).refresh(any<Activity>(), anyOrNull())
     }
 
     @Test
@@ -389,7 +396,10 @@ class ActivityImportServiceTest {
 
         importing(parsedRun("upgrade-be-1", qualifyingDetails))
 
-        verify(bestEffortRefresh).refresh(existing, qualifyingDetails)
+        val order = inOrder(bestEffortRefresh, derivedMetricsRefresh, activityHistory)
+        order.verify(bestEffortRefresh).refresh(existing, qualifyingDetails)
+        order.verify(derivedMetricsRefresh).refresh(existing, qualifyingDetails)
+        order.verify(activityHistory).record(any(), any())
     }
 
     @Test
@@ -402,6 +412,7 @@ class ActivityImportServiceTest {
         assertEquals(listOf(lapless), assertIs<ImportOutcome.Upgraded>(outcome).upgrades.map { it.activity })
         assertEquals(listOf(701L to ActivityChange.Upgraded(details = null, laps = LapsUpgrade.Backfilled(1))), recordedHistory())
         verify(bestEffortRefresh, never()).refresh(any<Activity>(), anyOrNull())
+        verify(derivedMetricsRefresh, never()).refresh(any<Activity>(), anyOrNull())
         verify(bestEffortRefresh, never()).refresh(any<Collection<Activity>>())
     }
 }

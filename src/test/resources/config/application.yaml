@@ -1,0 +1,6 @@
+# Test-only overrides, layered over src/main/resources/application.yaml.
+stridehearth:
+  derived-metrics:
+    # A background backfill at each test context's startup would race the tests' own fixtures;
+    # DerivedMetricsBackfillIntegrationTest runs the backfill explicitly instead.
+    backfill-on-startup: false

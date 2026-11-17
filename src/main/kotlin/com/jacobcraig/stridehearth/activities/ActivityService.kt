@@ -21,6 +21,7 @@ class ActivityService(
     private val activityBestEffortRepository: ActivityBestEffortRepository,
     private val activityDetailsRepository: ActivityDetailsRepository,
     private val bestEffortRefresh: BestEffortRefresh,
+    private val derivedMetricsRefresh: DerivedMetricsRefresh,
     private val heatmapRouteRepository: HeatmapRouteRepository,
 ) {
     /** Logs a `MANUAL` **Activity** for [userId], recording its creation as an **Activity History Entry**. */
@@ -121,7 +122,7 @@ class ActivityService(
 
     /**
      * Applies an edit (with [metrics] only when they are editable), recording history and, on a sport change,
-     * refreshing Best Efforts and recomputing the Activity's heatmap route.
+     * refreshing Best Efforts and derived metrics and recomputing the Activity's heatmap route.
      */
     private fun applyEdit(
         activity: Activity,
@@ -136,6 +137,7 @@ class ActivityService(
         activityRepository.save(activity)
         if (activity.sport != oldSport) {
             bestEffortRefresh.refresh(activity)
+            derivedMetricsRefresh.refresh(activity)
             // After the refresh, which flushes the edit: a heatmap route insert key-share locks the Activity's row.
             heatmapRouteRepository.recomputeForSport(listOf(activity.id!!), activity.sport)
         }
@@ -186,6 +188,7 @@ class ActivityService(
         }
         if (reclassified.isNotEmpty()) {
             bestEffortRefresh.refresh(reclassified)
+            derivedMetricsRefresh.refresh(reclassified)
             // Every reclassified Activity now has the batch's sport; after the refresh, as for history below.
             heatmapRouteRepository.recomputeForSport(reclassified.map { it.id!! }, change.sport!!)
         }
