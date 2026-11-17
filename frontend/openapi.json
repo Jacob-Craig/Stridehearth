@@ -1217,6 +1217,64 @@
         }
       }
     },
+    "/api/athlete/personal-record-progression" : {
+      "get" : {
+        "tags" : [ "personal-record-progression-controller" ],
+        "summary" : "Every running Personal Record the athlete has set, per Benchmark Distance, oldest first",
+        "operationId" : "getPersonalRecordProgression",
+        "responses" : {
+          "200" : {
+            "description" : "The authenticated athlete's running Personal Record Progression",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PersonalRecordProgressionResponseDTO"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/athlete/peak-efforts" : {
+      "get" : {
+        "tags" : [ "athlete-peak-effort-controller" ],
+        "summary" : "The athlete's best Peak Effort per Benchmark Duration, over the last 90 days and all-time",
+        "operationId" : "getPeakEfforts",
+        "responses" : {
+          "200" : {
+            "description" : "The authenticated athlete's best running Peak Efforts",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PeakEffortsResponseDTO"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/activities/{id}/telemetry" : {
       "get" : {
         "tags" : [ "activity-telemetry-controller" ],
@@ -2469,6 +2527,127 @@
           }
         },
         "required" : [ "expiresAt" ]
+      },
+      "BenchmarkProgressionDTO" : {
+        "type" : "object",
+        "properties" : {
+          "benchmarkDistance" : {
+            "type" : "string",
+            "enum" : [ "FOUR_HUNDRED_METERS", "ONE_KILOMETER", "ONE_MILE", "FIVE_KILOMETERS", "TEN_KILOMETERS", "HALF_MARATHON" ]
+          },
+          "benchmarkName" : {
+            "type" : "string"
+          },
+          "distanceMeters" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "records" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PersonalRecordStepDTO"
+            }
+          }
+        },
+        "required" : [ "benchmarkDistance", "benchmarkName", "distanceMeters", "records" ]
+      },
+      "PersonalRecordProgressionResponseDTO" : {
+        "type" : "object",
+        "properties" : {
+          "progressions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/BenchmarkProgressionDTO"
+            }
+          }
+        },
+        "required" : [ "progressions" ]
+      },
+      "PersonalRecordStepDTO" : {
+        "type" : "object",
+        "properties" : {
+          "activityId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "activityTitle" : {
+            "type" : "string"
+          },
+          "activityStartedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "elapsedTimeSeconds" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        },
+        "required" : [ "activityId", "activityStartedAt", "activityTitle", "elapsedTimeSeconds" ]
+      },
+      "PeakEffortDTO" : {
+        "type" : "object",
+        "properties" : {
+          "value" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "activityId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "activityTitle" : {
+            "type" : "string"
+          },
+          "activityStartedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "activityId", "activityStartedAt", "activityTitle", "value" ]
+      },
+      "PeakEffortSlotDTO" : {
+        "type" : "object",
+        "properties" : {
+          "benchmarkDuration" : {
+            "type" : "string",
+            "enum" : [ "FIVE_SECONDS", "FIFTEEN_SECONDS", "THIRTY_SECONDS", "ONE_MINUTE", "TWO_MINUTES", "THREE_MINUTES", "FIVE_MINUTES", "TEN_MINUTES", "TWENTY_MINUTES", "THIRTY_MINUTES", "SIXTY_MINUTES" ]
+          },
+          "durationSeconds" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "recent" : {
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/PeakEffortDTO"
+          },
+          "allTime" : {
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/PeakEffortDTO"
+          }
+        },
+        "required" : [ "allTime", "benchmarkDuration", "durationSeconds", "recent" ]
+      },
+      "PeakEffortsResponseDTO" : {
+        "type" : "object",
+        "properties" : {
+          "windowDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pace" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PeakEffortSlotDTO"
+            }
+          },
+          "power" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PeakEffortSlotDTO"
+            }
+          }
+        },
+        "required" : [ "pace", "power", "windowDays" ]
       },
       "PagedResponseDTOActivitySummaryDTO" : {
         "type" : "object",

@@ -5,6 +5,18 @@ import com.jacobcraig.stridehearth.analytics.PeakEffort
 import com.jacobcraig.stridehearth.analytics.PeakEffortMetric
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Repository
+import java.sql.Timestamp
+import java.time.Instant
+
+/** An athlete's best **Peak Effort** for one metric and **Benchmark Duration**, with the **Activity** holding it. */
+data class BestPeakEffortRow(
+    val metric: PeakEffortMetric,
+    val benchmarkDuration: BenchmarkDuration,
+    val value: Double,
+    val activityId: Long,
+    val activityTitle: String,
+    val activityStartedAt: Instant,
+)
 
 /**
  * Data access for `activity_peak_effort`: an **Activity**'s **Peak Efforts**, one row per metric and **Benchmark
@@ -67,4 +79,40 @@ class ActivityPeakEffortRepository(
                 )
             }.list()
             .sortedWith(compareBy({ it.metric }, { it.benchmarkDuration }))
+
+    /**
+     * [userId]'s best Peak Effort per metric and Benchmark Duration, over their Runs started at or after [since]
+     * (all of them when null). A tie goes to the earlier Activity.
+     */
+    fun findBestPeakEfforts(
+        userId: Long,
+        since: Instant? = null,
+    ): List<BestPeakEffortRow> {
+        val sinceFilter = if (since == null) "" else "AND a.started_at >= :since"
+        return jdbcClient
+            .sql(
+                """
+                SELECT DISTINCT ON (pe.metric, pe.benchmark_duration)
+                    pe.metric, pe.benchmark_duration, pe.value, a.id AS activity_id, a.title AS activity_title,
+                    a.started_at AS activity_started_at
+                FROM activity_peak_effort pe
+                JOIN activity a ON a.id = pe.activity_id
+                WHERE a.user_id = :userId
+                  AND a.sport = 'RUN'
+                  $sinceFilter
+                ORDER BY pe.metric, pe.benchmark_duration, pe.value DESC, a.started_at, a.id
+                """.trimIndent(),
+            ).param("userId", userId)
+            .apply { if (since != null) param("since", Timestamp.from(since)) }
+            .query { rs, _ ->
+                BestPeakEffortRow(
+                    metric = PeakEffortMetric.valueOf(rs.getString("metric")),
+                    benchmarkDuration = BenchmarkDuration.valueOf(rs.getString("benchmark_duration")),
+                    value = rs.getDouble("value"),
+                    activityId = rs.getLong("activity_id"),
+                    activityTitle = rs.getString("activity_title"),
+                    activityStartedAt = rs.getTimestamp("activity_started_at").toInstant(),
+                )
+            }.list()
+    }
 }

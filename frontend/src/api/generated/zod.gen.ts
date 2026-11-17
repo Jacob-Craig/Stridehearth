@@ -444,6 +444,63 @@ export const zPendingInviteDto = z.object({
     expiresAt: z.string().datetime()
 });
 
+export const zPersonalRecordStepDto = z.object({
+    activityId: z.coerce.bigint().min(BigInt('-9223372036854775808'), { message: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { message: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    activityTitle: z.string(),
+    activityStartedAt: z.string().datetime(),
+    elapsedTimeSeconds: z.number()
+});
+
+export const zBenchmarkProgressionDto = z.object({
+    benchmarkDistance: z.enum([
+        'FOUR_HUNDRED_METERS',
+        'ONE_KILOMETER',
+        'ONE_MILE',
+        'FIVE_KILOMETERS',
+        'TEN_KILOMETERS',
+        'HALF_MARATHON'
+    ]),
+    benchmarkName: z.string(),
+    distanceMeters: z.number(),
+    records: z.array(zPersonalRecordStepDto)
+});
+
+export const zPersonalRecordProgressionResponseDto = z.object({
+    progressions: z.array(zBenchmarkProgressionDto)
+});
+
+export const zPeakEffortDto = z.object({
+    value: z.number(),
+    activityId: z.coerce.bigint().min(BigInt('-9223372036854775808'), { message: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { message: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    activityTitle: z.string(),
+    activityStartedAt: z.string().datetime()
+});
+
+export const zPeakEffortSlotDto = z.object({
+    benchmarkDuration: z.enum([
+        'FIVE_SECONDS',
+        'FIFTEEN_SECONDS',
+        'THIRTY_SECONDS',
+        'ONE_MINUTE',
+        'TWO_MINUTES',
+        'THREE_MINUTES',
+        'FIVE_MINUTES',
+        'TEN_MINUTES',
+        'TWENTY_MINUTES',
+        'THIRTY_MINUTES',
+        'SIXTY_MINUTES'
+    ]),
+    durationSeconds: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    recent: zPeakEffortDto.nullable(),
+    allTime: zPeakEffortDto.nullable()
+});
+
+export const zPeakEffortsResponseDto = z.object({
+    windowDays: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    pace: z.array(zPeakEffortSlotDto),
+    power: z.array(zPeakEffortSlotDto)
+});
+
 export const zPagedResponseDtoActivitySummaryDto = z.object({
     items: z.array(zActivitySummaryDto),
     page: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }),
@@ -891,6 +948,16 @@ export const zInviteStatusPath = z.object({
  * The Invite is pending
  */
 export const zInviteStatusResponse = zPendingInviteDto;
+
+/**
+ * The authenticated athlete's running Personal Record Progression
+ */
+export const zGetPersonalRecordProgressionResponse = zPersonalRecordProgressionResponseDto;
+
+/**
+ * The authenticated athlete's best running Peak Efforts
+ */
+export const zGetPeakEffortsResponse = zPeakEffortsResponseDto;
 
 export const zGetActivityTelemetryPath = z.object({
     id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { message: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { message: 'Invalid value: Expected int64 to be <= 9223372036854775807' })

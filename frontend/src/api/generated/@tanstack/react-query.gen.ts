@@ -4,8 +4,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { backfillBestEfforts, batchDelete, batchUpdate, cancelImportBatch, createActivity, createInvite, deleteActivity, getActivity, getActivityTelemetry, getDashboard, getHeatmapRenderer, getHeatmapRevision, getHeatmapStartingView, getHeatmapTile, getHeatmapYears, getImportBatch, getImportHistory, inviteStatus, listActivities, listPendingInvites, login, logout, me, type Options, redeemInvite, register, registrationStatus, revokeInvite, submitImportBatch, updateActivity, uploadActivityFile } from '../sdk.gen';
-import type { BackfillBestEffortsData, BackfillBestEffortsError, BackfillBestEffortsResponse, BatchDeleteData, BatchDeleteError, BatchDeleteResponse, BatchUpdateData, BatchUpdateError, BatchUpdateResponse, CancelImportBatchData, CancelImportBatchError, CancelImportBatchResponse, CreateActivityData, CreateActivityError, CreateActivityResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, DeleteActivityData, DeleteActivityError, DeleteActivityResponse, GetActivityData, GetActivityError, GetActivityResponse, GetActivityTelemetryData, GetActivityTelemetryError, GetActivityTelemetryResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetHeatmapRendererData, GetHeatmapRendererError, GetHeatmapRendererResponse, GetHeatmapRevisionData, GetHeatmapRevisionError, GetHeatmapRevisionResponse, GetHeatmapStartingViewData, GetHeatmapStartingViewError, GetHeatmapStartingViewResponse, GetHeatmapTileData, GetHeatmapTileError, GetHeatmapTileResponse, GetHeatmapYearsData, GetHeatmapYearsError, GetHeatmapYearsResponse, GetImportBatchData, GetImportBatchError, GetImportBatchResponse, GetImportHistoryData, GetImportHistoryError, GetImportHistoryResponse, InviteStatusData, InviteStatusError, InviteStatusResponse, ListActivitiesData, ListActivitiesError, ListActivitiesResponse, ListPendingInvitesData, ListPendingInvitesError, ListPendingInvitesResponse, LoginData, LoginError, LoginResponse, LogoutData, MeData, MeError, MeResponse, RedeemInviteData, RedeemInviteError, RedeemInviteResponse, RegisterData, RegisterError, RegisterResponse, RegistrationStatusData, RegistrationStatusResponse, RevokeInviteData, RevokeInviteError, RevokeInviteResponse, SubmitImportBatchData, SubmitImportBatchError, SubmitImportBatchResponse, UpdateActivityData, UpdateActivityError, UpdateActivityResponse, UploadActivityFileData, UploadActivityFileError, UploadActivityFileResponse } from '../types.gen';
+import { backfillBestEfforts, batchDelete, batchUpdate, cancelImportBatch, createActivity, createInvite, deleteActivity, getActivity, getActivityTelemetry, getDashboard, getHeatmapRenderer, getHeatmapRevision, getHeatmapStartingView, getHeatmapTile, getHeatmapYears, getImportBatch, getImportHistory, getPeakEfforts, getPersonalRecordProgression, inviteStatus, listActivities, listPendingInvites, login, logout, me, type Options, redeemInvite, register, registrationStatus, revokeInvite, submitImportBatch, updateActivity, uploadActivityFile } from '../sdk.gen';
+import type { BackfillBestEffortsData, BackfillBestEffortsError, BackfillBestEffortsResponse, BatchDeleteData, BatchDeleteError, BatchDeleteResponse, BatchUpdateData, BatchUpdateError, BatchUpdateResponse, CancelImportBatchData, CancelImportBatchError, CancelImportBatchResponse, CreateActivityData, CreateActivityError, CreateActivityResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, DeleteActivityData, DeleteActivityError, DeleteActivityResponse, GetActivityData, GetActivityError, GetActivityResponse, GetActivityTelemetryData, GetActivityTelemetryError, GetActivityTelemetryResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetHeatmapRendererData, GetHeatmapRendererError, GetHeatmapRendererResponse, GetHeatmapRevisionData, GetHeatmapRevisionError, GetHeatmapRevisionResponse, GetHeatmapStartingViewData, GetHeatmapStartingViewError, GetHeatmapStartingViewResponse, GetHeatmapTileData, GetHeatmapTileError, GetHeatmapTileResponse, GetHeatmapYearsData, GetHeatmapYearsError, GetHeatmapYearsResponse, GetImportBatchData, GetImportBatchError, GetImportBatchResponse, GetImportHistoryData, GetImportHistoryError, GetImportHistoryResponse, GetPeakEffortsData, GetPeakEffortsError, GetPeakEffortsResponse, GetPersonalRecordProgressionData, GetPersonalRecordProgressionError, GetPersonalRecordProgressionResponse, InviteStatusData, InviteStatusError, InviteStatusResponse, ListActivitiesData, ListActivitiesError, ListActivitiesResponse, ListPendingInvitesData, ListPendingInvitesError, ListPendingInvitesResponse, LoginData, LoginError, LoginResponse, LogoutData, MeData, MeError, MeResponse, RedeemInviteData, RedeemInviteError, RedeemInviteResponse, RegisterData, RegisterError, RegisterResponse, RegistrationStatusData, RegistrationStatusResponse, RevokeInviteData, RevokeInviteError, RevokeInviteResponse, SubmitImportBatchData, SubmitImportBatchError, SubmitImportBatchResponse, UpdateActivityData, UpdateActivityError, UpdateActivityResponse, UploadActivityFileData, UploadActivityFileError, UploadActivityFileResponse } from '../types.gen';
 
 export const deleteActivityMutation = (options?: Partial<Options<DeleteActivityData>>): UseMutationOptions<DeleteActivityResponse, DeleteActivityError, Options<DeleteActivityData>> => {
     const mutationOptions: UseMutationOptions<DeleteActivityResponse, DeleteActivityError, Options<DeleteActivityData>> = {
@@ -487,6 +487,42 @@ export const inviteStatusOptions = (options: Options<InviteStatusData>) => query
         return data;
     },
     queryKey: inviteStatusQueryKey(options)
+});
+
+export const getPersonalRecordProgressionQueryKey = (options?: Options<GetPersonalRecordProgressionData>) => createQueryKey('getPersonalRecordProgression', options);
+
+/**
+ * Every running Personal Record the athlete has set, per Benchmark Distance, oldest first
+ */
+export const getPersonalRecordProgressionOptions = (options?: Options<GetPersonalRecordProgressionData>) => queryOptions<GetPersonalRecordProgressionResponse, GetPersonalRecordProgressionError, GetPersonalRecordProgressionResponse, ReturnType<typeof getPersonalRecordProgressionQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPersonalRecordProgression({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPersonalRecordProgressionQueryKey(options)
+});
+
+export const getPeakEffortsQueryKey = (options?: Options<GetPeakEffortsData>) => createQueryKey('getPeakEfforts', options);
+
+/**
+ * The athlete's best Peak Effort per Benchmark Duration, over the last 90 days and all-time
+ */
+export const getPeakEffortsOptions = (options?: Options<GetPeakEffortsData>) => queryOptions<GetPeakEffortsResponse, GetPeakEffortsError, GetPeakEffortsResponse, ReturnType<typeof getPeakEffortsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPeakEfforts({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPeakEffortsQueryKey(options)
 });
 
 export const getActivityTelemetryQueryKey = (options: Options<GetActivityTelemetryData>) => createQueryKey('getActivityTelemetry', options);
