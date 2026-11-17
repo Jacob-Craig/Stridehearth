@@ -111,7 +111,8 @@ class DerivedDataRecomputeWorkerTest {
     private fun drain(
         pageSize: Int = DerivedDataRecomputeWorker.PAGE_SIZE,
         maxPages: Int = Int.MAX_VALUE,
-    ) = worker.drain(pageSize, maxPages, onlyUserIds = listOf(runner.id!!, otherRunner.id!!))
+        now: Instant = Instant.now(),
+    ) = worker.drain(pageSize, maxPages, onlyUserIds = listOf(runner.id!!, otherRunner.id!!), now = now)
 
     private fun climb(n: Int) =
         FitTelemetry(
@@ -316,28 +317,67 @@ class DerivedDataRecomputeWorkerTest {
     }
 
     @Test
-    fun `an Activity that fails is rolled back and skipped, the scan goes on, and the next drain tries it again`() {
+    fun `an Activity that fails is rolled back and skipped, the scan goes on, and it is tried again after the back-off`() {
         val first = historical()
         val poison = historical()
         val third = historical()
+        val poisonAttempts = AtomicInteger()
         // The poison Activity's refresh writes its row, then fails, so its transaction must roll the write back.
         doAnswer { invocation ->
             val result = invocation.callRealMethod()
-            if (invocation.getArgument<Collection<Activity>>(0).any { it.id == poison.id }) throw IllegalStateException("poison")
+            if (invocation.getArgument<Collection<Activity>>(0).any { it.id == poison.id }) {
+                poisonAttempts.incrementAndGet()
+                throw IllegalStateException("poison")
+            }
             result
         }.whenever(refreshSpy).refresh(any<Collection<Activity>>(), any())
+        val failedAt = Instant.now()
 
-        assertEquals(RecomputeResult(activitiesRecomputed = 2, activitiesFailed = 1), drain(pageSize = 2))
+        assertEquals(RecomputeResult(activitiesRecomputed = 2, activitiesFailed = 1), drain(pageSize = 2, now = failedAt))
 
         assertEquals(120, gapLength(first))
         assertNull(row(poison))
         assertEquals(120, gapLength(third))
+        // Once as part of its page, once on its own.
+        assertEquals(2, poisonAttempts.get())
 
-        assertEquals(RecomputeResult(activitiesRecomputed = 0, activitiesFailed = 1), drain(pageSize = 2))
+        assertEquals(
+            RecomputeResult(activitiesRecomputed = 0, activitiesFailed = 0),
+            drain(pageSize = 2, now = failedAt + DerivedDataRecomputeWorker.FAILED_RETRY_AFTER.minusSeconds(1)),
+        )
+        assertEquals(2, poisonAttempts.get())
+
+        val retriedAt = failedAt + DerivedDataRecomputeWorker.FAILED_RETRY_AFTER
+        assertEquals(RecomputeResult(activitiesRecomputed = 0, activitiesFailed = 1), drain(pageSize = 2, now = retriedAt))
+        assertEquals(4, poisonAttempts.get())
 
         doCallRealMethod().whenever(refreshSpy).refresh(any<Collection<Activity>>(), any())
-        assertEquals(RecomputeResult(activitiesRecomputed = 1, activitiesFailed = 0), drain(pageSize = 2))
+        assertEquals(
+            RecomputeResult(activitiesRecomputed = 0, activitiesFailed = 0),
+            drain(pageSize = 2, now = retriedAt + DerivedDataRecomputeWorker.FAILED_RETRY_AFTER.minusSeconds(1)),
+        )
+        assertEquals(
+            RecomputeResult(activitiesRecomputed = 1, activitiesFailed = 0),
+            drain(pageSize = 2, now = retriedAt + DerivedDataRecomputeWorker.FAILED_RETRY_AFTER),
+        )
         assertEquals(120, gapLength(poison))
+    }
+
+    @Test
+    fun `an Activity backed off after failing does not hide the Activities after it on the same page`() {
+        val poison = historical()
+        doAnswer { invocation ->
+            if (invocation.getArgument<Collection<Activity>>(0).any { it.id == poison.id }) throw IllegalStateException("poison")
+            invocation.callRealMethod()
+        }.whenever(refreshSpy).refresh(any<Collection<Activity>>(), any())
+        val failedAt = Instant.now()
+        assertEquals(RecomputeResult(activitiesRecomputed = 0, activitiesFailed = 1), drain(pageSize = 1, now = failedAt))
+
+        val later = historical()
+
+        assertEquals(RecomputeResult(activitiesRecomputed = 1, activitiesFailed = 0), drain(pageSize = 1, now = failedAt))
+        assertEquals(120, gapLength(later))
+        assertNull(row(poison))
     }
 
     @Test

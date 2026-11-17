@@ -11,6 +11,9 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionTemplate
+import java.time.Duration
+import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
 
 /** What one [DerivedDataRecomputeWorker.drain] did: Activities recomputed, and Activities that failed and were skipped. */
 data class RecomputeResult(
@@ -31,7 +34,8 @@ data class RecomputeResult(
  * to commit, and an Activity deleted meanwhile is skipped. A page that loses a lock race (a deadlock with a batch
  * edit that locks the same Activities in another order) is retried. A page that fails any other way is retried
  * one Activity per transaction, so one Activity whose Activity Details cannot be analysed is logged and skipped
- * rather than stopping the scan; it stays a candidate and is tried again on the next pass.
+ * rather than stopping the scan. It stays a candidate, but later drains pass over it until [FAILED_RETRY_AFTER] has
+ * gone by, so a Server whose other rows are all current does not re-analyse and re-log it on every run.
  */
 @Component
 class DerivedDataRecomputeWorker(
@@ -52,13 +56,21 @@ class DerivedDataRecomputeWorker(
     private var resumeAfterId = 0L
 
     /**
+     * When each Activity whose derived data could not be computed last failed. Later drains pass over it until
+     * [FAILED_RETRY_AFTER] has gone by. Kept in memory only: a restart (which is also the only way
+     * [DERIVED_DATA_VERSION] changes) tries every Activity again.
+     */
+    private val failedAt = ConcurrentHashMap<Long, Instant>()
+
+    /**
      * Recomputes candidate Activities, [pageSize] per page, for at most [maxPages] pages: every athlete's, or only
      * those of [onlyUserIds]. It opens one transaction per page itself, so it must not be called inside one.
      *
      * It resumes after the last page the previous drain finished, in id order, and wraps around to the lowest id
      * once, stopping where it started. So Activities that keep failing are retried once per pass over all the
      * candidates, rather than at the start of every run, where enough of them would use up every run's pages and
-     * keep the Activities after them from ever being reached.
+     * keep the Activities after them from ever being reached. An Activity that failed less than [FAILED_RETRY_AFTER]
+     * before [now] is passed over without being analysed or logged again.
      *
      * @throws PessimisticLockingFailureException when a page still loses its lock race after [LOCK_ATTEMPTS]
      *   tries; the pages before it stay committed, and the next run resumes.
@@ -68,8 +80,10 @@ class DerivedDataRecomputeWorker(
         pageSize: Int = PAGE_SIZE,
         maxPages: Int = Int.MAX_VALUE,
         onlyUserIds: Collection<Long>? = null,
+        now: Instant = Instant.now(),
     ): RecomputeResult {
         val limit = pageSize.coerceAtLeast(1)
+        failedAt.values.removeIf { !it.isAfter(now - FAILED_RETRY_AFTER) }
         val startedAfter = resumeAfterId
         var afterId = startedAfter
         // Activities above startedAfter were scanned before wrapping around; after it, the scan ends at startedAfter.
@@ -89,20 +103,29 @@ class DerivedDataRecomputeWorker(
                 afterId = 0L
                 continue
             }
-            try {
-                recomputed += recomputeInTransaction(candidates)
-            } catch (e: PessimisticLockingFailureException) {
-                throw e
-            } catch (e: RuntimeException) {
-                logger.warn("Derived data page after Activity {} failed; recomputing its Activities one by one", afterId, e)
-                for (activityId in candidates) {
-                    try {
-                        recomputed += recomputeInTransaction(listOf(activityId))
-                    } catch (lockFailure: PessimisticLockingFailureException) {
-                        throw lockFailure
-                    } catch (activityFailure: RuntimeException) {
-                        logger.error("Skipping Activity {}: its derived data could not be computed", activityId, activityFailure)
-                        failed++
+            val due = candidates.filterNot { failedAt.containsKey(it) }
+            if (due.isNotEmpty()) {
+                try {
+                    recomputed += recomputeInTransaction(due)
+                } catch (e: PessimisticLockingFailureException) {
+                    throw e
+                } catch (e: RuntimeException) {
+                    logger.warn("Derived data page after Activity {} failed; recomputing its Activities one by one", afterId, e)
+                    for (activityId in due) {
+                        try {
+                            recomputed += recomputeInTransaction(listOf(activityId))
+                        } catch (lockFailure: PessimisticLockingFailureException) {
+                            throw lockFailure
+                        } catch (activityFailure: RuntimeException) {
+                            logger.error(
+                                "Skipping Activity {} for {} min: its derived data could not be computed",
+                                activityId,
+                                FAILED_RETRY_AFTER.toMinutes(),
+                                activityFailure,
+                            )
+                            failedAt[activityId] = now
+                            failed++
+                        }
                     }
                 }
             }
@@ -142,5 +165,8 @@ class DerivedDataRecomputeWorker(
 
         /** How many times a page is tried before a lost lock race ends the run. */
         const val LOCK_ATTEMPTS = 3
+
+        /** How long drains pass over an Activity whose derived data could not be computed before trying it again. */
+        val FAILED_RETRY_AFTER: Duration = Duration.ofHours(1)
     }
 }
