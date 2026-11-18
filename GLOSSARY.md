@@ -156,6 +156,38 @@ _Avoid_: TSS, stress score, effort, load score
 How a Training Load was computed, tried in this order: RSS (Running Stress Score, from power against critical power, for Runs, Walks and Hikes), rTSS (from Normalized Graded Pace against threshold pace over Moving Time, for Runs) and HRSS (Heart Rate Stress Score, Banister's TRIMP over heart rate normalised to one hour at LTHR, for any sport). A power or heart-rate stream is used only when it covers at least 80% of the recorded time.
 _Avoid_: Load type, scoring model
 
+**Daily Load**:
+The sum of the Training Loads of an athlete's Activities on one of their calendar days (in their Athlete Time Zone). A day without Activities has a Daily Load of 0, and an Activity without a Training Load contributes 0 and is counted as unscored.
+_Avoid_: Daily TSS, daily stress
+
+**Fitness (CTL)**:
+Chronic Training Load: the exponentially weighted moving average of Daily Load with a 42-day time constant, starting from 0 the day before the athlete's first scored day. UI copy says "Fitness (CTL)".
+_Avoid_: Form, chronic load (for this number)
+
+**Fatigue (ATL)**:
+Acute Training Load: the exponentially weighted moving average of Daily Load with a 7-day time constant, starting like Fitness. UI copy says "Fatigue (ATL)".
+_Avoid_: Tiredness, acute load (for this number)
+
+**Form (TSB)**:
+Training Stress Balance: yesterday's Fitness minus yesterday's Fatigue, so a day's Form describes readiness before that day's training. 0 on the first scored day. UI copy says "Form (TSB)".
+_Avoid_: Freshness score, readiness
+
+**Acute:Chronic Workload Ratio (ACWR)**:
+The mean Daily Load of the last 7 days divided by the mean Daily Load of the 28 days before them (uncoupled: the acute week is not part of the chronic window). Load-based, never distance-based. Withheld for the first 34 days after the first scored day and when the chronic window holds no load.
+_Avoid_: Workload ratio, ACR, coupled ACWR
+
+**Monotony**:
+Foster's measure of how little Daily Load varies: the mean of the last 7 days' Daily Loads divided by their sample standard deviation. Withheld for the first 6 days after the first scored day and undefined for a week of equal loads.
+_Avoid_: Variability, training variety
+
+**Strain**:
+Foster's weekly strain: the sum of the last 7 days' Daily Loads times their Monotony. Withheld and undefined whenever Monotony is.
+_Avoid_: Weekly load, stress
+
+**Performance Management Chart (PMC)**:
+An athlete's daily series of Daily Load, Fitness, Fatigue, Form, ACWR, Monotony and Strain, one entry per day from their first scored day to today. Derived and rebuilt from the earliest affected day whenever an Activity's Training Load or day changes, never edited.
+_Avoid_: Fitness chart, training graph
+
 **Dashboard**:
 The athlete's primary landing view summarizing Personal Records, aggregate training volume, and performance trends across recorded Activities.
 _Avoid_: Statistics page, homepage, stats hub
