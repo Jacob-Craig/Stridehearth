@@ -100,6 +100,39 @@ class ActivityAnalysisTest {
     }
 
     @Test
+    fun `a power sample above the plausibility ceiling counts as missing, so a glitch cannot set a power peak`() {
+        val glitch = Array<Short?>(120) { if (it == 60) 2000.toShort() else 300.toShort() }
+
+        val power =
+            ActivityAnalysis
+                .analyse(climb.copy(power = glitch), ActivitySport.RUN)
+                .peakEfforts
+                .filter { it.metric == PeakEffortMetric.POWER }
+
+        // As recorded, the 5 s window holding the glitch would average (2000 + 4 x 300) / 5 = 640 W. Read as
+        // missing (zero), the glitch can only lower a window: the shorter peaks avoid it and stay at 300 W, and
+        // every 60 s window of the 119 s stream holds it, so that peak is 59 x 300 / 60.
+        assertTrue(ActivityAnalysis.MAX_RUN_POWER_WATTS < 2000)
+        val byDuration = power.associate { it.benchmarkDuration to it.value }
+        assertEquals(300.0, byDuration.getValue(BenchmarkDuration.FIVE_SECONDS), 1e-9)
+        assertEquals(300.0, byDuration.getValue(BenchmarkDuration.FIFTEEN_SECONDS), 1e-9)
+        assertEquals(300.0, byDuration.getValue(BenchmarkDuration.THIRTY_SECONDS), 1e-9)
+        assertEquals(295.0, byDuration.getValue(BenchmarkDuration.ONE_MINUTE), 1e-9)
+    }
+
+    @Test
+    fun `power at the plausibility ceiling is kept`() {
+        val ceiling = ActivityAnalysis.MAX_RUN_POWER_WATTS.toShort()
+        val power =
+            ActivityAnalysis
+                .analyse(climb.copy(power = Array(120) { ceiling }), ActivitySport.RUN)
+                .peakEfforts
+                .filter { it.metric == PeakEffortMetric.POWER }
+
+        power.forEach { assertEquals(ActivityAnalysis.MAX_RUN_POWER_WATTS.toDouble(), it.value, 1e-9) }
+    }
+
+    @Test
     fun `a Run without power gets GAP Peak Efforts only`() {
         val peaks = ActivityAnalysis.analyse(climb.copy(power = arrayOfNulls(120)), ActivitySport.RUN).peakEfforts
 

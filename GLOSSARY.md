@@ -106,7 +106,7 @@ A standard window length (5 s, 15 s, 30 s, 1, 2, 3, 5, 10, 20, 30 or 60 minutes)
 _Avoid_: Duration benchmark, time interval
 
 **Peak Effort**:
-The highest average Grade-Adjusted speed, or power, over one continuous window of a Benchmark Duration within a single Run, read from its Cleaned Activity Details (power as recorded) on wall-clock time: recording pauses count as standing still, so a GPS spike or a pause can never produce one.
+The highest average Grade-Adjusted speed, or power, over one continuous window of a Benchmark Duration within a single Run, read from its Cleaned Activity Details (power as recorded, except that a sample above 1,500 W is a glitch and counts as missing) on wall-clock time: recording pauses count as standing still, so a GPS spike or a pause can never produce one.
 It is not a Best Effort and never sets a Personal Record. Derived, so recomputed, never edited.
 _Avoid_: Duration best effort, peak, power PR, mean-maximal
 
