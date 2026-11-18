@@ -455,6 +455,58 @@ export type ThresholdProposalDto = {
     source: string;
 };
 
+export type PmcDayDto = {
+    date: string;
+    /**
+     * The day's summed Training Load; 0 without Activities
+     */
+    trainingLoad: number;
+    activityCount: number;
+    /**
+     * Activities without a Training Load, which count as 0
+     */
+    unscoredActivityCount: number;
+    /**
+     * Fitness (CTL)
+     */
+    ctl: number;
+    /**
+     * Fatigue (ATL)
+     */
+    atl: number;
+    /**
+     * Form (TSB): yesterday's Fitness minus yesterday's Fatigue
+     */
+    tsb: number;
+    /**
+     * Uncoupled Acute:Chronic Workload Ratio; null for the first 34 days or without chronic load
+     */
+    acwr: number | null;
+    /**
+     * Foster's Monotony; null for the first 6 days or a week of equal loads
+     */
+    monotony: number | null;
+    /**
+     * Foster's Strain; null with Monotony
+     */
+    strain: number | null;
+};
+
+export type PmcResponseDto = {
+    /**
+     * The IANA time zone the days are counted in
+     */
+    timeZone: string;
+    /**
+     * The athlete's first day with a scored Activity; null without one
+     */
+    firstDay: string | null;
+    /**
+     * Every day in range, never before firstDay; empty without a scored Activity
+     */
+    days: Array<PmcDayDto>;
+};
+
 export type PagedResponseDtoActivitySummaryDto = {
     items: Array<ActivitySummaryDto>;
     page: number;
@@ -1631,6 +1683,44 @@ export type InviteStatusResponses = {
 };
 
 export type InviteStatusResponse = InviteStatusResponses[keyof InviteStatusResponses];
+
+export type GetPerformanceManagementChartData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * First day (YYYY-MM-DD); defaults to, and never precedes, the first scored day
+         */
+        from?: string;
+        /**
+         * Last day (YYYY-MM-DD); defaults to, and is capped at, today in the athlete's time zone
+         */
+        to?: string;
+    };
+    url: '/api/athlete/pmc';
+};
+
+export type GetPerformanceManagementChartErrors = {
+    /**
+     * A malformed date, or from after to
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type GetPerformanceManagementChartError = GetPerformanceManagementChartErrors[keyof GetPerformanceManagementChartErrors];
+
+export type GetPerformanceManagementChartResponses = {
+    /**
+     * The chart, one entry per day
+     */
+    200: PmcResponseDto;
+};
+
+export type GetPerformanceManagementChartResponse = GetPerformanceManagementChartResponses[keyof GetPerformanceManagementChartResponses];
 
 export type GetActivityTelemetryData = {
     body?: never;

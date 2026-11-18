@@ -508,6 +508,25 @@ export const zAthleteThresholdsResponseDto = z.object({
     proposals: z.array(zThresholdProposalDto)
 });
 
+export const zPmcDayDto = z.object({
+    date: z.string().date(),
+    trainingLoad: z.number(),
+    activityCount: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    unscoredActivityCount: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    ctl: z.number(),
+    atl: z.number(),
+    tsb: z.number(),
+    acwr: z.number().nullable(),
+    monotony: z.number().nullable(),
+    strain: z.number().nullable()
+});
+
+export const zPmcResponseDto = z.object({
+    timeZone: z.string(),
+    firstDay: z.string().date().nullable(),
+    days: z.array(zPmcDayDto)
+});
+
 export const zPagedResponseDtoActivitySummaryDto = z.object({
     items: z.array(zActivitySummaryDto),
     page: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }),
@@ -1011,6 +1030,16 @@ export const zInviteStatusPath = z.object({
  * The Invite is pending
  */
 export const zInviteStatusResponse = zPendingInviteDto;
+
+export const zGetPerformanceManagementChartQuery = z.object({
+    from: z.string().date().optional(),
+    to: z.string().date().optional()
+});
+
+/**
+ * The chart, one entry per day
+ */
+export const zGetPerformanceManagementChartResponse = zPmcResponseDto;
 
 export const zGetActivityTelemetryPath = z.object({
     id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { message: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { message: 'Invalid value: Expected int64 to be <= 9223372036854775807' })

@@ -1855,6 +1855,111 @@ export const ThresholdProposalDTOSchema = {
     ]
 } as const;
 
+export const PmcDayDTOSchema = {
+    type: 'object',
+    properties: {
+        date: {
+            type: 'string',
+            format: 'date'
+        },
+        trainingLoad: {
+            type: 'number',
+            format: 'double',
+            description: 'The day\'s summed Training Load; 0 without Activities'
+        },
+        activityCount: {
+            type: 'integer',
+            format: 'int32'
+        },
+        unscoredActivityCount: {
+            type: 'integer',
+            format: 'int32',
+            description: 'Activities without a Training Load, which count as 0'
+        },
+        ctl: {
+            type: 'number',
+            format: 'double',
+            description: 'Fitness (CTL)'
+        },
+        atl: {
+            type: 'number',
+            format: 'double',
+            description: 'Fatigue (ATL)'
+        },
+        tsb: {
+            type: 'number',
+            format: 'double',
+            description: 'Form (TSB): yesterday\'s Fitness minus yesterday\'s Fatigue'
+        },
+        acwr: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Uncoupled Acute:Chronic Workload Ratio; null for the first 34 days or without chronic load'
+        },
+        monotony: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Foster\'s Monotony; null for the first 6 days or a week of equal loads'
+        },
+        strain: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Foster\'s Strain; null with Monotony'
+        }
+    },
+    required: [
+        'activityCount',
+        'acwr',
+        'atl',
+        'ctl',
+        'date',
+        'monotony',
+        'strain',
+        'trainingLoad',
+        'tsb',
+        'unscoredActivityCount'
+    ]
+} as const;
+
+export const PmcResponseDTOSchema = {
+    type: 'object',
+    properties: {
+        timeZone: {
+            type: 'string',
+            description: 'The IANA time zone the days are counted in'
+        },
+        firstDay: {
+            type: [
+                'string',
+                'null'
+            ],
+            format: 'date',
+            description: 'The athlete\'s first day with a scored Activity; null without one'
+        },
+        days: {
+            type: 'array',
+            description: 'Every day in range, never before firstDay; empty without a scored Activity',
+            items: {
+                $ref: '#/components/schemas/PmcDayDTO'
+            }
+        }
+    },
+    required: [
+        'days',
+        'firstDay',
+        'timeZone'
+    ]
+} as const;
+
 export const PagedResponseDTOActivitySummaryDTOSchema = {
     type: 'object',
     properties: {
