@@ -12,17 +12,23 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import java.time.Clock
 import java.time.LocalDate
 import java.time.ZoneOffset
 
 /**
  * The athlete's best running **Peak Efforts**, read only from their own Runs. "Recent" means started on one of the
- * last [WINDOW_DAYS] days, today included. Days are UTC until athletes have a time zone of their own.
+ * last [WINDOW_DAYS] days, today included, counted back from [clock]'s today.
+ *
+ * TODO(#34): days are UTC until athletes have a time zone of their own, though the window is meant in athlete-local
+ * days; once `AthleteTimeZone` exists, start the window at `LocalDate.now(clock.withZone(zone)).minusDays(89)
+ * .atStartOfDay(zone)` and add a boundary test in a non-UTC zone, so #39's Critical Speed window agrees with this one.
  */
 @RestController
 @RequestMapping("/api/athlete")
 class AthletePeakEffortController(
     private val peakEffortRepository: ActivityPeakEffortRepository,
+    private val clock: Clock,
 ) {
     @GetMapping("/peak-efforts")
     @Operation(
@@ -42,7 +48,7 @@ class AthletePeakEffortController(
     ): PeakEffortsResponseDTO {
         val since =
             LocalDate
-                .now(ZoneOffset.UTC)
+                .now(clock.withZone(ZoneOffset.UTC))
                 .minusDays(WINDOW_DAYS - 1L)
                 .atStartOfDay()
                 .toInstant(ZoneOffset.UTC)

@@ -20,8 +20,11 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
+import org.springframework.context.annotation.Primary
 import org.springframework.http.MediaType
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.test.context.support.TestExecutionEvent
@@ -31,6 +34,7 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -63,7 +67,22 @@ class AthletePeakEffortIntegrationTest {
     private lateinit var athlete: User
     private lateinit var otherAthlete: User
 
-    private val today: LocalDate = LocalDate.now(ZoneOffset.UTC)
+    @Autowired
+    private lateinit var clock: Clock
+
+    /** The day the endpoint counts its window back from: the fixed clock's, never the wall clock's. */
+    private val today: LocalDate get() = LocalDate.now(clock)
+
+    /**
+     * Fixes "now" a moment before UTC midnight, so the window's day cannot change between storing the Runs and the
+     * request reading them.
+     */
+    @TestConfiguration(proxyBeanMethods = false)
+    class FixedClock {
+        @Bean
+        @Primary
+        fun fixedClock(): Clock = Clock.fixed(Instant.parse("2026-03-01T23:59:59.950Z"), ZoneOffset.UTC)
+    }
 
     @BeforeEach
     fun setUp() {
