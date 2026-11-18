@@ -37,24 +37,31 @@ class ActivityPeakEffortRepository(
             .sql("DELETE FROM activity_peak_effort WHERE activity_id = :activityId")
             .param("activityId", activityId)
             .update()
-        for (peak in peakEfforts) {
-            jdbcClient
-                .sql(
-                    """
-                    INSERT INTO activity_peak_effort (activity_id, metric, benchmark_duration, value, start_index,
-                        end_index, start_time_seconds, end_time_seconds)
-                    VALUES (:activityId, :metric, :duration, :value, :startIndex, :endIndex, :startTime, :endTime)
-                    """.trimIndent(),
-                ).param("activityId", activityId)
-                .param("metric", peak.metric.name)
-                .param("duration", peak.benchmarkDuration.name)
-                .param("value", peak.value)
-                .param("startIndex", peak.startIndex)
-                .param("endIndex", peak.endIndex)
-                .param("startTime", peak.startTimeSeconds)
-                .param("endTime", peak.endTimeSeconds)
-                .update()
+        if (peakEfforts.isEmpty()) return
+        // One multi-row INSERT (at most 22 rows), not a round trip per Peak Effort.
+        val rows =
+            peakEfforts.indices.joinToString(",\n") { i ->
+                "(:activityId, :metric$i, :duration$i, :value$i, :startIndex$i, :endIndex$i, :startTime$i, :endTime$i)"
+            }
+        val params = mutableMapOf<String, Any>("activityId" to activityId)
+        peakEfforts.forEachIndexed { i, peak ->
+            params["metric$i"] = peak.metric.name
+            params["duration$i"] = peak.benchmarkDuration.name
+            params["value$i"] = peak.value
+            params["startIndex$i"] = peak.startIndex
+            params["endIndex$i"] = peak.endIndex
+            params["startTime$i"] = peak.startTimeSeconds
+            params["endTime$i"] = peak.endTimeSeconds
         }
+        jdbcClient
+            .sql(
+                """
+                INSERT INTO activity_peak_effort (activity_id, metric, benchmark_duration, value, start_index,
+                    end_index, start_time_seconds, end_time_seconds)
+                VALUES
+                """.trimIndent() + "\n" + rows,
+            ).params(params)
+            .update()
     }
 
     /** [activityId]'s stored Peak Efforts, by metric then Benchmark Duration (shortest first). */
