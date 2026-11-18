@@ -172,9 +172,17 @@ _Avoid_: Tiredness, acute load (for this number)
 Training Stress Balance: yesterday's Fitness minus yesterday's Fatigue, so a day's Form describes readiness before that day's training. 0 on the first scored day. UI copy says "Form (TSB)".
 _Avoid_: Freshness score, readiness
 
+**Form Zone**:
+One of five half-open bands of Form that the Performance Management Chart shades and names: High Risk (below -30), Optimal (-30 up to -10), Grey (-10 up to 5), Fresh (5 up to 25) and Transition (25 and above). Each boundary belongs to the zone above it.
+_Avoid_: Form band, readiness zone, training zone
+
 **Acute:Chronic Workload Ratio (ACWR)**:
 The mean Daily Load of the last 7 days divided by the mean Daily Load of the 28 days before them (uncoupled: the acute week is not part of the chronic window). Load-based, never distance-based. Withheld for the first 34 days after the first scored day and when the chronic window holds no load.
 _Avoid_: Workload ratio, ACR, coupled ACWR
+
+**ACWR Corridor**:
+The ACWR range from 0.80 to 1.30, both ends included, shaded on the Performance Management Chart as the range in which load is rising no faster than the athlete is adapted to.
+_Avoid_: Sweet spot, safe zone
 
 **Monotony**:
 Foster's measure of how little Daily Load varies: the mean of the last 7 days' Daily Loads divided by their sample standard deviation. Withheld for the first 6 days after the first scored day and undefined for a week of equal loads.
