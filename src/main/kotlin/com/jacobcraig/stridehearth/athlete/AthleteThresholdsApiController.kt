@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import java.time.Instant
+import java.time.Clock
 
 /**
  * The signed-in athlete's **Thresholds**, **Zones** and **Threshold Proposals**. Every endpoint is scoped to the
@@ -29,6 +29,7 @@ class AthleteThresholdsApiController(
     private val athleteThresholds: AthleteThresholds,
     private val thresholdProposals: ThresholdProposals,
     private val athleteTimeZone: AthleteTimeZone,
+    private val clock: Clock,
 ) {
     @GetMapping
     @Transactional(readOnly = true)
@@ -38,7 +39,7 @@ class AthleteThresholdsApiController(
         @AuthenticationPrincipal currentUser: AppUserDetails,
     ): AthleteThresholdsResponseDTO {
         val entries = athleteThresholds.entries(currentUser.id)
-        val today = athleteTimeZone.localDate(currentUser.id, Instant.now())
+        val today = athleteTimeZone.localDate(currentUser.id, clock.instant())
         val current = ThresholdHistory(entries).asOf(today)
         return AthleteThresholdsResponseDTO(
             entries = entries.map { it.toDTO() },

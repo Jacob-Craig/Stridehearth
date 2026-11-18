@@ -10,8 +10,11 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
+import org.springframework.context.annotation.Primary
 import org.springframework.http.MediaType
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.security.crypto.password.PasswordEncoder
@@ -28,6 +31,8 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import kotlin.test.assertEquals
@@ -62,6 +67,20 @@ class AthleteThresholdsApiIntegrationTest {
 
     @Autowired
     private lateinit var athleteTimeZone: AthleteTimeZone
+
+    @Autowired
+    private lateinit var clock: Clock
+
+    /**
+     * Fixes "now" at 23:30 UTC on 1 March 2026, half an hour before UTC midnight and already 2 March in a UTC+14 zone,
+     * so "today" and "tomorrow" come from the injected clock and cannot straddle midnight mid-test.
+     */
+    @TestConfiguration(proxyBeanMethods = false)
+    class FixedClock {
+        @Bean
+        @Primary
+        fun fixedClock(): Clock = Clock.fixed(Instant.parse("2026-03-01T23:30:00Z"), ZoneOffset.UTC)
+    }
 
     private lateinit var runner: User
     private lateinit var other: User
@@ -205,7 +224,7 @@ class AthleteThresholdsApiIntegrationTest {
         postEntry("THRESHOLD_PACE", "2024-01-01", 8.5)
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.fieldErrors.value").exists())
-        val dayAfterTomorrow = LocalDate.now(ZoneOffset.UTC).plusDays(2)
+        val dayAfterTomorrow = LocalDate.now(clock.withZone(ZoneOffset.UTC)).plusDays(2)
         postEntry("LTHR", dayAfterTomorrow.toString(), 160.0)
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.fieldErrors.effectiveDate").exists())
@@ -217,8 +236,30 @@ class AthleteThresholdsApiIntegrationTest {
     }
 
     @Test
+    fun `today's values and the latest acceptable date come from the injected clock`() {
+        // 2026-03-01T23:30Z is 2 March in Kiritimati (UTC+14): the athlete's today. The wall clock is months later.
+        athleteTimeZone.set(runner.id!!, "Pacific/Kiritimati")
+        postEntry("LTHR", "2024-01-01", 160.0).andExpect(status().isOk)
+        postEntry("LTHR", "2026-03-02", 170.0).andExpect(status().isOk)
+        postEntry("LTHR", "2026-03-03", 180.0)
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.fieldErrors.effectiveDate").exists())
+        assertNull(thresholdProposals.propose(runner.id!!, ThresholdKind.LTHR, 180.0, LocalDate.parse("2026-03-03"), "CS_FIT"))
+        // Recorded behind the API's back, as if accepted on a later day: not yet in force on the athlete's today.
+        jdbcClient
+            .sql("INSERT INTO athlete_threshold (user_id, kind, effective_date, value) VALUES (:u, 'LTHR', DATE '2026-04-01', 180)")
+            .param("u", runner.id!!)
+            .update()
+
+        mockMvc
+            .perform(get("/api/athlete/thresholds"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.current.lthr").value(170.0))
+    }
+
+    @Test
     fun `tomorrow is still accepted`() {
-        postEntry("LTHR", LocalDate.now(ZoneOffset.UTC).plusDays(1).toString(), 160.0).andExpect(status().isOk)
+        postEntry("LTHR", LocalDate.now(clock.withZone(ZoneOffset.UTC)).plusDays(1).toString(), 160.0).andExpect(status().isOk)
     }
 
     @Test
@@ -301,7 +342,7 @@ class AthleteThresholdsApiIntegrationTest {
     @Test
     fun `a proposal the athlete could not accept is skipped rather than thrown into the proposer's transaction`() {
         // Out of range (a degenerate fit), not a number, or dated after tomorrow (UTC): record() would refuse each.
-        val tooLate = LocalDate.now(ZoneOffset.UTC).plusDays(2)
+        val tooLate = LocalDate.now(clock.withZone(ZoneOffset.UTC)).plusDays(2)
         assertNull(thresholdProposals.propose(runner.id!!, ThresholdKind.THRESHOLD_PACE, 0.9, LocalDate.parse("2024-03-01"), "CS_FIT"))
         assertNull(thresholdProposals.propose(runner.id!!, ThresholdKind.THRESHOLD_PACE, 8.5, LocalDate.parse("2024-03-01"), "CS_FIT"))
         assertNull(thresholdProposals.propose(runner.id!!, ThresholdKind.LTHR, Double.NaN, LocalDate.parse("2024-03-01"), "CS_FIT"))
@@ -309,7 +350,7 @@ class AthleteThresholdsApiIntegrationTest {
 
         assertEquals(0, thresholdProposals.pending(runner.id!!).size)
         // Tomorrow is still acceptable, as it is for an entry.
-        val tomorrow = LocalDate.now(ZoneOffset.UTC).plusDays(1)
+        val tomorrow = LocalDate.now(clock.withZone(ZoneOffset.UTC)).plusDays(1)
         assertEquals(tomorrow, thresholdProposals.propose(runner.id!!, ThresholdKind.LTHR, 168.0, tomorrow, "CS_FIT")?.effectiveDate)
     }
 

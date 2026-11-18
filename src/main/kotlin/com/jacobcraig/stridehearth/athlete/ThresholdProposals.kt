@@ -44,7 +44,7 @@ class ThresholdProposals(
         effectiveDate: LocalDate,
         source: String,
     ): ThresholdProposal? {
-        if (!AthleteThresholds.isAcceptable(kind, effectiveDate, value)) return null
+        if (!athleteThresholds.isAcceptable(kind, effectiveDate, value)) return null
         val dismissed =
             jdbcClient
                 .sql(
