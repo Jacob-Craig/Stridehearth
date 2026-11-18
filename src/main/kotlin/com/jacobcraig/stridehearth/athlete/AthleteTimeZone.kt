@@ -4,6 +4,7 @@ import com.jacobcraig.stridehearth.api.RequestValidationException
 import com.jacobcraig.stridehearth.users.User
 import com.jacobcraig.stridehearth.users.UserRepository
 import org.springframework.context.ApplicationEventPublisher
+import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -19,6 +20,7 @@ import java.time.ZoneOffset
 class AthleteTimeZone(
     private val userRepository: UserRepository,
     private val events: ApplicationEventPublisher,
+    private val jdbcClient: JdbcClient,
 ) {
     /** [userId]'s zone: the stored one, else UTC. */
     @Transactional(readOnly = true)
@@ -33,7 +35,9 @@ class AthleteTimeZone(
 
     /**
      * Sets [userId]'s zone to the IANA region id [timeZone], publishing [AthleteTimeZoneChanged] when it differs from
-     * the stored one. An unknown id, or a bare offset, is a [RequestValidationException].
+     * the stored one. An unknown id, or a bare offset, is a [RequestValidationException]. So is an id the JDK knows
+     * but the database does not, such as a zone newer than its tzdata: the rollups and the recompute worker count
+     * local dates with `AT TIME ZONE`, which would fail on it for as long as it stayed stored.
      */
     @Transactional
     fun set(
@@ -46,12 +50,20 @@ class AthleteTimeZone(
         }
         val user = userRepository.findById(userId).orElseThrow()
         if (user.timeZone != timeZone) {
+            if (!knownToDatabase(timeZone)) throw RequestValidationException(mapOf("timeZone" to "Unknown timezone"))
             user.timeZone = timeZone
             userRepository.save(user)
             events.publishEvent(AthleteTimeZoneChanged(userId))
         }
         return user
     }
+
+    private fun knownToDatabase(timeZone: String): Boolean =
+        jdbcClient
+            .sql("SELECT EXISTS (SELECT 1 FROM pg_timezone_names WHERE name = :timeZone)")
+            .param("timeZone", timeZone)
+            .query(Boolean::class.java)
+            .single()
 
     companion object {
         /** The zone a stored [timeZone] names, or UTC when none is stored. */

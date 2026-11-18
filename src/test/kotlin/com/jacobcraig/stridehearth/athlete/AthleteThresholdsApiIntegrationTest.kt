@@ -37,6 +37,7 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 @SpringBootTest
 @Import(TestcontainersConfiguration::class)
@@ -392,6 +393,23 @@ class AthleteThresholdsApiIntegrationTest {
 
         mockMvc.perform(get("/api/auth/me")).andExpect(jsonPath("$.timeZone").value("Europe/London"))
         assertEquals(listOf(AthleteTimeZoneChanged(runner.id!!)), events.stream(AthleteTimeZoneChanged::class.java).toList())
+    }
+
+    @Test
+    fun `a zone java knows but the database does not is refused, since the database counts the local dates`() {
+        // SystemV ids left tzdata in 2020b; the JDK still lists them, PostgreSQL does not.
+        assertTrue("SystemV/AST4" in java.time.ZoneId.getAvailableZoneIds())
+
+        mockMvc
+            .perform(
+                put(
+                    "/api/athlete/time-zone",
+                ).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("""{"timeZone":"SystemV/AST4"}"""),
+            ).andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.fieldErrors.timeZone").value("Unknown timezone"))
+
+        assertEquals(ZoneOffset.UTC, athleteTimeZone.of(runner.id!!))
+        assertEquals(0, events.stream(AthleteTimeZoneChanged::class.java).count())
     }
 
     @Test
