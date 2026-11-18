@@ -96,6 +96,11 @@ class DerivedDataRecomputeWorkerTest {
     fun setUp() {
         runner = userRepository.save(User(email = "gap_backfill@example.com", passwordHash = "x", username = "gap_backfill"))
         otherRunner = userRepository.save(User(email = "gap_backfill2@example.com", passwordHash = "x", username = "gap_backfill2"))
+        // Their rollups count as current, so the Activities this class stores by SQL leave the rollup stage idle: these
+        // tests count Activities, and DailyLoadRollupIntegrationTest covers the rollup stage.
+        listOf(runner, otherRunner).forEach {
+            jdbcTemplate.update("INSERT INTO athlete_analytics_state (user_id, rollup_version) VALUES (?, ?)", it.id, ROLLUP_VERSION)
+        }
         pool = Executors.newFixedThreadPool(1)
         locks = PostgresLockProbe(jdbcClient)
     }
@@ -418,6 +423,32 @@ class DerivedDataRecomputeWorkerTest {
         // The next run resumes after them rather than retrying them: the third failure, then the healthy Activity.
         assertEquals(RecomputeResult(activitiesRecomputed = 1, activitiesFailed = 1), drain(pageSize = 1, maxPages = 2))
         assertEquals(120, gapLength(healthy))
+    }
+
+    @Test
+    fun `Activities backed off after failing use up no pages, so more of them than a run's pages still let stale rollups be rebuilt`() {
+        val poisoned = List(3) { historical() }
+        val poisonIds = poisoned.map { it.id }.toSet()
+        doAnswer { invocation ->
+            if (invocation.getArgument<Collection<Activity>>(0).any { it.id in poisonIds }) throw IllegalStateException("poison")
+            invocation.callRealMethod()
+        }.whenever(refreshSpy).refresh(any<Collection<Activity>>(), any())
+        jdbcTemplate.update("UPDATE athlete_analytics_state SET rollup_version = 0 WHERE user_id = ?", runner.id)
+        val failedAt = Instant.now()
+
+        // Two pages a run, one Activity a page: the first run spends both pages on failures.
+        assertEquals(RecomputeResult(activitiesRecomputed = 0, activitiesFailed = 2), drain(pageSize = 1, maxPages = 2, now = failedAt))
+
+        // The second spends one on the third failure; wrapping around over the two backed off costs no page, so the
+        // run finishes its pass and reaches the stale rollups.
+        assertEquals(
+            RecomputeResult(activitiesRecomputed = 0, activitiesFailed = 1, rollupsRebuilt = 1),
+            drain(pageSize = 1, maxPages = 2, now = failedAt),
+        )
+        assertEquals(
+            ROLLUP_VERSION,
+            jdbcTemplate.queryForObject("SELECT rollup_version FROM athlete_analytics_state WHERE user_id = ?", Int::class.java, runner.id),
+        )
     }
 
     @Test

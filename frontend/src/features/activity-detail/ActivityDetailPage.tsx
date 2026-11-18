@@ -23,6 +23,7 @@ import { ActivityVisualization } from './ActivityVisualization';
 import { BestEffortsTable } from './BestEffortsTable';
 import { DecouplingBadge } from './DecouplingBadge';
 import { LapsTable } from './LapsTable';
+import { TrainingLoadValue } from './TrainingLoadValue';
 import { SECONDARY_BUTTON_CLASS } from './styles';
 
 /** A single device Lap is the whole Activity again, so Laps are only listed from two upwards. */
@@ -125,10 +126,11 @@ export function ActivityDetailPage({ userId, activity, telemetry }: ActivityDeta
 
 /**
  * The summary tiles, five per row on wide screens: the recorded metrics, then a Run's derived
- * metrics (NGP, Efficiency Factor, Aerobic Decoupling) when it has them.
+ * metrics (NGP, Efficiency Factor, Aerobic Decoupling) when it has them, then the Training Load
+ * once it has been computed (a value, or the reason there is none).
  */
 function SummaryMetrics({ activity }: { activity: ActivityDetailDto }) {
-  const { runMetrics } = activity;
+  const { runMetrics, trainingLoad, trainingLoadUnavailableReason } = activity;
   const metrics: ReadonlyArray<readonly [label: string, value: ReactNode]> = [
     ['Distance', formatDistanceKm(activity.distance)],
     ['Duration', formatDuration(activity.timeTakenSeconds)],
@@ -140,6 +142,11 @@ function SummaryMetrics({ activity }: { activity: ActivityDetailDto }) {
           ['NGP', formatNgpPerKm(runMetrics.ngpMetersPerSecond)],
           ['Efficiency Factor', formatEfficiencyFactor(runMetrics.efficiencyFactor)],
           ['Aerobic Decoupling', <DecouplingBadge key="decoupling" runMetrics={runMetrics} />],
+        ] as const)
+      : []),
+    ...(trainingLoad || trainingLoadUnavailableReason
+      ? ([
+          ['Training Load', <TrainingLoadValue key="training-load" activity={activity} />],
         ] as const)
       : []),
   ];

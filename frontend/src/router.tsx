@@ -35,6 +35,7 @@ import {
   manageActivitiesQueries,
 } from './features/manage/ManageActivitiesRoute';
 import { manageSearchSchema, toManageFilters } from './features/manage/manageSearch';
+import { SettingsRoute, settingsQueries } from './features/settings/SettingsRoute';
 
 export interface RouterContext {
   queryClient: QueryClient;
@@ -119,9 +120,12 @@ export const dashboardRoute = createRoute({
   path: '/dashboard',
   loader: ({ context }) => {
     const queries = dashboardQueries(context.user.id);
-    // The progression is fetched alongside but never fails the route: its card shows its own error.
     return Promise.all([
       context.queryClient.ensureQueryData(queries.dashboard),
+      // Prefetched so the chart draws with the page, but never awaited into a failure: a PMC that
+      // cannot be loaded shows its error inside its own panel.
+      context.queryClient.prefetchQuery(queries.pmc),
+      // The progression is fetched alongside but never fails the route: its card shows its own error.
       context.queryClient.prefetchQuery(queries.progression),
     ]);
   },
@@ -238,6 +242,15 @@ export const invitesRoute = createRoute({
   errorComponent: routeErrorComponent('Your invites could not be loaded'),
 });
 
+export const settingsRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/settings',
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(settingsQueries(context.user.id).thresholds),
+  component: SettingsRoute,
+  errorComponent: routeErrorComponent('Your settings could not be loaded'),
+});
+
 export function createAppRouter(context: RouterContext, history?: RouterHistory) {
   const routeTree = rootRoute.addChildren([
     loginRoute,
@@ -255,6 +268,7 @@ export function createAppRouter(context: RouterContext, history?: RouterHistory)
       activityEditRoute,
       heatmapRoute,
       invitesRoute,
+      settingsRoute,
     ]),
   ]);
 

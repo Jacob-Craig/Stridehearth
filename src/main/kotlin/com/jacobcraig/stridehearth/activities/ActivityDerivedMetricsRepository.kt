@@ -2,13 +2,19 @@ package com.jacobcraig.stridehearth.activities
 
 import com.jacobcraig.stridehearth.analytics.DecouplingUnavailableReason
 import com.jacobcraig.stridehearth.analytics.RunMetrics
+import com.jacobcraig.stridehearth.analytics.TrainingLoadMethod
+import com.jacobcraig.stridehearth.analytics.TrainingLoadResult
+import com.jacobcraig.stridehearth.analytics.TrainingLoadUnavailableReason
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Repository
 import java.sql.Types
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.ZoneOffset
 
 /**
  * Data access for `activity_derived_metrics`: one row per **Activity**, of every sport, holding its derived data
- * (the **Grade-Adjusted Pace** stream and, for a Run, its [RunMetrics]) and the `algorithm_version` that computed it (ADR-0014). The row is the
+ * (the **Grade-Adjusted Pace** stream, for a Run its [RunMetrics], and its **Training Load**) and the `algorithm_version` that computed it (ADR-0014). The row is the
  * ledger of what has been computed, so a column that does not apply to an Activity is NULL rather than the row
  * missing. Raw SQL through [JdbcClient], like `activity_details`: no JPA entity maps it.
  *
@@ -18,20 +24,25 @@ import java.sql.Types
 class ActivityDerivedMetricsRepository(
     private val jdbcClient: JdbcClient,
 ) {
-    /** Stores [gapSpeed] and [runMetrics] for [activityId] as computed by [version], replacing whatever is stored. */
+    /**
+     * Stores [gapSpeed], [runMetrics] and [trainingLoad] for [activityId] as computed by [version], replacing whatever
+     * is stored.
+     */
     fun upsert(
         activityId: Long,
         version: Short,
         gapSpeed: Array<Float?>?,
         runMetrics: RunMetrics? = null,
+        trainingLoad: TrainingLoadResult? = null,
     ) {
         jdbcClient
             .sql(
                 """
                 INSERT INTO activity_derived_metrics (activity_id, algorithm_version, gap_speed, moving_seconds, ngp_mps,
-                    efficiency_factor, aerobic_decoupling_pct, decoupling_unavailable_reason, computed_at)
+                    efficiency_factor, aerobic_decoupling_pct, decoupling_unavailable_reason, training_load,
+                    training_load_method, training_load_unavailable_reason, computed_at)
                 VALUES (:activityId, :version, :gapSpeed::real[], :movingSeconds, :ngpMps, :efficiencyFactor,
-                    :aerobicDecouplingPct, :reason, now())
+                    :aerobicDecouplingPct, :reason, :trainingLoad, :trainingLoadMethod, :trainingLoadReason, now())
                 ON CONFLICT (activity_id) DO UPDATE
                 SET algorithm_version = EXCLUDED.algorithm_version,
                     gap_speed = EXCLUDED.gap_speed,
@@ -40,6 +51,9 @@ class ActivityDerivedMetricsRepository(
                     efficiency_factor = EXCLUDED.efficiency_factor,
                     aerobic_decoupling_pct = EXCLUDED.aerobic_decoupling_pct,
                     decoupling_unavailable_reason = EXCLUDED.decoupling_unavailable_reason,
+                    training_load = EXCLUDED.training_load,
+                    training_load_method = EXCLUDED.training_load_method,
+                    training_load_unavailable_reason = EXCLUDED.training_load_unavailable_reason,
                     computed_at = EXCLUDED.computed_at
                 """.trimIndent(),
             ).param("activityId", activityId)
@@ -50,8 +64,77 @@ class ActivityDerivedMetricsRepository(
             .param("efficiencyFactor", runMetrics?.efficiencyFactor, Types.DOUBLE)
             .param("aerobicDecouplingPct", runMetrics?.aerobicDecouplingPct, Types.DOUBLE)
             .param("reason", runMetrics?.decouplingUnavailableReason?.name, Types.VARCHAR)
+            .trainingLoadParams(trainingLoad)
             .update()
     }
+
+    /**
+     * Replaces only the **Training Load** of [activityId]'s row if [version] computed it, as a recompute after a
+     * Threshold or time-zone change does; returns whether it replaced one. The other derived data and the row's version
+     * are left as they are: an Activity without a row, or with a row of another version, is left to the version
+     * Backfill or Recompute, which computes it in full.
+     */
+    fun updateTrainingLoad(
+        activityId: Long,
+        version: Short,
+        trainingLoad: TrainingLoadResult,
+    ): Boolean =
+        jdbcClient
+            .sql(
+                """
+                UPDATE activity_derived_metrics
+                SET training_load = :trainingLoad,
+                    training_load_method = :trainingLoadMethod,
+                    training_load_unavailable_reason = :trainingLoadReason,
+                    computed_at = now()
+                WHERE activity_id = :activityId AND algorithm_version = :version
+                """.trimIndent(),
+            ).param("activityId", activityId)
+            .param("version", version)
+            .trainingLoadParams(trainingLoad)
+            .update() > 0
+
+    private fun JdbcClient.StatementSpec.trainingLoadParams(trainingLoad: TrainingLoadResult?): JdbcClient.StatementSpec {
+        val scored = trainingLoad as? TrainingLoadResult.Scored
+        val unavailable = trainingLoad as? TrainingLoadResult.Unavailable
+        return param("trainingLoad", scored?.value, Types.DOUBLE)
+            .param("trainingLoadMethod", scored?.method?.name, Types.VARCHAR)
+            .param("trainingLoadReason", unavailable?.reason?.name, Types.VARCHAR)
+    }
+
+    /**
+     * The stored **Training Load** of [activityId], or null when it has no row or the row holds neither a load nor a
+     * reason (written by a version before Training Load). A method or reason a later version no longer has reads as
+     * null, so the row still reads until the recompute worker replaces it.
+     */
+    fun findTrainingLoad(activityId: Long): TrainingLoadResult? =
+        jdbcClient
+            .sql(
+                """
+                SELECT training_load, training_load_method, training_load_unavailable_reason
+                FROM activity_derived_metrics WHERE activity_id = :activityId
+                """.trimIndent(),
+            ).param("activityId", activityId)
+            .query { rs, _ ->
+                val value = rs.getObject("training_load") as Double?
+                val method =
+                    rs.getString("training_load_method")?.let { stored ->
+                        TrainingLoadMethod.entries.firstOrNull {
+                            it.name ==
+                                stored
+                        }
+                    }
+                val reason =
+                    rs.getString("training_load_unavailable_reason")?.let { stored ->
+                        TrainingLoadUnavailableReason.entries.firstOrNull { it.name == stored }
+                    }
+                when {
+                    value != null && method != null -> TrainingLoadResult.Scored(value, method)
+                    reason != null -> TrainingLoadResult.Unavailable(reason)
+                    else -> null
+                }
+            }.optional()
+            .orElse(null)
 
     /**
      * The stored [RunMetrics] of [activityId], or null when it has no row or the row holds none (not a Run). A stored
@@ -122,6 +205,40 @@ class ActivityDerivedMetricsRepository(
             .param("limit", limit)
             .apply { if (onlyUserIds != null) param("userIds", onlyUserIds.distinct()) }
             .query { rs, _ -> rs.getLong("id") }
+            .list()
+    }
+
+    /**
+     * The next [limit] of [userId]'s Activities after [afterActivityId], in id order, whose start falls on or after the
+     * athlete-local date [from] in [zone] (every one of them when [from] is null): the Activities a Training Load
+     * recompute request covers.
+     */
+    fun findTrainingLoadRecomputePage(
+        userId: Long,
+        from: LocalDate?,
+        zone: ZoneId,
+        afterActivityId: Long,
+        limit: Int,
+    ): List<Long> {
+        val dateFilter = if (from == null) "" else "AND (a.started_at AT TIME ZONE :zone)::date >= :from"
+        return jdbcClient
+            .sql(
+                """
+                SELECT a.id FROM activity a
+                WHERE a.user_id = :userId AND a.id > :afterId $dateFilter
+                ORDER BY a.id ASC
+                LIMIT :limit
+                """.trimIndent(),
+            ).param("userId", userId)
+            .param("afterId", afterActivityId)
+            .param("limit", limit)
+            .apply {
+                if (from != null) {
+                    // PostgreSQL knows UTC by that name, not as java.time's "Z".
+                    param("zone", if (zone == ZoneOffset.UTC) "UTC" else zone.id)
+                    param("from", from, Types.DATE)
+                }
+            }.query { rs, _ -> rs.getLong("id") }
             .list()
     }
 

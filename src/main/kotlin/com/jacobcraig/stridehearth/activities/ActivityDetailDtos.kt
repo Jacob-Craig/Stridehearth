@@ -5,6 +5,9 @@ import com.jacobcraig.stridehearth.activities.history.HistoryEntry
 import com.jacobcraig.stridehearth.activities.history.toDto
 import com.jacobcraig.stridehearth.analytics.DecouplingUnavailableReason
 import com.jacobcraig.stridehearth.analytics.RunMetrics
+import com.jacobcraig.stridehearth.analytics.TrainingLoadMethod
+import com.jacobcraig.stridehearth.analytics.TrainingLoadResult
+import com.jacobcraig.stridehearth.analytics.TrainingLoadUnavailableReason
 import com.jacobcraig.stridehearth.system.ActivitySport
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.Instant
@@ -12,7 +15,7 @@ import java.time.Instant
 /**
  * One **Activity** with everything its detail view shows: the summary metrics (canonical primitives
  * only, as in [ActivitySummaryDTO]), its owner, device **Laps**, **Activity History Entries** and
- * **Best Efforts**, and for a Run its derived [RunMetricsDTO]. The high-resolution **Activity Details** are served separately by
+ * **Best Efforts**, for a Run its derived [RunMetricsDTO], and its **Training Load** or why it has none. The high-resolution **Activity Details** are served separately by
  * `GET /api/activities/{id}/telemetry` ([ActivityTelemetryResponseDTO]).
  */
 data class ActivityDetailDTO(
@@ -55,6 +58,26 @@ data class ActivityDetailDTO(
         description = "Derived Run metrics; null for any sport but Run and for a Run whose derived data is not computed yet",
     )
     val runMetrics: RunMetricsDTO?,
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
+        types = ["object", "null"],
+        description = "Training Load and the method that computed it; null when it is unavailable or not computed yet",
+    )
+    val trainingLoad: TrainingLoadDTO?,
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
+        types = ["string", "null"],
+        description = "Why the Activity has no Training Load; null when it has one or it is not computed yet",
+    )
+    val trainingLoadUnavailableReason: TrainingLoadUnavailableReason?,
+)
+
+/** An Activity's **Training Load**, unrounded, scaled so one hour at threshold is 100, and its **Training Load Method**. */
+data class TrainingLoadDTO(
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+    val value: Double,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+    val method: TrainingLoadMethod,
 )
 
 /**
@@ -160,6 +183,7 @@ fun Activity.toDetailDto(
     history: List<HistoryEntry>,
     bestEfforts: List<ActivityBestEffort>,
     runMetrics: RunMetrics? = null,
+    trainingLoad: TrainingLoadResult? = null,
 ): ActivityDetailDTO =
     toSummaryDto(hasActivityDetails).let { summary ->
         ActivityDetailDTO(
@@ -179,6 +203,8 @@ fun Activity.toDetailDto(
             history = history.map { it.toDto() },
             bestEfforts = bestEfforts.map { it.toDto() },
             runMetrics = runMetrics?.takeIf { sport == ActivitySport.RUN }?.toDto(),
+            trainingLoad = (trainingLoad as? TrainingLoadResult.Scored)?.let { TrainingLoadDTO(it.value, it.method) },
+            trainingLoadUnavailableReason = (trainingLoad as? TrainingLoadResult.Unavailable)?.reason,
         )
     }
 

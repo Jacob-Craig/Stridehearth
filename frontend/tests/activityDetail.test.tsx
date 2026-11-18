@@ -91,6 +91,8 @@ function detail(overrides: Partial<ActivityDetailDto> = {}): ActivityDetailDto {
     history: [],
     bestEfforts: [],
     runMetrics: null,
+    trainingLoad: null,
+    trainingLoadUnavailableReason: null,
     ...overrides,
   };
 }
@@ -256,6 +258,7 @@ describe('/activities/$activityId loading', () => {
 
   it('preloads the Activity and its Activity Details when its Personal Record link is focused on the Dashboard', async () => {
     const requests = stubActivity(detail(), () => json(telemetry()), {
+      'GET /api/athlete/pmc': () => json({ timeZone: 'UTC', firstDay: null, days: [] }),
       'GET /api/athlete/personal-record-progression': () => json({ progressions: [] }),
       'GET /api/dashboard': () =>
         json({
@@ -458,6 +461,93 @@ describe('/activities/$activityId summary', () => {
       expect(within(list).queryByText('NGP')).toBeNull();
       expect(within(list).queryByText('Efficiency Factor')).toBeNull();
       expect(within(list).queryByText('Aerobic Decoupling')).toBeNull();
+    });
+  });
+
+  describe('Training Load', () => {
+    async function trainingLoadTile(overrides: Partial<ActivityDetailDto>): Promise<HTMLElement> {
+      stubActivity(detail(overrides));
+      renderApp('/activities/42');
+      const list = await screen.findByRole('list', { name: /summary metrics/i });
+      return within(list).getByText('Training Load').closest('li') as HTMLElement;
+    }
+
+    it.each([
+      ['RTSS', 87.4, '87 · rTSS'],
+      ['RSS', 112.5, '113 · RSS'],
+      ['HRSS', 63.34, '63 · HRSS'],
+    ] as const)(
+      'shows a %s load rounded to an integer with its method',
+      async (method, value, shown) => {
+        const tile = await trainingLoadTile({ trainingLoad: { value, method } });
+
+        expect(tile).toHaveTextContent(shown);
+      },
+    );
+
+    it.each([
+      ['NO_ACTIVITY_DETAILS', 'No Activity Details recorded'],
+      ['NO_USABLE_STREAM', 'No usable heart rate or power'],
+    ] as const)('explains why there is no Training Load: %s', async (reason, copy) => {
+      const tile = await trainingLoadTile({ trainingLoadUnavailableReason: reason });
+
+      expect(tile).toHaveTextContent('No Training Load');
+      expect(tile).toHaveTextContent(copy);
+      expect(within(tile).queryByRole('link')).toBeNull();
+    });
+
+    it.each(['RIDE', 'SWIM', 'WORKOUT'] as const)(
+      'does not blame power for a %s, whose power never counts',
+      async (sport) => {
+        const tile = await trainingLoadTile({
+          sport,
+          trainingLoadUnavailableReason: 'NO_USABLE_STREAM',
+        });
+
+        expect(tile).toHaveTextContent('No usable heart rate');
+        expect(tile).not.toHaveTextContent(/power/i);
+      },
+    );
+
+    it.each(['WALK', 'HIKE'] as const)('names heart rate or power for a %s', async (sport) => {
+      const tile = await trainingLoadTile({
+        sport,
+        trainingLoadUnavailableReason: 'NO_USABLE_STREAM',
+      });
+
+      expect(tile).toHaveTextContent('No usable heart rate or power');
+    });
+
+    it('links to the settings page when heart-rate Thresholds contradict each other', async () => {
+      const tile = await trainingLoadTile({
+        trainingLoadUnavailableReason: 'INCONSISTENT_THRESHOLDS',
+      });
+
+      expect(tile).toHaveTextContent('No Training Load');
+      expect(
+        within(tile).getByRole('link', {
+          name: /max and threshold heart rate must be above resting/i,
+        }),
+      ).toHaveAttribute('href', '/settings');
+      expect(tile).not.toHaveTextContent(/set your thresholds/i);
+    });
+
+    it('links to the settings page when Thresholds are missing', async () => {
+      const tile = await trainingLoadTile({ trainingLoadUnavailableReason: 'NO_THRESHOLDS' });
+
+      expect(tile).toHaveTextContent('No Training Load');
+      expect(within(tile).getByRole('link', { name: /set your thresholds/i })).toHaveAttribute(
+        'href',
+        '/settings',
+      );
+    });
+
+    it('adds no tile while the Training Load is not computed yet', async () => {
+      stubActivity(detail({ trainingLoad: null, trainingLoadUnavailableReason: null }));
+      renderApp('/activities/42');
+
+      const list = await screen.findByRole('list', { name: /summary metrics/i });
+      expect(within(list).queryByText('Training Load')).toBeNull();
     });
   });
 

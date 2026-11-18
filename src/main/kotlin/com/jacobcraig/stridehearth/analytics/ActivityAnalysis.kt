@@ -1,5 +1,6 @@
 package com.jacobcraig.stridehearth.analytics
 
+import com.jacobcraig.stridehearth.athlete.ThresholdsOn
 import com.jacobcraig.stridehearth.system.ActivitySport
 import com.jacobcraig.stridehearth.system.fit.FitTelemetry
 
@@ -13,7 +14,9 @@ import com.jacobcraig.stridehearth.system.fit.FitTelemetry
  * Pace, Efficiency Factor and Aerobic Decoupling) exist for a Run only, and so do [peakEfforts]: one per
  * **Benchmark Duration** the Run spans over its GAP stream, plus power peaks when any power sample was recorded.
  * GAP peaks read the cleaned stream, so a GPS spike cannot produce one; power is read as recorded, except that a
- * sample above [MAX_RUN_POWER_WATTS] or below zero is read as missing.
+ * sample above [MAX_RUN_POWER_WATTS] or below zero is read as missing. [trainingLoad] is the **Training Load**
+ * ([TrainingLoadCalculator]) against the Thresholds in force on the Activity's date, from that same plausible power
+ * and the cleaned heart rate, so a glitch sample raised to the power 3.5 cannot inflate it either.
  *
  * No Spring and no I/O.
  */
@@ -22,37 +25,60 @@ class ActivityAnalysis private constructor(
     val gapSpeed: Array<Float?>?,
     val runMetrics: RunMetrics?,
     val peakEfforts: List<PeakEffort>,
+    val trainingLoad: TrainingLoadResult,
 ) {
     companion object {
         /**
-         * The highest power, in W, a Run's power peaks believe. Running power meters report well under this even
-         * in an all-out sprint, so a sample above it (or below zero) is a glitch: it is read as missing, which
-         * counts as zero and can only lower a window, never set a peak.
+         * The highest power, in W, a Run's power peaks and Training Load believe. Running power meters report well
+         * under this even in an all-out sprint, so a sample above it (or below zero, such as a uint16 above 32767
+         * stored as a Short) is a glitch: it is read as missing, which counts as zero and can only lower a peak's
+         * window, never set a peak, and adds nothing to RSS.
          */
         const val MAX_RUN_POWER_WATTS = 1500
 
-        /** Cleans [details] for [sport], then computes every derived stream from the result. */
+        /**
+         * Cleans [details] for [sport], then computes every derived stream from the result, scoring the Training Load
+         * against [thresholds].
+         */
         fun analyse(
             details: FitTelemetry,
             sport: ActivitySport,
+            thresholds: ThresholdsOn = ThresholdsOn.NONE,
         ): ActivityAnalysis {
             val cleaned = TelemetryCleaner.clean(details, sport)
             val gapSpeed = if (sport in GradeAdjustedPace.GAP_SPORTS) GradeAdjustedPace.gapSpeed(cleaned) else null
             val runMetrics = if (sport == ActivitySport.RUN) RunMetrics.of(cleaned, gapSpeed) else null
-            val peakEfforts = if (sport == ActivitySport.RUN) peakEfforts(details, cleaned, gapSpeed) else emptyList()
-            return ActivityAnalysis(cleaned, gapSpeed, runMetrics, peakEfforts)
+            val power = plausiblePower(details.power)
+            val trainingLoad =
+                TrainingLoadCalculator.compute(
+                    sport = sport,
+                    t = cleaned.t,
+                    power = power,
+                    heartRate = cleaned.heartRate,
+                    ngpMps = runMetrics?.ngpMps,
+                    movingSeconds = runMetrics?.movingSeconds,
+                    thresholds = thresholds,
+                )
+            val peakEfforts =
+                if (sport == ActivitySport.RUN) peakEfforts(details, power, cleaned, gapSpeed) else emptyList()
+            return ActivityAnalysis(cleaned, gapSpeed, runMetrics, peakEfforts, trainingLoad)
         }
+
+        /** [power] with every sample outside 0..[MAX_RUN_POWER_WATTS] read as missing. */
+        private fun plausiblePower(power: Array<Short?>): Array<Short?> =
+            Array(power.size) { i -> power[i]?.takeIf { it in 0..MAX_RUN_POWER_WATTS } }
 
         private fun peakEfforts(
             details: FitTelemetry,
+            plausiblePower: Array<Short?>,
             cleaned: CleanedTelemetry,
             gapSpeed: Array<Float?>?,
         ): List<PeakEffort> {
             val gapPeaks = gapSpeed?.let { PeakEffortDetector.detect(cleaned.t, it, PeakEffortMetric.GAP_SPEED) }.orEmpty()
+            // Power peaks appear once any power was recorded, even if every sample was implausible.
             val powerPeaks =
                 if (details.power.any { it != null }) {
-                    val plausible = Array(details.power.size) { i -> details.power[i]?.takeIf { it in 0..MAX_RUN_POWER_WATTS } }
-                    PeakEffortDetector.detect(details.t, plausible, PeakEffortMetric.POWER)
+                    PeakEffortDetector.detect(details.t, plausiblePower, PeakEffortMetric.POWER)
                 } else {
                     emptyList()
                 }

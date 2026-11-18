@@ -3,7 +3,13 @@
  * The API never pre-formats values; every human-readable string is produced here.
  */
 
-import type { ActivitySummaryDto, RunMetricsDto } from '../api/generated/types.gen';
+import type {
+  ActivitySummaryDto,
+  RunMetricsDto,
+  TrainingLoadDto,
+  TrainingLoadMethod,
+  TrainingLoadUnavailableReason,
+} from '../api/generated/types.gen';
 
 export type ActivitySport = ActivitySummaryDto['sport'];
 
@@ -73,6 +79,40 @@ const DECOUPLING_UNAVAILABLE_LABELS: Readonly<Record<DecouplingUnavailableReason
 /** Why a Run has no **Aerobic Decoupling**, e.g. `Pace too variable`. */
 export function formatDecouplingUnavailableReason(reason: DecouplingUnavailableReason): string {
   return DECOUPLING_UNAVAILABLE_LABELS[reason];
+}
+
+const TRAINING_LOAD_METHOD_LABELS: Readonly<Record<TrainingLoadMethod, string>> = {
+  RSS: 'RSS',
+  RTSS: 'rTSS',
+  HRSS: 'HRSS',
+};
+
+/** A **Training Load** rounded to an integer with its **Training Load Method**, e.g. `87 · rTSS`. */
+export function formatTrainingLoad(load: TrainingLoadDto): string {
+  return `${Math.round(load.value)} · ${TRAINING_LOAD_METHOD_LABELS[load.method]}`;
+}
+
+/** Sports whose power counts toward **Training Load** (RSS); any other sport is scored from heart rate only. */
+const RSS_SPORTS: ReadonlySet<ActivitySport> = new Set(['RUN', 'WALK', 'HIKE']);
+
+const TRAINING_LOAD_UNAVAILABLE_LABELS: Readonly<Record<TrainingLoadUnavailableReason, string>> = {
+  NO_ACTIVITY_DETAILS: 'No Activity Details recorded',
+  NO_THRESHOLDS: 'Set your Thresholds',
+  INCONSISTENT_THRESHOLDS:
+    'Check your Thresholds: max and threshold heart rate must be above resting',
+  NO_USABLE_STREAM: 'No usable heart rate or power',
+};
+
+/**
+ * Why an Activity of `sport` has no **Training Load**, e.g. `No usable heart rate or power`. Power counts only for
+ * Runs, Walks and Hikes, so another sport without usable heart rate reads `No usable heart rate`.
+ */
+export function formatTrainingLoadUnavailableReason(
+  reason: TrainingLoadUnavailableReason,
+  sport: ActivitySport,
+): string {
+  if (reason === 'NO_USABLE_STREAM' && !RSS_SPORTS.has(sport)) return 'No usable heart rate';
+  return TRAINING_LOAD_UNAVAILABLE_LABELS[reason];
 }
 
 const kilometersFormat = new Intl.NumberFormat('en-GB', {

@@ -1,7 +1,13 @@
 package com.jacobcraig.stridehearth.activities
 
 import com.jacobcraig.stridehearth.analytics.ActivityAnalysis
+import com.jacobcraig.stridehearth.analytics.TrainingLoadResult
+import com.jacobcraig.stridehearth.analytics.TrainingLoadUnavailableReason
+import com.jacobcraig.stridehearth.athlete.AthleteAnalyticsStateRepository
 import com.jacobcraig.stridehearth.athlete.AthleteRollups
+import com.jacobcraig.stridehearth.athlete.AthleteThresholdRepository
+import com.jacobcraig.stridehearth.athlete.ThresholdHistory
+import com.jacobcraig.stridehearth.athlete.ThresholdsOn
 import com.jacobcraig.stridehearth.system.ActivitySport
 import com.jacobcraig.stridehearth.system.fit.FitTelemetry
 import jakarta.persistence.EntityManager
@@ -9,6 +15,7 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
+import java.time.ZoneId
 
 /**
  * The version of the derived-data algorithms (Telemetry Cleaning, Grade-Adjusted Pace, the Run metrics and whatever
@@ -20,8 +27,9 @@ import java.time.Instant
  * - 2: Moving Time, Normalized Graded Pace, Efficiency Factor and Aerobic Decoupling of Runs (#33).
  * - 3: Grade-Adjusted Pace measures grade over a 180 m baseline between 60 m altitude anchors (#51).
  * - 4: Peak Efforts of Runs by Benchmark Duration, over GAP speed and power (#38).
+ * - 5: Training Load of every Activity (#35).
  */
-const val DERIVED_DATA_VERSION: Short = 4
+const val DERIVED_DATA_VERSION: Short = 5
 
 /**
  * The derived-data module (ADR-0014): the only writer of `activity_derived_metrics`, which holds one row per
@@ -37,8 +45,12 @@ const val DERIVED_DATA_VERSION: Short = 4
  *   the caller's pending change, and its write key-share locks the Activity's row, both of which ADR-0006 orders
  *   after the Personal Record lock.
  * - `details`, if passed, must be the Activity Details just stored; otherwise the stored ones are read.
+ * - The **Training Load** is scored against the **Thresholds** in force on the Activity's athlete-local date (in the
+ *   **Athlete Time Zone**). When the Thresholds or the time zone change, [refreshTrainingLoad] recomputes only it.
  * - A deleted Activity's rows go by `ON DELETE CASCADE`; the refresh only marks its athlete's rollups.
- * - It is idempotent, takes no lock of its own, and writes no **Activity History Entry**.
+ * - It is idempotent and writes no **Activity History Entry**. Its only lock of its own is the shared side of each
+ *   athlete's scoring lock, taken before it reads their Thresholds and held to commit, so a Threshold or time-zone
+ *   change waits for it and the recompute that change requests sees this transaction's Activities (ADR-0014).
  */
 @Component
 class DerivedDataRefresh(
@@ -47,6 +59,8 @@ class DerivedDataRefresh(
     private val derivedMetricsRepository: ActivityDerivedMetricsRepository,
     private val peakEffortRepository: ActivityPeakEffortRepository,
     private val athleteRollups: AthleteRollups,
+    private val thresholdRepository: AthleteThresholdRepository,
+    private val analyticsStateRepository: AthleteAnalyticsStateRepository,
 ) {
     /**
      * Recomputes [activity]'s derived data from [details] (or its stored Activity Details) if it still exists, and
@@ -63,7 +77,7 @@ class DerivedDataRefresh(
         entityManager.flush()
         val activityId = checkNotNull(activity.id) { "Only a saved Activity has derived data" }
         if (activityId in derivedMetricsRepository.findExistingActivityIds(listOf(activityId))) {
-            recompute(activity, details)
+            recompute(activity, details, Thresholds())
         }
         markRollups(activity, previousStartedAt, previousSport)
     }
@@ -80,21 +94,81 @@ class DerivedDataRefresh(
         if (activities.isEmpty()) return
         entityManager.flush()
         val existing = derivedMetricsRepository.findExistingActivityIds(activities.map { checkNotNull(it.id) })
+        val thresholds = Thresholds()
         for (activity in activities) {
-            if (activity.id in existing) recompute(activity, details = null)
+            if (activity.id in existing) recompute(activity, details = null, thresholds)
             markRollups(activity, previousStartedAt = null, previousSport = previousSports[activity.id])
         }
+    }
+
+    /**
+     * Recomputes only the **Training Load** of each of [activities] that still exists and has a derived-data row, from
+     * its stored Activity Details and the Thresholds now in force on its date, and marks its athlete's daily rollups.
+     * Used when the athlete's Thresholds or time zone change; returns how many loads it replaced. An Activity without
+     * a row, or with a row of an older version, is left to the version Backfill or Recompute, which computes everything.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun refreshTrainingLoad(activities: Collection<Activity>): Int {
+        if (activities.isEmpty()) return 0
+        entityManager.flush()
+        val existing = derivedMetricsRepository.findExistingActivityIds(activities.map { checkNotNull(it.id) })
+        val thresholds = Thresholds()
+        var replaced = 0
+        for (activity in activities) {
+            if (activity.id !in existing) continue
+            val load = analyse(activity, details = null, thresholds)?.trainingLoad ?: noActivityDetails()
+            if (derivedMetricsRepository.updateTrainingLoad(activity.id!!, DERIVED_DATA_VERSION, load)) replaced++
+            athleteRollups.markDailyLoad(checkNotNull(activity.user.id), activity.startedAt)
+        }
+        return replaced
     }
 
     private fun recompute(
         activity: Activity,
         details: FitTelemetry?,
+        thresholds: Thresholds,
     ) {
         val activityId = activity.id!!
-        val source = details ?: activityDetailsService.findAnalyticsSeries(activityId)
-        val analysis = source?.let { ActivityAnalysis.analyse(it, activity.sport) }
-        derivedMetricsRepository.upsert(activityId, DERIVED_DATA_VERSION, analysis?.gapSpeed, analysis?.runMetrics)
+        val analysis = analyse(activity, details, thresholds)
+        derivedMetricsRepository.upsert(
+            activityId,
+            DERIVED_DATA_VERSION,
+            analysis?.gapSpeed,
+            analysis?.runMetrics,
+            analysis?.trainingLoad ?: noActivityDetails(),
+        )
         peakEffortRepository.replace(activityId, analysis?.peakEfforts.orEmpty())
+    }
+
+    /** [activity]'s analysis from [details] or its stored Activity Details, or null when it has none. */
+    private fun analyse(
+        activity: Activity,
+        details: FitTelemetry?,
+        thresholds: Thresholds,
+    ): ActivityAnalysis? {
+        val source = details ?: activityDetailsService.findAnalyticsSeries(activity.id!!) ?: return null
+        return ActivityAnalysis.analyse(source, activity.sport, thresholds.on(activity))
+    }
+
+    private fun noActivityDetails(): TrainingLoadResult = TrainingLoadResult.Unavailable(TrainingLoadUnavailableReason.NO_ACTIVITY_DETAILS)
+
+    /**
+     * The Thresholds in force on each Activity's athlete-local date, reading each athlete's history and zone once per
+     * call. Both are read under the athlete's shared scoring lock
+     * ([AthleteAnalyticsStateRepository.lockScoringInputs]), so a concurrent Threshold or zone change either is read
+     * here or requests a recompute that covers this transaction's Activities.
+     */
+    private inner class Thresholds {
+        private val inputs = mutableMapOf<Long, Pair<ZoneId, ThresholdHistory>>()
+
+        fun on(activity: Activity): ThresholdsOn {
+            val userId = checkNotNull(activity.user.id)
+            val (zone, history) =
+                inputs.getOrPut(userId) {
+                    analyticsStateRepository.lockScoringInputs(userId) to ThresholdHistory(thresholdRepository.findAll(userId))
+                }
+            return history.asOf(activity.startedAt.atZone(zone).toLocalDate())
+        }
     }
 
     /**

@@ -14,20 +14,17 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import java.time.Clock
 import java.time.LocalDate
-import java.time.ZoneOffset
 
 /**
  * The athlete's best running **Peak Efforts**, read only from their own Runs. "Recent" means started on one of the
- * last [WINDOW_DAYS] days, today included, counted back from [clock]'s today.
- *
- * TODO(#34): days are UTC until athletes have a time zone of their own, though the window is meant in athlete-local
- * days; once `AthleteTimeZone` exists, start the window at `LocalDate.now(clock.withZone(zone)).minusDays(89)
- * .atStartOfDay(zone)` and add a boundary test in a non-UTC zone, so #39's Critical Speed window agrees with this one.
+ * last [WINDOW_DAYS] athlete-local days (ADR-0015), today included, counted back from [clock]'s today in the
+ * **Athlete Time Zone**, so the window agrees with the Thresholds' and the PMC's dates.
  */
 @RestController
 @RequestMapping("/api/athlete")
 class AthletePeakEffortController(
     private val peakEffortRepository: ActivityPeakEffortRepository,
+    private val athleteTimeZone: AthleteTimeZone,
     private val clock: Clock,
 ) {
     @GetMapping("/peak-efforts")
@@ -46,12 +43,13 @@ class AthletePeakEffortController(
     fun getPeakEfforts(
         @AuthenticationPrincipal currentUser: AppUserDetails,
     ): PeakEffortsResponseDTO {
+        val zone = athleteTimeZone.of(currentUser.id)
         val since =
             LocalDate
-                .now(clock.withZone(ZoneOffset.UTC))
+                .now(clock.withZone(zone))
                 .minusDays(WINDOW_DAYS - 1L)
-                .atStartOfDay()
-                .toInstant(ZoneOffset.UTC)
+                .atStartOfDay(zone)
+                .toInstant()
         return buildPeakEfforts(
             windowDays = WINDOW_DAYS,
             allTime = peakEffortRepository.findBestPeakEfforts(currentUser.id),

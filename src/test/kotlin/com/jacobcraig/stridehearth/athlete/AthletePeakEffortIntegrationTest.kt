@@ -38,6 +38,7 @@ import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZoneId
 import java.time.ZoneOffset
 
 /**
@@ -195,6 +196,35 @@ class AthletePeakEffortIntegrationTest {
     fun `the 90-day window includes the day 89 days ago and excludes the day 90 days ago`() {
         val inside = run("Day -89", daysAgo(89, LocalTime.MIDNIGHT), athlete, gap(BenchmarkDuration.ONE_MINUTE, 4.0))
         val outside = run("Day -90", daysAgo(90, LocalTime.of(23, 59, 59)), athlete, gap(BenchmarkDuration.FIVE_MINUTES, 4.0))
+
+        mockMvc
+            .perform(get("/api/athlete/peak-efforts").accept(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.pace[3].recent.activityId").value(inside.id!!))
+            .andExpect(jsonPath("$.pace[6].allTime.activityId").value(outside.id!!))
+            .andExpect(jsonPath("$.pace[6].recent").value(nullValue()))
+    }
+
+    @Test
+    fun `the 90-day window counts the athlete's local days, not UTC ones`() {
+        val zone = ZoneId.of("America/Los_Angeles")
+        athlete.timeZone = zone.id
+        userRepository.save(athlete)
+        // "Now" is 15:59 on the same local date in Los Angeles, so local day -90 at 20:00 is 04:00 UTC on UTC day -89,
+        // inside a UTC window but outside the athlete's.
+        val localToday = LocalDate.now(clock.withZone(zone))
+        val inside =
+            run("Local day -89", localToday.minusDays(89).atStartOfDay(zone).toInstant(), athlete, gap(BenchmarkDuration.ONE_MINUTE, 4.0))
+        val outside =
+            run(
+                "Local day -90 evening",
+                localToday
+                    .minusDays(90)
+                    .atTime(20, 0)
+                    .atZone(zone)
+                    .toInstant(),
+                athlete,
+                gap(BenchmarkDuration.FIVE_MINUTES, 4.0),
+            )
 
         mockMvc
             .perform(get("/api/athlete/peak-efforts").accept(MediaType.APPLICATION_JSON))

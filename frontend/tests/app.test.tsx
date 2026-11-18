@@ -53,6 +53,8 @@ describe('App: auth resolving after the first render', () => {
         if (url.includes('/api/auth/me')) return me.promise;
         if (url.includes('/api/auth/login')) return json(runner);
         if (url.includes('/api/dashboard')) return json({ personalRecordSlots: [] });
+        if (url.includes('/api/athlete/pmc'))
+          return json({ timeZone: 'UTC', firstDay: null, days: [] });
         if (url.includes('/api/athlete/personal-record-progression')) {
           return json({ progressions: [] });
         }

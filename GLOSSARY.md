@@ -22,11 +22,11 @@ Replacing an Activity's stored Activity Details and Laps with ones decoded from 
 _Avoid_: Re-parse, migration
 
 **Backfill**:
-Filling in something an Activity lacks (Activity Details, their distance, Laps, Best Efforts, or derived data such as Grade-Adjusted Pace, Normalized Graded Pace or Peak Efforts) without replacing anything it already has. Replacing derived data that is out of date is a Recompute.
+Filling in something an Activity lacks (Activity Details, their distance, Laps, Best Efforts, or derived data such as Grade-Adjusted Pace, Normalized Graded Pace, Peak Efforts or Training Load) without replacing anything it already has. Replacing derived data that is out of date is a Recompute.
 _Avoid_: Repair, fix-up
 
 **Recompute (derived data)**:
-Replacing an Activity's stored derived data (such as its Grade-Adjusted Pace, Run metrics like Normalized Graded Pace, or Peak Efforts) because something it was computed from changed: its Activity Details, its sport or start time, or the version of the algorithm that computed it. It never changes the Activity itself, so it leaves no Activity History Entry.
+Replacing an Activity's stored derived data (such as its Grade-Adjusted Pace, Run metrics like Normalized Graded Pace, Peak Efforts, or Training Load) because something it was computed from changed: its Activity Details, its sport or start time, the athlete's Thresholds or Athlete Time Zone, or the version of the algorithm that computed it. It never changes the Activity itself, so it leaves no Activity History Entry.
 _Avoid_: Reprocess, regenerate, migration
 
 **Activity Source**:
@@ -145,6 +145,71 @@ _Avoid_: Efficiency, pace-to-heart-rate ratio
 How far a Run's Efficiency Factor fell from the first half to the second, as a percentage of the first, after leaving out the first 10% (warm-up) and last 5% (cool-down) of Moving Time. Below 5% heart rate stayed coupled to pace; 5% or more is drift.
 It is only reported for a steady state: at least 30 minutes of Moving Time and a 30-second rolling Grade-Adjusted Pace that varies by less than 12% (coefficient of variation). Otherwise it is absent with the reason (no pace data, no heart rate, too short, heart rate missing in one half, not steady). Derived, so recomputed, never edited.
 _Avoid_: Cardiac drift, Pa:HR, heart-rate drift
+
+**Threshold**:
+A physiological reference value an athlete records with the date it took effect: max HR, resting HR and lactate-threshold heart rate (LTHR) in bpm, threshold pace (kept as a speed, shown as a pace per km) and critical power in watts. Each kind keeps its own dated history; the value in force on a date is the latest entry on or before it, and before a kind's first entry that entry applies backwards. Dates are the athlete's local dates (Athlete Time Zone). Changing a Threshold recomputes the derived data that depends on it from its date onwards.
+_Avoid_: FTP setting, profile value
+
+**Zone**:
+An intensity band derived from a Threshold: five heart-rate Zones as percentages of LTHR and five pace Zones as percentages of threshold pace (Friel's running zones), each also grouped into Seiler's three (Zones 1-2 below the first threshold, 3-4 between the thresholds, 5 above the second).
+_Avoid_: Level, bucket
+
+**Threshold Proposal**:
+A value another feature (such as a Critical Speed fit) suggests for one of an athlete's Thresholds. It never takes effect on its own: it becomes a Threshold entry only when the athlete accepts it, and a dismissed one is not suggested again for a value within 3% of it.
+_Avoid_: Auto-update, recommendation
+
+**Athlete Time Zone**:
+The time zone an athlete's calendar days are counted in, such as the day an Activity falls on for the Thresholds in force then. Set from the athlete's browser when they first sign in, changeable in Settings, and UTC until set.
+_Avoid_: Locale, timezone offset
+
+**Training Load**:
+One number per Activity for how much physiological stress it imposed, scaled so one hour at threshold is 100, computed by the first Training Load Method whose data and Threshold the Activity has, against the Thresholds in force on its date.
+An Activity with none (no Activity Details, no usable stream, a missing Threshold, or heart-rate Thresholds that contradict each other, such as a max heart rate not above resting) has no Training Load and records why. Derived, so recomputed, never edited.
+_Avoid_: TSS, stress score, effort, load score
+
+**Training Load Method**:
+How a Training Load was computed, tried in this order: RSS (Running Stress Score, from power against critical power, for Runs, Walks and Hikes), rTSS (from Normalized Graded Pace against threshold pace over Moving Time, for Runs) and HRSS (Heart Rate Stress Score, Banister's TRIMP over heart rate normalised to one hour at LTHR, for any sport). A power or heart-rate stream is used only when it covers at least 80% of the recorded time.
+_Avoid_: Load type, scoring model
+
+**Daily Load**:
+The sum of the Training Loads of an athlete's Activities on one of their calendar days (in their Athlete Time Zone). A day without Activities has a Daily Load of 0, and an Activity without a Training Load contributes 0 and is counted as unscored.
+_Avoid_: Daily TSS, daily stress
+
+**Fitness (CTL)**:
+Chronic Training Load: the exponentially weighted moving average of Daily Load with a 42-day time constant, starting from 0 the day before the athlete's first scored day. UI copy says "Fitness (CTL)".
+_Avoid_: Form, chronic load (for this number)
+
+**Fatigue (ATL)**:
+Acute Training Load: the exponentially weighted moving average of Daily Load with a 7-day time constant, starting like Fitness. UI copy says "Fatigue (ATL)".
+_Avoid_: Tiredness, acute load (for this number)
+
+**Form (TSB)**:
+Training Stress Balance: yesterday's Fitness minus yesterday's Fatigue, so a day's Form describes readiness before that day's training. 0 on the first scored day. UI copy says "Form (TSB)".
+_Avoid_: Freshness score, readiness
+
+**Form Zone**:
+One of five half-open bands of Form that the Performance Management Chart shades and names: High Risk (below -30), Optimal (-30 up to -10), Grey (-10 up to 5), Fresh (5 up to 25) and Transition (25 and above). Each boundary belongs to the zone above it.
+_Avoid_: Form band, readiness zone, training zone
+
+**Acute:Chronic Workload Ratio (ACWR)**:
+The mean Daily Load of the last 7 days divided by the mean Daily Load of the 28 days before them (uncoupled: the acute week is not part of the chronic window). Load-based, never distance-based. Withheld for the first 34 days after the first scored day and when the chronic window holds no load.
+_Avoid_: Workload ratio, ACR, coupled ACWR
+
+**ACWR Corridor**:
+The ACWR range from 0.80 to 1.30, both ends included, shaded on the Performance Management Chart as the range in which load is rising no faster than the athlete is adapted to.
+_Avoid_: Sweet spot, safe zone
+
+**Monotony**:
+Foster's measure of how little Daily Load varies: the mean of the last 7 days' Daily Loads divided by their sample standard deviation. Withheld for the first 6 days after the first scored day and undefined for a week of equal loads.
+_Avoid_: Variability, training variety
+
+**Strain**:
+Foster's weekly strain: the sum of the last 7 days' Daily Loads times their Monotony. Withheld and undefined whenever Monotony is.
+_Avoid_: Weekly load, stress
+
+**Performance Management Chart (PMC)**:
+An athlete's daily series of Daily Load, Fitness, Fatigue, Form, ACWR, Monotony and Strain, one entry per day from their first scored day to today. Derived and rebuilt from the earliest affected day whenever an Activity's Training Load or day changes, never edited.
+_Avoid_: Fitness chart, training graph
 
 **Dashboard**:
 The athlete's primary landing view summarizing Personal Records, aggregate training volume, and performance trends across recorded Activities.

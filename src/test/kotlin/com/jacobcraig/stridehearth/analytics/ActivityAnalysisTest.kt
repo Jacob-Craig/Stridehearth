@@ -1,5 +1,6 @@
 package com.jacobcraig.stridehearth.analytics
 
+import com.jacobcraig.stridehearth.athlete.ThresholdsOn
 import com.jacobcraig.stridehearth.system.ActivitySport
 import com.jacobcraig.stridehearth.system.fit.FitTelemetry
 import org.junit.jupiter.params.ParameterizedTest
@@ -7,6 +8,7 @@ import org.junit.jupiter.params.provider.EnumSource
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -144,5 +146,48 @@ class ActivityAnalysisTest {
     @EnumSource(ActivitySport::class, names = ["RUN"], mode = EnumSource.Mode.EXCLUDE)
     fun `only Runs get Peak Efforts`(sport: ActivitySport) {
         assertTrue(ActivityAnalysis.analyse(climb.copy(power = Array(120) { 250.toShort() }), sport).peakEfforts.isEmpty())
+    }
+
+    /** An hour's flat 1 Hz Run (3601 samples, so 3600 recorded seconds) at 300 W, with [power] overriding samples. */
+    private fun hourAtCriticalPower(power: (Int) -> Short? = { 300 }): FitTelemetry =
+        FitTelemetry(
+            t = IntArray(3601) { it },
+            lons = DoubleArray(3601) { -1.5 },
+            lats = DoubleArray(3601) { 53.0 + it * 3.0 / 111_195.0 },
+            routeIndex = Array(3601) { it },
+            speed = Array(3601) { 3.0f },
+            distance = Array(3601) { it * 3.0f },
+            altitude = Array(3601) { 100.0f },
+            power = Array(3601) { power(it) },
+        )
+
+    private fun rss(details: FitTelemetry): Double {
+        val load =
+            ActivityAnalysis
+                .analyse(details, ActivitySport.RUN, ThresholdsOn.NONE.copy(criticalPowerWatts = 300.0))
+                .trainingLoad
+        val scored = assertIs<TrainingLoadResult.Scored>(load)
+        assertEquals(TrainingLoadMethod.RSS, scored.method)
+        return scored.value
+    }
+
+    @Test
+    fun `a power glitch above the plausibility ceiling counts as missing in the Training Load too`() {
+        // As recorded, a 5000 W sample lifts ten trailing 10 s means to 770 W, and (770 / 300)^3.5 = 27, so each of
+        // those ten seconds scores 27 times its share: about 7 on the hour's 100. Read as missing, it only drops one
+        // of the 3600 seconds.
+        val load = rss(hourAtCriticalPower { if (it == 1800) 5000.toShort() else 300 })
+
+        assertEquals(100.0, load, 0.1)
+    }
+
+    @Test
+    fun `a power sample that wrapped negative counts as missing, so the Training Load stays finite`() {
+        // A uint16 of 40000 W stored through toShort() reads as -25536 W: as recorded, every 10 s mean holding it is
+        // negative and (negative)^3.5 is NaN.
+        val load = rss(hourAtCriticalPower { if (it == 1800) 40000.toShort() else 300 })
+
+        assertTrue(load.isFinite())
+        assertEquals(100.0, load, 0.1)
     }
 }

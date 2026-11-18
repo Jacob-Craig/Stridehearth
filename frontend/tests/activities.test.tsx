@@ -12,7 +12,13 @@ import type {
 } from '../src/api/generated/types.gen';
 import { createAppRouter } from '../src/router';
 
-const runner: UserResponseDto = { id: 1, username: 'runner_bob', email: 'bob@example.com' };
+// An athlete whose time zone is already set, so the app sends no one-off time-zone request.
+const runner: UserResponseDto = {
+  id: 1,
+  username: 'runner_bob',
+  email: 'bob@example.com',
+  timeZone: 'Europe/London',
+};
 
 function activity(overrides: Partial<ActivitySummaryDto> = {}): ActivitySummaryDto {
   return {
@@ -40,6 +46,8 @@ function detailOf(summary: ActivitySummaryDto): ActivityDetailDto {
     history: [],
     bestEfforts: [],
     runMetrics: null,
+    trainingLoad: null,
+    trainingLoadUnavailableReason: null,
   };
 }
 
