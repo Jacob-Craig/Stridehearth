@@ -33,11 +33,16 @@ class AthleteAnalyticsStateRepository(
      * Requests a recompute of [userId]'s Training Loads from [from] (all when null). A request already pending is
      * merged into this one: the earlier date wins, and null (everything) wins over any date. Each call stamps the
      * request anew, so a worker serving the older stamp keeps it pending.
+     *
+     * It first takes [userId]'s scoring lock exclusively (see [lockScoringInputs]), so it waits for every Activity
+     * write that already scored a Training Load against their old Thresholds or zone to commit: the worker serving this
+     * request then sees those Activities.
      */
     fun requestRecompute(
         userId: Long,
         from: LocalDate?,
     ) {
+        advisoryLock("pg_advisory_xact_lock", userId)
         jdbcClient
             .sql(
                 """
@@ -91,4 +96,40 @@ class AthleteAnalyticsStateRepository(
             ).param("userId", request.userId)
             .param("requestedAt", Timestamp.from(request.requestedAt))
             .update() > 0
+
+    /**
+     * Takes the shared side of [userId]'s scoring lock until the transaction ends, and returns their **Athlete Time
+     * Zone** as committed now. A writer that scores a Training Load calls it before reading their Thresholds, so a
+     * Threshold or zone change ([requestRecompute]) either commits first, and is what the writer reads, or waits for
+     * the writer to commit, and its recompute request then covers the writer's Activity. Writers never block each
+     * other. Taken after the Personal Record and Activity row locks (ADR-0006), and never held while waiting for those.
+     */
+    fun lockScoringInputs(userId: Long): ZoneId {
+        advisoryLock("pg_advisory_xact_lock_shared", userId)
+        val timeZone =
+            jdbcClient
+                .sql("SELECT time_zone FROM app_user WHERE id = :userId")
+                .param("userId", userId)
+                .query { rs, _ -> rs.getString("time_zone") }
+                .optional()
+                .orElse(null)
+        return AthleteTimeZone.zoneOf(timeZone)
+    }
+
+    private fun advisoryLock(
+        function: String,
+        userId: Long,
+    ) {
+        jdbcClient
+            .sql("SELECT $function(hashtextextended(:key, 0))")
+            .param("key", "$SCORING_LOCK_NAMESPACE:$userId")
+            // The lock functions return void: run the query for its effect and discard the row.
+            .query { _, _ -> }
+            .list()
+    }
+
+    private companion object {
+        /** Prefixes the scoring lock's key, distinct from every other advisory lock's prefix. */
+        const val SCORING_LOCK_NAMESPACE = "training_load_scoring"
+    }
 }

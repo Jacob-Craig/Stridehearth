@@ -34,7 +34,8 @@ data class RecomputeResult(
  *
  * 1. The durable **Training Load** recompute requests that a change to an athlete's Thresholds or time zone writes
  *    ([RecomputeRequestListener]): the Training Load of each of their Activities dated on or after the request's date
- *    is recomputed, and the request is cleared only if no newer one arrived meanwhile (compare-and-clear).
+ *    is recomputed, and the request is cleared only once none of them was skipped and no newer request arrived
+ *    meanwhile (compare-and-clear).
  * 2. The **Backfill** of Activities that have no `activity_derived_metrics` row yet (imported before derived data
  *    existed), and the **Recompute** of rows an older algorithm version wrote ([DERIVED_DATA_VERSION]).
  *
@@ -77,15 +78,19 @@ class DerivedDataRecomputeWorker(
     private val failedAt = ConcurrentHashMap<Long, Instant>()
 
     /**
-     * How far a drain got through each athlete's recompute request before running out of pages: the last Activity id
-     * done, for the request stamped [RequestCursor.requestedAt]. The next drain resumes there, so a request larger than
-     * one run's pages still finishes; a newer request starts again from the beginning. Kept in memory only.
+     * How far a drain got through each athlete's recompute request: the last Activity id done, for the request stamped
+     * [RequestCursor.requestedAt], whether every page has been scanned, and the Activities skipped because they failed
+     * or were backed off. The next drain resumes there, so a request larger than one run's pages still finishes; a
+     * scanned request stays pending, retrying only its skipped Activities once their back-off has passed, until none is
+     * left; a newer request starts again from the beginning. Kept in memory only: a restart rescans the request.
      */
     private val requestCursors = ConcurrentHashMap<Long, RequestCursor>()
 
     private data class RequestCursor(
         val requestedAt: Instant,
         val afterId: Long,
+        val scanned: Boolean = false,
+        val skipped: Set<Long> = emptySet(),
     )
 
     /**
@@ -141,8 +146,9 @@ class DerivedDataRecomputeWorker(
 
     /**
      * Stage 1: serves each pending recompute request in athlete id order, a page at a time from where the last drain
-     * left it, clearing each request it finishes unless a newer one replaced it meanwhile. Returns false when it used
-     * up [maxPages] first.
+     * left it, clearing each request it finishes unless a newer one replaced it meanwhile. A request with Activities
+     * it skipped (failed, or backed off) is not finished: it stays pending, and later drains retry only those
+     * Activities once their back-off has passed. Returns false when it used up [maxPages] first.
      */
     private fun serveRecomputeRequests(
         limit: Int,
@@ -152,18 +158,46 @@ class DerivedDataRecomputeWorker(
         tally: Tally,
     ): Boolean {
         for (request in stateRepository.findPendingRequests(onlyUserIds)) {
-            var afterId = requestCursors[request.userId]?.takeIf { it.requestedAt == request.requestedAt }?.afterId ?: 0L
-            while (true) {
+            val cursor = requestCursors[request.userId]?.takeIf { it.requestedAt == request.requestedAt }
+            var afterId = cursor?.afterId ?: 0L
+            var scanned = cursor?.scanned ?: false
+            val skipped = cursor?.skipped.orEmpty().toSortedSet()
+
+            fun saveCursor() {
+                requestCursors[request.userId] = RequestCursor(request.requestedAt, afterId, scanned, skipped.toSet())
+            }
+            while (!scanned) {
                 if (tally.pages >= maxPages) {
-                    requestCursors[request.userId] = RequestCursor(request.requestedAt, afterId)
+                    saveCursor()
                     return false
                 }
                 val page =
                     derivedMetricsRepository.findTrainingLoadRecomputePage(request.userId, request.from, request.zone, afterId, limit)
-                if (page.isEmpty()) break
-                tally.trainingLoads += runPage(page, afterId, now, tally, ::recomputeTrainingLoadPage)
+                if (page.isEmpty()) {
+                    scanned = true
+                    break
+                }
+                tally.trainingLoads += runPage(page, afterId, now, tally, ::recomputeTrainingLoadPage, skipped)
                 afterId = page.last()
                 tally.pages++
+            }
+            for (retry in skipped.filterNot { failedAt.containsKey(it) }.chunked(limit)) {
+                if (tally.pages >= maxPages) {
+                    saveCursor()
+                    return false
+                }
+                skipped.removeAll(retry.toSet())
+                tally.trainingLoads += runPage(retry, retry.first() - 1, now, tally, ::recomputeTrainingLoadPage, skipped)
+                tally.pages++
+            }
+            if (skipped.isNotEmpty()) {
+                saveCursor()
+                logger.info(
+                    "Training Load recompute request for athlete {} kept pending: {} Activities are retried after their back-off",
+                    request.userId,
+                    skipped.size,
+                )
+                continue
             }
             requestCursors.remove(request.userId)
             if (!stateRepository.clearRequest(request)) {
@@ -175,7 +209,8 @@ class DerivedDataRecomputeWorker(
 
     /**
      * Runs [work] over the [candidates] not backed off, in one transaction; if that fails other than in the database,
-     * once per Activity, logging and backing off each that still fails. Returns what [work] counted.
+     * once per Activity, logging and backing off each that still fails. Returns what [work] counted. Adds to [skipped],
+     * if given, every candidate it passed over or that failed.
      */
     private fun runPage(
         candidates: List<Long>,
@@ -183,8 +218,10 @@ class DerivedDataRecomputeWorker(
         now: Instant,
         tally: Tally,
         work: (List<Long>) -> Int,
+        skipped: MutableSet<Long>? = null,
     ): Int {
-        val due = candidates.filterNot { failedAt.containsKey(it) }
+        val (due, backedOff) = candidates.partition { !failedAt.containsKey(it) }
+        skipped?.addAll(backedOff)
         if (due.isEmpty()) return 0
         return try {
             inTransaction(due, work)
@@ -203,6 +240,7 @@ class DerivedDataRecomputeWorker(
                         activityFailure,
                     )
                     failedAt[activityId] = now
+                    skipped?.add(activityId)
                     tally.failed++
                     0
                 }

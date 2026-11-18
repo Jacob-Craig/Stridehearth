@@ -17,8 +17,10 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doAnswer
 import org.mockito.kotlin.doCallRealMethod
+import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -31,6 +33,10 @@ import org.springframework.transaction.TransactionDefinition
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
 import java.time.LocalDate
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import kotlin.math.exp
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -87,6 +93,7 @@ class TrainingLoadRecomputeTest {
     @AfterEach
     fun tearDown() {
         doCallRealMethod().whenever(refreshSpy).refreshTrainingLoad(any())
+        doCallRealMethod().whenever(refreshSpy).refresh(any<Activity>(), anyOrNull(), anyOrNull(), anyOrNull())
         activityRepository.deleteAll()
         userRepository.deleteAll()
     }
@@ -289,5 +296,80 @@ class TrainingLoadRecomputeTest {
         assertEquals(RecomputeResult(0, 0, trainingLoadsRecomputed = 1), worker.drain(pageSize = 1, maxPages = 2, onlyUserIds = scope))
         assertEquals(100.0, load(activities[2]).first!!, 0.01)
         assertEquals(false, request()!!.pending)
+    }
+
+    @Test
+    fun `a request is kept while any of its Activities failed, and served once their back-off has passed`() {
+        heartRateThresholds()
+        val april = import("2026-04-01T08:00:00Z")
+        drain()
+        threshold(ThresholdKind.LTHR, 150.0, from = "2026-03-01")
+        val scope = listOf(runner.id!!, otherRunner.id!!)
+        val failedAt = Instant.now()
+        doThrow(IllegalStateException("cannot analyse")).whenever(refreshSpy).refreshTrainingLoad(any())
+
+        assertEquals(RecomputeResult(0, 1, 0), worker.drain(onlyUserIds = scope, now = failedAt))
+        assertEquals(true, request()!!.pending, "a request with a failed Activity stays pending")
+
+        doCallRealMethod().whenever(refreshSpy).refreshTrainingLoad(any())
+        assertEquals(RecomputeResult(0, 0, 0), worker.drain(onlyUserIds = scope, now = failedAt.plusSeconds(60)))
+        assertEquals(true, request()!!.pending, "still pending while the Activity is backed off")
+        assertEquals(100.0, load(april).first!!, 0.01)
+
+        val afterBackOff = failedAt + DerivedDataRecomputeWorker.FAILED_RETRY_AFTER + java.time.Duration.ofMinutes(1)
+        assertEquals(RecomputeResult(0, 0, 1), worker.drain(onlyUserIds = scope, now = afterBackOff))
+        assertEquals(hrssAt170(150.0), load(april).first!!, 0.01)
+        assertEquals(false, request()!!.pending)
+    }
+
+    @Test
+    fun `a row of an older version is left to the version Recompute rather than having its Training Load replaced`() {
+        heartRateThresholds()
+        val april = import("2026-04-01T08:00:00Z")
+        drain()
+        jdbcTemplate.update("UPDATE activity_derived_metrics SET algorithm_version = 2 WHERE activity_id = ?", april.id)
+        threshold(ThresholdKind.LTHR, 150.0, from = "2026-03-01")
+
+        assertEquals(RecomputeResult(activitiesRecomputed = 1, activitiesFailed = 0, trainingLoadsRecomputed = 0), drain())
+        assertEquals(hrssAt170(150.0), load(april).first!!, 0.01)
+    }
+
+    @Test
+    fun `a Threshold change waits for an Activity write that already read the Thresholds, so its request covers it`() {
+        heartRateThresholds()
+        drain()
+        val scored = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        doAnswer { invocation ->
+            invocation.callRealMethod()
+            // The import has scored its Training Load against LTHR 170 and has not committed yet.
+            scored.countDown()
+            release.await(30, TimeUnit.SECONDS)
+            null
+        }.whenever(refreshSpy).refresh(any<Activity>(), anyOrNull(), anyOrNull(), anyOrNull())
+        val executor = Executors.newFixedThreadPool(2)
+        try {
+            val importing = executor.submit<Activity> { import("2026-04-01T08:00:00Z") }
+            check(scored.await(30, TimeUnit.SECONDS)) { "the import never scored its Training Load" }
+            val changing = executor.submit<ThresholdEntry> { threshold(ThresholdKind.LTHR, 150.0, from = "2026-03-01") }
+            try {
+                changing.get(2, TimeUnit.SECONDS)
+            } catch (_: TimeoutException) {
+                // Expected: the change waits for the import to commit.
+            }
+            // A drain now, before the import commits, must not consume a request that misses the import.
+            drain()
+            release.countDown()
+            val april = importing.get(30, TimeUnit.SECONDS)
+            changing.get(30, TimeUnit.SECONDS)
+
+            drain()
+
+            assertEquals(hrssAt170(150.0), load(april).first!!, 0.01)
+            assertEquals(false, request()!!.pending)
+        } finally {
+            release.countDown()
+            executor.shutdownNow()
+        }
     }
 }

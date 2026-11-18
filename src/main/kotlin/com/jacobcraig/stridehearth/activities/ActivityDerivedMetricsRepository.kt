@@ -69,12 +69,14 @@ class ActivityDerivedMetricsRepository(
     }
 
     /**
-     * Replaces only the **Training Load** of [activityId]'s row, as a recompute after a Threshold or time-zone change
-     * does; returns whether the Activity had a row. The other derived data and the row's version are left as they are:
-     * an Activity without a row, or with a row of an older version, is the version Backfill's to compute in full.
+     * Replaces only the **Training Load** of [activityId]'s row if [version] computed it, as a recompute after a
+     * Threshold or time-zone change does; returns whether it replaced one. The other derived data and the row's version
+     * are left as they are: an Activity without a row, or with a row of another version, is left to the version
+     * Backfill or Recompute, which computes it in full.
      */
     fun updateTrainingLoad(
         activityId: Long,
+        version: Short,
         trainingLoad: TrainingLoadResult,
     ): Boolean =
         jdbcClient
@@ -85,9 +87,10 @@ class ActivityDerivedMetricsRepository(
                     training_load_method = :trainingLoadMethod,
                     training_load_unavailable_reason = :trainingLoadReason,
                     computed_at = now()
-                WHERE activity_id = :activityId
+                WHERE activity_id = :activityId AND algorithm_version = :version
                 """.trimIndent(),
             ).param("activityId", activityId)
+            .param("version", version)
             .trainingLoadParams(trainingLoad)
             .update() > 0
 

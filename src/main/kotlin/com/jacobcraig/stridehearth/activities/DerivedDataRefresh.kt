@@ -3,9 +3,9 @@ package com.jacobcraig.stridehearth.activities
 import com.jacobcraig.stridehearth.analytics.ActivityAnalysis
 import com.jacobcraig.stridehearth.analytics.TrainingLoadResult
 import com.jacobcraig.stridehearth.analytics.TrainingLoadUnavailableReason
+import com.jacobcraig.stridehearth.athlete.AthleteAnalyticsStateRepository
 import com.jacobcraig.stridehearth.athlete.AthleteRollups
 import com.jacobcraig.stridehearth.athlete.AthleteThresholdRepository
-import com.jacobcraig.stridehearth.athlete.AthleteTimeZone
 import com.jacobcraig.stridehearth.athlete.ThresholdHistory
 import com.jacobcraig.stridehearth.athlete.ThresholdsOn
 import com.jacobcraig.stridehearth.system.ActivitySport
@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
+import java.time.ZoneId
 
 /**
  * The version of the derived-data algorithms (Telemetry Cleaning, Grade-Adjusted Pace, the Run metrics and whatever
@@ -44,7 +45,9 @@ const val DERIVED_DATA_VERSION: Short = 3
  * - The **Training Load** is scored against the **Thresholds** in force on the Activity's athlete-local date (in the
  *   **Athlete Time Zone**). When the Thresholds or the time zone change, [refreshTrainingLoad] recomputes only it.
  * - A deleted Activity's row goes by `ON DELETE CASCADE`; the refresh only marks its athlete's rollups.
- * - It is idempotent, takes no lock of its own, and writes no **Activity History Entry**.
+ * - It is idempotent and writes no **Activity History Entry**. Its only lock of its own is the shared side of each
+ *   athlete's scoring lock, taken before it reads their Thresholds and held to commit, so a Threshold or time-zone
+ *   change waits for it and the recompute that change requests sees this transaction's Activities (ADR-0014).
  */
 @Component
 class DerivedDataRefresh(
@@ -53,6 +56,7 @@ class DerivedDataRefresh(
     private val derivedMetricsRepository: ActivityDerivedMetricsRepository,
     private val athleteRollups: AthleteRollups,
     private val thresholdRepository: AthleteThresholdRepository,
+    private val analyticsStateRepository: AthleteAnalyticsStateRepository,
 ) {
     /**
      * Recomputes [activity]'s derived data from [details] (or its stored Activity Details) if it still exists, and
@@ -97,7 +101,7 @@ class DerivedDataRefresh(
      * Recomputes only the **Training Load** of each of [activities] that still exists and has a derived-data row, from
      * its stored Activity Details and the Thresholds now in force on its date, and marks its athlete's daily rollups.
      * Used when the athlete's Thresholds or time zone change; returns how many loads it replaced. An Activity without
-     * a row is left to the version Backfill, which computes everything.
+     * a row, or with a row of an older version, is left to the version Backfill or Recompute, which computes everything.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     fun refreshTrainingLoad(activities: Collection<Activity>): Int {
@@ -109,7 +113,7 @@ class DerivedDataRefresh(
         for (activity in activities) {
             if (activity.id !in existing) continue
             val load = analyse(activity, details = null, thresholds)?.trainingLoad ?: noActivityDetails()
-            if (derivedMetricsRepository.updateTrainingLoad(activity.id!!, load)) replaced++
+            if (derivedMetricsRepository.updateTrainingLoad(activity.id!!, DERIVED_DATA_VERSION, load)) replaced++
             athleteRollups.markDailyLoad(checkNotNull(activity.user.id), activity.startedAt)
         }
         return replaced
@@ -142,15 +146,22 @@ class DerivedDataRefresh(
 
     private fun noActivityDetails(): TrainingLoadResult = TrainingLoadResult.Unavailable(TrainingLoadUnavailableReason.NO_ACTIVITY_DETAILS)
 
-    /** The Thresholds in force on each Activity's athlete-local date, reading each athlete's history once per call. */
+    /**
+     * The Thresholds in force on each Activity's athlete-local date, reading each athlete's history and zone once per
+     * call. Both are read under the athlete's shared scoring lock
+     * ([AthleteAnalyticsStateRepository.lockScoringInputs]), so a concurrent Threshold or zone change either is read
+     * here or requests a recompute that covers this transaction's Activities.
+     */
     private inner class Thresholds {
-        private val histories = mutableMapOf<Long, ThresholdHistory>()
+        private val inputs = mutableMapOf<Long, Pair<ZoneId, ThresholdHistory>>()
 
         fun on(activity: Activity): ThresholdsOn {
-            val user = activity.user
-            val userId = checkNotNull(user.id)
-            val history = histories.getOrPut(userId) { ThresholdHistory(thresholdRepository.findAll(userId)) }
-            return history.asOf(activity.startedAt.atZone(AthleteTimeZone.zoneOf(user.timeZone)).toLocalDate())
+            val userId = checkNotNull(activity.user.id)
+            val (zone, history) =
+                inputs.getOrPut(userId) {
+                    analyticsStateRepository.lockScoringInputs(userId) to ThresholdHistory(thresholdRepository.findAll(userId))
+                }
+            return history.asOf(activity.startedAt.atZone(zone).toLocalDate())
         }
     }
 
