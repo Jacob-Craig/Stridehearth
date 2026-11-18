@@ -4,6 +4,7 @@ import type {
   PersonalRecordStepDto,
 } from '../src/api/generated/types.gen';
 import {
+  PROGRESSION_X_TICK_SPACE_PX,
   defaultBenchmark,
   progressionSteps,
   progressionTickLabels,
@@ -89,5 +90,21 @@ describe('progressionTickLabels', () => {
 
   it('labels a lone tick by month', () => {
     expect(progressionTickLabels([at('2026-03-01T00:00:00Z')], 'UTC')).toEqual(['Mar 2026']);
+  });
+});
+
+describe('PROGRESSION_X_TICK_SPACE_PX', () => {
+  // uPlot's axis font is 12px; its widest glyphs here average under 7px, and labels need a gap.
+  const AXIS_CHAR_WIDTH_PX = 7;
+  const LABEL_GAP_PX = 16;
+
+  it('spaces date ticks wide enough that the longest month label cannot touch its neighbour', () => {
+    const monthStarts = Array.from({ length: 12 }, (_, m) => Date.UTC(2026, m, 15) / 1000);
+    const widest = Math.max(
+      ...progressionTickLabels(monthStarts, 'UTC').map((label) => label.length),
+    );
+    expect(PROGRESSION_X_TICK_SPACE_PX).toBeGreaterThanOrEqual(
+      widest * AXIS_CHAR_WIDTH_PX + LABEL_GAP_PX,
+    );
   });
 });

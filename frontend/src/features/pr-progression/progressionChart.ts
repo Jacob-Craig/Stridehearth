@@ -11,6 +11,7 @@ import { formatDuration } from '../../lib/format';
 import { AXIS_PALETTE } from '../charts/chartTheme';
 import {
   PROGRESSION_PLOT_HEIGHT_PX,
+  PROGRESSION_X_TICK_SPACE_PX,
   type StepPoints,
   progressionTickLabels,
 } from './progressionSeries';
@@ -53,6 +54,7 @@ export function createProgressionChart(options: ProgressionChartOptions): Progre
       axes: [
         {
           ...axis,
+          space: PROGRESSION_X_TICK_SPACE_PX,
           // uPlot places time ticks in the viewer's zone, so they are labelled in it too.
           values: (_u, ticks) => progressionTickLabels(ticks),
         },

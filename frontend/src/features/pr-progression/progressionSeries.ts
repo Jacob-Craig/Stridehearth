@@ -7,6 +7,12 @@ import type { BenchmarkProgressionDto, PersonalRecordStepDto } from '../../api/g
 /** Height of the chart's canvas; the React card reserves the same slot. */
 export const PROGRESSION_PLOT_HEIGHT_PX = 220;
 
+/**
+ * Least room uPlot leaves between date ticks: wide enough for `Sept 2026` and a gap, so a narrow
+ * (phone-width) chart drops ticks rather than running its labels together.
+ */
+export const PROGRESSION_X_TICK_SPACE_PX = 80;
+
 export type BenchmarkDistance = BenchmarkProgressionDto['benchmarkDistance'];
 
 /** `x` in epoch seconds (uPlot's time scale), `y` in elapsed seconds. */
