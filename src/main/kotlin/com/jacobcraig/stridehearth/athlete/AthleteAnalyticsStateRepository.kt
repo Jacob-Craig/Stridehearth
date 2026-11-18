@@ -72,13 +72,18 @@ class AthleteAnalyticsStateRepository(
      * Marks [userId]'s rollups stale, so the recompute worker rebuilds them in full and the before-commit rollup leaves
      * them alone until it has. Takes the scoring lock first, as [requestRecompute] does, so it never waits on a row
      * while a writer that holds the scoring lock waits on it.
+     *
+     * An athlete with no Activities has no rows to rebuild, so their rollups are left as they are: otherwise their first
+     * import would skip its rollup and wait for the worker. The scoring lock makes that check safe: a writer that
+     * already holds it has committed its Activity by now, and one that takes it later reads the new zone.
      */
     fun markRollupsStale(userId: Long) {
         advisoryLock("pg_advisory_xact_lock", userId)
         jdbcClient
             .sql(
                 """
-                INSERT INTO athlete_analytics_state (user_id, rollup_version) VALUES (:userId, 0)
+                INSERT INTO athlete_analytics_state (user_id, rollup_version)
+                SELECT :userId, 0 WHERE EXISTS (SELECT 1 FROM activity WHERE user_id = :userId)
                 ON CONFLICT (user_id) DO UPDATE SET rollup_version = 0
                 """.trimIndent(),
             ).param("userId", userId)

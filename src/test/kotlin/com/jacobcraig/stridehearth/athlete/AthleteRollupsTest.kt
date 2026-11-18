@@ -81,7 +81,7 @@ class AthleteRollupsTest {
     }
 
     @Test
-    fun `before commit, a current athlete's daily load is recomputed from the earliest mark under their lock, after a flush`() {
+    fun `before commit, a current athlete's daily load is recomputed from the earliest mark under their locks, after a flush`() {
         whenever(stateRepository.findRollupVersion(1)).thenReturn(ROLLUP_VERSION)
         TransactionSynchronizationManager.initSynchronization()
         rollups.markDailyLoad(1, at("2026-03-02T08:00:00Z"))
@@ -91,6 +91,7 @@ class AthleteRollupsTest {
 
         inOrder(entityManager, stateRepository, dailyLoadRollup) {
             verify(entityManager).flush()
+            verify(stateRepository).lockScoringInputs(1)
             verify(stateRepository).lockRollups(1)
             verify(dailyLoadRollup).recomputeFrom(1, at("2026-02-01T08:00:00Z"))
         }

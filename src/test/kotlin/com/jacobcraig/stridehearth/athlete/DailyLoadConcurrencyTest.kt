@@ -6,6 +6,7 @@ import com.jacobcraig.stridehearth.activities.ActivityRepository
 import com.jacobcraig.stridehearth.activities.ActivityService
 import com.jacobcraig.stridehearth.activities.ActivitySource
 import com.jacobcraig.stridehearth.activities.PostgresLockProbe
+import com.jacobcraig.stridehearth.activities.ProtectedMetrics
 import com.jacobcraig.stridehearth.activities.acceptParsedFixtures
 import com.jacobcraig.stridehearth.activities.importParsed
 import com.jacobcraig.stridehearth.system.ActivitySport
@@ -60,6 +61,9 @@ class DailyLoadConcurrencyTest {
 
     @Autowired
     private lateinit var dailyLoadRollup: DailyLoadRollup
+
+    @Autowired
+    private lateinit var athleteTimeZone: AthleteTimeZone
 
     @Autowired
     private lateinit var stateRepository: AthleteAnalyticsStateRepository
@@ -216,5 +220,41 @@ class DailyLoadConcurrencyTest {
         import.get(30, TimeUnit.SECONDS)
         assertEquals(rebuilt(concurrent), snapshot(concurrent))
         assertEquals(2, snapshot(concurrent).first.size)
+    }
+
+    @Test
+    fun `a manual Activity written during the first time-zone change of an athlete without Activities is rolled up in the new zone`() {
+        // The change finds no Activities, so it leaves the rollups current rather than stale: the manual Activity, which
+        // scores no Training Load and so takes no scoring lock to score, must still wait for it before rolling up.
+        val release = CountDownLatch(1)
+        val holding = CountDownLatch(1)
+        val holderPid = java.util.concurrent.CompletableFuture<Int>()
+        val change =
+            pool.submit {
+                transactionTemplate.execute {
+                    holderPid.complete(locks.currentBackendPid())
+                    athleteTimeZone.set(concurrent.id!!, "Europe/London")
+                    holding.countDown()
+                    check(release.await(30, TimeUnit.SECONDS))
+                }
+            }
+        assertTrue(holding.await(30, TimeUnit.SECONDS))
+
+        val manual =
+            pool.submit {
+                activityService.createManualActivity(
+                    concurrent.id!!,
+                    "Manual",
+                    ActivitySport.RUN,
+                    ProtectedMetrics(Instant.parse("2026-07-10T23:30:00Z"), 5.0, 1800, null, null, null),
+                )
+            }
+        locks.awaitAdvisoryLockWaiter(excluding = setOf(holderPid.get()), ended = { manual.isDone })
+
+        release.countDown()
+        change.get(30, TimeUnit.SECONDS)
+        manual.get(30, TimeUnit.SECONDS)
+        assertEquals(listOf(LocalDate.parse("2026-07-11")), snapshot(concurrent).first.map { it.day }, "23:30Z is the 11th in London")
+        assertEquals(ROLLUP_VERSION, stateRepository.findRollupVersion(concurrent.id!!))
     }
 }

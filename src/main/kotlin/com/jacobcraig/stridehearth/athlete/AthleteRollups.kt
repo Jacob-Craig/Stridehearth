@@ -95,11 +95,17 @@ class AthleteRollups(
         return marks
     }
 
-    /** Recomputes [userId]'s rollups from [marks], under their rollup lock. */
+    /**
+     * Recomputes [userId]'s rollups from [marks], under their rollup lock. It takes the shared scoring lock first, as
+     * a scoring writer does (ADR-0016's lock order): an Activity written without a Training Load to score (a manual
+     * one) then cannot slip past a time-zone change that found no Activities to mark stale, because the change either
+     * commits before this reads the zone, or waits for this transaction to commit and sees its Activity.
+     */
     private fun rollUp(
         userId: Long,
         marks: RollupMarks,
     ) {
+        stateRepository.lockScoringInputs(userId)
         stateRepository.lockRollups(userId)
         val version = stateRepository.findRollupVersion(userId)
         when {
