@@ -584,6 +584,46 @@ export const zPeakEffortsResponseDto = z.object({
     power: z.array(zPeakEffortSlotDto)
 });
 
+export const zCriticalSpeedPointDto = z.object({
+    benchmarkDuration: z.enum([
+        'FIVE_SECONDS',
+        'FIFTEEN_SECONDS',
+        'THIRTY_SECONDS',
+        'ONE_MINUTE',
+        'TWO_MINUTES',
+        'THREE_MINUTES',
+        'FIVE_MINUTES',
+        'TEN_MINUTES',
+        'TWENTY_MINUTES',
+        'THIRTY_MINUTES',
+        'SIXTY_MINUTES'
+    ]),
+    durationSeconds: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    value: z.number(),
+    activityId: z.coerce.bigint().min(BigInt('-9223372036854775808'), { message: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { message: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+export const zCriticalSpeedFitDto = z.object({
+    status: z.enum([
+        'MODEL',
+        'INSUFFICIENT_POINTS',
+        'POOR_FIT',
+        'NON_PHYSICAL'
+    ]),
+    criticalValue: z.number().nullable(),
+    reserveCapacity: z.number().nullable(),
+    pointCount: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    points: z.array(zCriticalSpeedPointDto),
+    rSquared: z.number().nullable()
+});
+
+export const zCriticalSpeedResponseDto = z.object({
+    asOf: z.string().date(),
+    windowDays: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    pace: zCriticalSpeedFitDto,
+    power: zCriticalSpeedFitDto.nullable()
+});
+
 export const zPagedResponseDtoActivitySummaryDto = z.object({
     items: z.array(zActivitySummaryDto),
     page: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }),
@@ -1108,6 +1148,11 @@ export const zGetPersonalRecordProgressionResponse = zPersonalRecordProgressionR
  * The authenticated athlete's best running Peak Efforts
  */
 export const zGetPeakEffortsResponse = zPeakEffortsResponseDto;
+
+/**
+ * The authenticated athlete's models, or why there is none
+ */
+export const zGetCriticalSpeedResponse = zCriticalSpeedResponseDto;
 
 export const zGetActivityTelemetryPath = z.object({
     id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { message: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { message: 'Invalid value: Expected int64 to be <= 9223372036854775807' })

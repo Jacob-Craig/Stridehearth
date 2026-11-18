@@ -545,6 +545,29 @@ export type PeakEffortsResponseDto = {
     power: Array<PeakEffortSlotDto>;
 };
 
+export type CriticalSpeedFitDto = {
+    status: 'MODEL' | 'INSUFFICIENT_POINTS' | 'POOR_FIT' | 'NON_PHYSICAL';
+    criticalValue: number | null;
+    reserveCapacity: number | null;
+    pointCount: number;
+    points: Array<CriticalSpeedPointDto>;
+    rSquared: number | null;
+};
+
+export type CriticalSpeedPointDto = {
+    benchmarkDuration: 'FIVE_SECONDS' | 'FIFTEEN_SECONDS' | 'THIRTY_SECONDS' | 'ONE_MINUTE' | 'TWO_MINUTES' | 'THREE_MINUTES' | 'FIVE_MINUTES' | 'TEN_MINUTES' | 'TWENTY_MINUTES' | 'THIRTY_MINUTES' | 'SIXTY_MINUTES';
+    durationSeconds: number;
+    value: number;
+    activityId: number;
+};
+
+export type CriticalSpeedResponseDto = {
+    asOf: string;
+    windowDays: number;
+    pace: CriticalSpeedFitDto;
+    power: CriticalSpeedFitDto | null;
+};
+
 export type PagedResponseDtoActivitySummaryDto = {
     items: Array<ActivitySummaryDto>;
     page: number;
@@ -1809,6 +1832,31 @@ export type GetPeakEffortsResponses = {
 };
 
 export type GetPeakEffortsResponse = GetPeakEffortsResponses[keyof GetPeakEffortsResponses];
+
+export type GetCriticalSpeedData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/athlete/critical-speed';
+};
+
+export type GetCriticalSpeedErrors = {
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type GetCriticalSpeedError = GetCriticalSpeedErrors[keyof GetCriticalSpeedErrors];
+
+export type GetCriticalSpeedResponses = {
+    /**
+     * The authenticated athlete's models, or why there is none
+     */
+    200: CriticalSpeedResponseDto;
+};
+
+export type GetCriticalSpeedResponse = GetCriticalSpeedResponses[keyof GetCriticalSpeedResponses];
 
 export type GetActivityTelemetryData = {
     body?: never;
