@@ -352,11 +352,17 @@ describe('Dashboard', () => {
       expect(progressionCharts.live()[0]!.options.theme).toBe('dark');
     });
 
-    it('shows an error message when the progression cannot be loaded', async () => {
+    it('shows an error in its own card, and keeps the Personal Records, when the progression cannot be loaded', async () => {
       stubDashboardApi([dashboardWith({})], [{ status: 500 }]);
       renderApp('/dashboard', runner);
 
-      expect(await screen.findByRole('alert')).toHaveTextContent(/server exploded/i);
+      const section = await progressionSection();
+      const alert = await within(section).findByRole('alert');
+      expect(alert).toHaveTextContent(/progression could not be loaded/i);
+      expect(alert).toHaveTextContent(/server exploded/i);
+      expect(await findCard('5k')).toBeInTheDocument();
+      expect(screen.queryByText(/your dashboard could not be loaded/i)).not.toBeInTheDocument();
+      expect(progressionCharts.all).toHaveLength(0);
     });
   });
 });

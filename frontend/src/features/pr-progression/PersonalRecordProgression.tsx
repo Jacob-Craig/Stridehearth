@@ -2,8 +2,10 @@ import { Link } from '@tanstack/react-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { match } from 'ts-pattern';
 import type { BenchmarkProgressionDto } from '../../api/generated/types.gen';
+import { ErrorAlert } from '../../components/ErrorAlert';
 import { useColorScheme } from '../../lib/colorScheme';
 import { formatDate, formatDuration } from '../../lib/format';
+import { parseApiError } from '../../utils/error';
 import { type MountedRenderer, useLazyRenderer } from '../telemetry/useLazyRenderer';
 import { loadProgressionChart } from './lazyProgressionChart';
 import type { ProgressionChartHandle } from './progressionChart';
@@ -16,15 +18,22 @@ import {
 
 type ProgressionChartModule = typeof import('./progressionChart');
 
+/** The progression's query state: the card loads and fails on its own, apart from the Dashboard. */
+export type ProgressionState =
+  | { status: 'pending' }
+  | { status: 'error'; error: unknown }
+  | { status: 'success'; progressions: readonly BenchmarkProgressionDto[] };
+
 interface PersonalRecordProgressionProps {
-  progressions: readonly BenchmarkProgressionDto[];
+  progression: ProgressionState;
 }
 
 /**
  * The **Personal Record Progression** of one Benchmark Distance at a time: a stepped chart of the
  * record time against the date each record was set, its last step held until today.
  */
-export function PersonalRecordProgression({ progressions }: PersonalRecordProgressionProps) {
+export function PersonalRecordProgression({ progression }: PersonalRecordProgressionProps) {
+  const progressions = progression.status === 'success' ? progression.progressions : [];
   const withRecords = progressions.filter((p) => p.records.length > 0);
   const [chosen, setChosen] = useState<BenchmarkDistance | null>(null);
   const selected =
@@ -60,11 +69,23 @@ export function PersonalRecordProgression({ progressions }: PersonalRecordProgre
           </label>
         )}
       </div>
-      {selected ? (
-        <ProgressionFigure progression={selected} />
-      ) : (
-        <p className="py-2 text-slate-500 dark:text-slate-400">No records yet</p>
-      )}
+      {match(progression)
+        .with({ status: 'pending' }, () => (
+          <p className="py-2 text-slate-500 dark:text-slate-400">Loading…</p>
+        ))
+        .with({ status: 'error' }, ({ error }) => (
+          <ErrorAlert>
+            Your Personal Record Progression could not be loaded.{' '}
+            {parseApiError(error).generalError}
+          </ErrorAlert>
+        ))
+        .otherwise(() =>
+          selected ? (
+            <ProgressionFigure progression={selected} />
+          ) : (
+            <p className="py-2 text-slate-500 dark:text-slate-400">No records yet</p>
+          ),
+        )}
     </section>
   );
 }

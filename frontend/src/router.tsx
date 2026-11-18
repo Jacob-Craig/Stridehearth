@@ -119,9 +119,10 @@ export const dashboardRoute = createRoute({
   path: '/dashboard',
   loader: ({ context }) => {
     const queries = dashboardQueries(context.user.id);
+    // The progression is fetched alongside but never fails the route: its card shows its own error.
     return Promise.all([
       context.queryClient.ensureQueryData(queries.dashboard),
-      context.queryClient.ensureQueryData(queries.progression),
+      context.queryClient.prefetchQuery(queries.progression),
     ]);
   },
   component: DashboardRoute,
