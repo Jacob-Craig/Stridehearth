@@ -1,8 +1,9 @@
 -- V22: Training Load of an Activity (ADR-0014, #35), computed in the same pass as its other derived data from its
 -- Activity Details and the Thresholds in force on its athlete-local date, and never edited.
 -- training_load: the load, scaled so one hour at threshold is 100; training_load_method: RSS, RTSS or HRSS.
--- training_load_unavailable_reason: why there is no load (NO_ACTIVITY_DETAILS, NO_THRESHOLDS, NO_USABLE_STREAM).
--- All three are NULL on rows written before DERIVED_DATA_VERSION 3, which the recompute worker replaces.
+-- training_load_unavailable_reason: why there is no load (NO_ACTIVITY_DETAILS, NO_THRESHOLDS,
+-- INCONSISTENT_THRESHOLDS, NO_USABLE_STREAM).
+-- All three are NULL on rows written before DERIVED_DATA_VERSION 5, which the recompute worker replaces.
 ALTER TABLE activity_derived_metrics
     ADD COLUMN training_load DOUBLE PRECISION,
     ADD COLUMN training_load_method VARCHAR(8),
