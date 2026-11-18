@@ -163,6 +163,19 @@ class PersonalRecordProgressionIntegrationTest {
     }
 
     @Test
+    fun `a later import of an earlier, faster run removes the step of the later, slower run already shown`() {
+        import5k("Mar 1550", "2026-03-01T08:00:00Z", 1550)
+        assertEquals(listOf("Mar 1550"), progression().titlesFor(BenchmarkDistance.FIVE_KILOMETERS))
+
+        val jan = import5k("Jan 1500", "2026-01-01T08:00:00Z", 1500)
+        val result = progression()
+
+        assertEquals(listOf("Jan 1500"), result.titlesFor(BenchmarkDistance.FIVE_KILOMETERS))
+        assertEquals(jan.id, lastStepOf(result, BenchmarkDistance.FIVE_KILOMETERS))
+        assertLastStepsArePersonalRecords(result)
+    }
+
+    @Test
     fun `deleting the record holder hands the step to the run that tied it later`() {
         val a = import5k("A March", "2026-03-01T08:00:00Z", 1500)
         val d = import5k("D April", "2026-04-01T08:00:00Z", 1500)
