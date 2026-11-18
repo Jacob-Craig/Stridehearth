@@ -115,13 +115,18 @@ class AthleteRollups(
     /**
      * Rebuilds [userId]'s rollups in full and records them as current, unless they already are; for the recompute
      * worker, inside its own transaction. Returns whether it rebuilt them.
+     *
+     * An athlete with a state row has it locked from the read to commit, so a concurrent time-zone change waits and
+     * marks the rebuild stale after it. One without a row has nothing to lock: a time-zone change can commit a stale
+     * row during the rebuild, so the rebuild only inserts its row if absent, and a stale mark that got there first
+     * stands for the next rebuild (ADR-0016).
      */
     fun rebuildStale(userId: Long): Boolean {
         stateRepository.lockRollups(userId)
         val version = stateRepository.findRollupVersion(userId, forUpdate = true)
         if (version != null && version >= ROLLUP_VERSION) return false
         dailyLoadRollup.recomputeFrom(userId, from = null)
-        stateRepository.setRollupVersion(userId)
+        if (version == null) stateRepository.insertRollupVersionIfAbsent(userId) else stateRepository.setRollupVersion(userId)
         return true
     }
 

@@ -19,6 +19,10 @@ import com.jacobcraig.stridehearth.users.UserRepository
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.doAnswer
+import org.mockito.kotlin.eq
+import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
@@ -27,6 +31,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
 import java.time.LocalDate
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -58,7 +65,7 @@ class DailyLoadRollupIntegrationTest {
     @Autowired
     private lateinit var athleteTimeZone: AthleteTimeZone
 
-    @Autowired
+    @MockitoSpyBean
     private lateinit var dailyLoadRollup: DailyLoadRollup
 
     @Autowired
@@ -319,6 +326,38 @@ class DailyLoadRollupIntegrationTest {
         assertEquals(listOf(day("2026-03-10"), day("2026-03-20")), loads().map { it.day })
         assertMatchesRebuild()
         assertEquals(0, drain().rollupsRebuilt, "the rebuild recorded the rollups as current")
+    }
+
+    @Test
+    fun `a time-zone change committed during the worker's rebuild of an athlete without a state row stays stale`() {
+        import("2026-07-10T23:30:00Z")
+        forgetRollups()
+        // The zone change commits after the rebuild has read the old zone and before it records its version: with no
+        // state row, the rebuild holds no lock the change waits on.
+        val changeZone = AtomicBoolean(true)
+        val pool = Executors.newSingleThreadExecutor()
+        try {
+            doAnswer { invocation ->
+                invocation.callRealMethod().also {
+                    if (changeZone.getAndSet(false)) {
+                        pool.submit { athleteTimeZone.set(runner.id!!, "Europe/London") }.get(30, TimeUnit.SECONDS)
+                    }
+                }
+            }.whenever(dailyLoadRollup).recomputeFrom(eq(runner.id!!), anyOrNull())
+
+            assertEquals(1, drain().rollupsRebuilt)
+        } finally {
+            pool.shutdownNow()
+        }
+
+        assertEquals(listOf(day("2026-07-10")), loads().map { it.day }, "the rebuild used the zone it read")
+        assertEquals(
+            0,
+            jdbcTemplate.queryForObject("SELECT rollup_version FROM athlete_analytics_state WHERE user_id = ?", Int::class.java, runner.id),
+        )
+        assertEquals(1, drain().rollupsRebuilt, "the zone change's stale mark stood")
+        assertEquals(listOf(day("2026-07-11")), loads().map { it.day })
+        assertMatchesRebuild()
     }
 
     @Test

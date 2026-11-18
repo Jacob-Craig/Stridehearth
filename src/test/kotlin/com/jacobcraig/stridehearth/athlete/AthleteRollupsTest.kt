@@ -149,4 +149,17 @@ class AthleteRollupsTest {
         verify(stateRepository).setRollupVersion(1)
         verify(dailyLoadRollup, never()).recomputeFrom(2, null)
     }
+
+    @Test
+    fun `a rebuild of an athlete without a state row records them current only if no row appeared meanwhile`() {
+        whenever(stateRepository.findRollupVersion(1, forUpdate = true)).thenReturn(null)
+
+        assertEquals(true, rollups.rebuildStale(1))
+
+        inOrder(dailyLoadRollup, stateRepository) {
+            verify(dailyLoadRollup).recomputeFrom(1, null)
+            verify(stateRepository).insertRollupVersionIfAbsent(1)
+        }
+        verify(stateRepository, never()).setRollupVersion(any(), any())
+    }
 }
