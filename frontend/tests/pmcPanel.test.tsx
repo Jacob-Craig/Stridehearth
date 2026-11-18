@@ -191,6 +191,15 @@ describe('Performance Management Chart panel', () => {
     expect(readout()).toHaveAttribute('aria-live', 'off');
   });
 
+  it('reserves room for a full day’s reading, so its wrapping on a phone does not move the chart', async () => {
+    renderPanel(pmcSeries(3));
+    await liveChart();
+
+    // A full reading wraps to four 20 px lines on a 360–390 px phone and to two from the sm breakpoint
+    // (measured in the visual check); jsdom has no layout, so the reserved heights are pinned here.
+    expect(readout()).toHaveClass('min-h-20', 'sm:min-h-10');
+  });
+
   it('clears the readout when a refetched series redraws the chart', async () => {
     const { refetched } = renderPanel(pmcSeries(3));
     const first = await liveChart();

@@ -167,8 +167,9 @@ function PmcChart({ pmc, latestRange, liveChartRef }: PmcChartProps) {
         // Rewritten on every pointer move, so it is read on demand rather than announced.
         aria-live="off"
         ref={readout}
-        // Reserves two lines so a long reading wrapping on a phone does not shift the chart.
-        className="block min-h-10 text-sm tabular-nums text-slate-600 dark:text-slate-300"
+        // Reserves the lines a full day's reading wraps to (four on a phone, two from the sm breakpoint), so
+        // hovering never shifts the chart under the pointer.
+        className="block min-h-20 sm:min-h-10 text-sm tabular-nums text-slate-600 dark:text-slate-300"
       >
         {NO_DAY}
       </output>
