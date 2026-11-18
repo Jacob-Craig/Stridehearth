@@ -29,13 +29,15 @@ class DerivedDataRecomputeSchedule(
     fun run() {
         try {
             val result = worker.drain(maxPages = pagesPerRun)
-            if (result != RecomputeResult(0, 0, 0, 0)) {
+            if (result != RecomputeResult(0, 0)) {
                 logger.info(
-                    "Derived data: recomputed {} Activities and {} Training Loads, rebuilt {} athletes' rollups, skipped {} that failed",
+                    "Derived data: recomputed {} Activities and {} Training Loads, rebuilt {} athletes' rollups, skipped {} Activities " +
+                        "and {} athletes' rollups that failed",
                     result.activitiesRecomputed,
                     result.trainingLoadsRecomputed,
                     result.rollupsRebuilt,
                     result.activitiesFailed,
+                    result.rollupsFailed,
                 )
             }
         } catch (e: Exception) {

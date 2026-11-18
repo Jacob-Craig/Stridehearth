@@ -96,6 +96,11 @@ class DerivedDataRecomputeWorkerTest {
     fun setUp() {
         runner = userRepository.save(User(email = "gap_backfill@example.com", passwordHash = "x", username = "gap_backfill"))
         otherRunner = userRepository.save(User(email = "gap_backfill2@example.com", passwordHash = "x", username = "gap_backfill2"))
+        // Their rollups count as current, so the Activities this class stores by SQL leave the rollup stage idle: these
+        // tests count Activities, and DailyLoadRollupIntegrationTest covers the rollup stage.
+        listOf(runner, otherRunner).forEach {
+            jdbcTemplate.update("INSERT INTO athlete_analytics_state (user_id, rollup_version) VALUES (?, ?)", it.id, ROLLUP_VERSION)
+        }
         pool = Executors.newFixedThreadPool(1)
         locks = PostgresLockProbe(jdbcClient)
     }

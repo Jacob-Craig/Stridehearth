@@ -91,6 +91,25 @@ class PmcCalculatorTest {
     }
 
     @Test
+    fun `a week whose loads differ by a hair still has a finite Monotony, as Foster's formula gives`() {
+        // Sample SD about 3.8e-8: real variation, far above the rounding noise of summing equal loads.
+        val series = PmcCalculator.series(constant(100.0, 6) + doubleArrayOf(100.0000001))
+
+        val monotony = assertNotNull(series[6].monotony)
+        assertEquals(100.0 / 3.7796447e-8, monotony, monotony * 1e-6)
+        assertNotNull(series[6].strain)
+    }
+
+    @Test
+    fun `summing equal loads with rounding noise still counts as a week of equal loads`() {
+        // 0.1 + 0.2 is 0.30000000000000004: a sum of two Activities against a single one of 0.3.
+        val series = PmcCalculator.series(constant(0.3, 6) + doubleArrayOf(0.1 + 0.2))
+
+        assertNull(series[6].monotony)
+        assertNull(series[6].strain)
+    }
+
+    @Test
     fun `withholding counts from the first scored day, not from the start of the loads`() {
         val loads = DoubleArray(45)
         for (day in 10 until 45) loads[day] = 100.0

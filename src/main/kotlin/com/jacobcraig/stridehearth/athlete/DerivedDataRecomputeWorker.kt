@@ -21,13 +21,15 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * What one [DerivedDataRecomputeWorker.drain] did: Activities whose derived data it computed in full, Activities that
- * failed and were skipped, and Activities whose **Training Load** alone it recomputed for a recompute request.
+ * failed and were skipped, Activities whose **Training Load** alone it recomputed for a recompute request, and athletes
+ * whose stale rollups it rebuilt or failed to rebuild (and skipped).
  */
 data class RecomputeResult(
     val activitiesRecomputed: Int,
     val activitiesFailed: Int,
     val trainingLoadsRecomputed: Int = 0,
     val rollupsRebuilt: Int = 0,
+    val rollupsFailed: Int = 0,
 )
 
 /**
@@ -41,7 +43,8 @@ data class RecomputeResult(
  *    existed), and the **Recompute** of rows an older algorithm version wrote ([DERIVED_DATA_VERSION]).
  * 3. The full rebuild of athlete rollups that are stale ([ROLLUP_VERSION]: never built, built by an older version, or
  *    marked stale by a time-zone change), one athlete per transaction under their rollup lock (ADR-0016). It runs
- *    only once the first two stages have caught up within the run.
+ *    only once the first two stages have caught up within the run. An athlete whose rebuild fails is logged and
+ *    backed off like a failed Activity.
  *
  * It is always present, so tests call [drain] directly; [DerivedDataRecomputeSchedule] runs it periodically.
  *
@@ -81,6 +84,9 @@ class DerivedDataRecomputeWorker(
      * [DERIVED_DATA_VERSION] changes) tries every Activity again.
      */
     private val failedAt = ConcurrentHashMap<Long, Instant>()
+
+    /** When each athlete whose stale rollups could not be rebuilt last failed, by athlete id; as [failedAt]. */
+    private val rollupFailedAt = ConcurrentHashMap<Long, Instant>()
 
     /**
      * How far a drain got through each athlete's recompute request: the last Activity id done, for the request stamped
@@ -123,6 +129,7 @@ class DerivedDataRecomputeWorker(
     ): RecomputeResult {
         val limit = pageSize.coerceAtLeast(1)
         failedAt.values.removeIf { !it.isAfter(now - FAILED_RETRY_AFTER) }
+        rollupFailedAt.values.removeIf { !it.isAfter(now - FAILED_RETRY_AFTER) }
         val tally = Tally()
         if (!serveRecomputeRequests(limit, maxPages, onlyUserIds, now, tally)) return tally.result()
         val startedAfter = resumeAfterId
@@ -135,7 +142,7 @@ class DerivedDataRecomputeWorker(
             if (candidates.isEmpty()) {
                 if (wrapped) {
                     resumeAfterId = 0L
-                    rebuildStaleRollups(limit, maxPages, onlyUserIds, tally)
+                    rebuildStaleRollups(limit, maxPages, onlyUserIds, now, tally)
                     return tally.result()
                 }
                 wrapped = true
@@ -221,23 +228,39 @@ class DerivedDataRecomputeWorker(
 
     /**
      * Stage 3: rebuilds each athlete's stale rollups in full, one athlete per transaction, in id order, counting each
-     * [limit] athletes as one page against [maxPages]. A lost lock race is retried like a page's.
+     * [limit] athletes as one page against [maxPages]. A lost lock race is retried like a page's. An athlete whose
+     * rebuild fails other than in the database is logged and passed over until [FAILED_RETRY_AFTER] has gone by, like
+     * an Activity, so one athlete's failure never keeps the athletes after them stale.
      */
     private fun rebuildStaleRollups(
         limit: Int,
         maxPages: Int,
         onlyUserIds: Collection<Long>?,
+        now: Instant,
         tally: Tally,
     ) {
         var afterId = 0L
         while (tally.pages < maxPages) {
             val stale = stateRepository.findStaleRollups(afterId, limit, onlyUserIds)
             if (stale.isEmpty()) return
-            stale.forEach { userId ->
-                if (inTransaction(listOf(userId)) { if (athleteRollups.rebuildStale(userId)) 1 else 0 } > 0) tally.rollups++
-            }
+            stale.filterNot { rollupFailedAt.containsKey(it) }.forEach { userId -> rebuildRollups(userId, now, tally) }
             afterId = stale.last()
             tally.pages++
+        }
+    }
+
+    private fun rebuildRollups(
+        userId: Long,
+        now: Instant,
+        tally: Tally,
+    ) {
+        try {
+            if (inTransaction(listOf(userId)) { if (athleteRollups.rebuildStale(userId)) 1 else 0 } > 0) tally.rollups++
+        } catch (e: RuntimeException) {
+            if (e.isDatabaseFailure()) throw e
+            logger.error("Skipping athlete {}'s rollups for {} min: they could not be rebuilt", userId, FAILED_RETRY_AFTER.toMinutes(), e)
+            rollupFailedAt[userId] = now
+            tally.rollupsFailed++
         }
     }
 
@@ -331,9 +354,10 @@ class DerivedDataRecomputeWorker(
         var failed = 0
         var trainingLoads = 0
         var rollups = 0
+        var rollupsFailed = 0
         var pages = 0
 
-        fun result() = RecomputeResult(recomputed, failed, trainingLoads, rollups)
+        fun result() = RecomputeResult(recomputed, failed, trainingLoads, rollups, rollupsFailed)
     }
 
     companion object {

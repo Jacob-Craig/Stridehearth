@@ -47,7 +47,10 @@ class AthleteAnalyticsStateRepository(
             .sql(
                 """
                 INSERT INTO athlete_analytics_state (user_id, recompute_from, recompute_requested_at, rollup_version)
-                VALUES (:userId, :from, clock_timestamp(), :rollupVersion)
+                VALUES (
+                    :userId, :from, clock_timestamp(),
+                    CASE WHEN EXISTS (SELECT 1 FROM activity WHERE user_id = :userId) THEN 0 ELSE :rollupVersion END
+                )
                 ON CONFLICT (user_id) DO UPDATE
                 SET recompute_from =
                         CASE
@@ -59,7 +62,8 @@ class AthleteAnalyticsStateRepository(
                 """.trimIndent(),
             ).param("userId", userId)
             .param("from", from, Types.DATE)
-            // A new row's athlete has had no rollup marked yet, so no Activity of theirs is missing from their rollups.
+            // A new row is current only for an athlete with no Activities. One who has Activities but no row got them
+            // without a writer (inserted by SQL, ADR-0014), so no rollup of theirs was ever built: the worker builds it.
             .param("rollupVersion", ROLLUP_VERSION)
             .update()
     }
@@ -139,10 +143,10 @@ class AthleteAnalyticsStateRepository(
     }
 
     /**
-     * Athletes whose rollups are stale (below [ROLLUP_VERSION]), in id order, after [afterUserId]: every athlete's, or
-     * only those of [onlyUserIds]. An athlete without a state row is not stale: V22 gave every athlete who existed then a
-     * row, so a missing one means no Activity of theirs has been written since, and the first write that is rebuilds
-     * their rollups in full before it commits.
+     * Athletes whose rollups are stale, in id order, after [afterUserId]: every athlete's, or only those of
+     * [onlyUserIds]. Stale means a state row below [ROLLUP_VERSION], or no state row at all while the athlete has
+     * Activities: those arrived without a writer (inserted by SQL, ADR-0014), so no rollup of theirs was ever built. An
+     * athlete with neither has nothing to build; their first Activity write builds their rollups before it commits.
      */
     fun findStaleRollups(
         afterUserId: Long,
@@ -150,20 +154,24 @@ class AthleteAnalyticsStateRepository(
         onlyUserIds: Collection<Long>? = null,
     ): List<Long> {
         if (onlyUserIds != null && onlyUserIds.isEmpty()) return emptyList()
-        val userFilter = if (onlyUserIds == null) "" else "AND s.user_id IN (:userIds)"
+        val userFilter = if (onlyUserIds == null) "" else "AND u.id IN (:userIds)"
         return jdbcClient
             .sql(
                 """
-                SELECT s.user_id FROM athlete_analytics_state s
-                WHERE s.rollup_version < :version AND s.user_id > :afterId $userFilter
-                ORDER BY s.user_id
+                SELECT u.id FROM app_user u LEFT JOIN athlete_analytics_state s ON s.user_id = u.id
+                WHERE u.id > :afterId $userFilter
+                  AND (
+                      s.rollup_version < :version
+                      OR (s.user_id IS NULL AND EXISTS (SELECT 1 FROM activity a WHERE a.user_id = u.id))
+                  )
+                ORDER BY u.id
                 LIMIT :limit
                 """.trimIndent(),
             ).param("version", ROLLUP_VERSION)
             .param("afterId", afterUserId)
             .param("limit", limit)
             .apply { if (onlyUserIds != null) param("userIds", onlyUserIds.distinct()) }
-            .query { rs, _ -> rs.getLong("user_id") }
+            .query { rs, _ -> rs.getLong("id") }
             .list()
     }
 

@@ -37,7 +37,8 @@ data class PmcDay(
  * - ACWR, uncoupled: the mean load of the last 7 days over the mean load of the 28 days before them. Null until the
  *   first scored day is 34 days back (a partial chronic window would inflate it), and when the chronic mean is 0.
  * - Foster's Monotony: the last 7 days' mean over their sample standard deviation (n - 1); Strain: their sum times
- *   Monotony. Both null until the first scored day is 6 days back, and when the standard deviation is 0.
+ *   Monotony. Both null until the first scored day is 6 days back, and when the standard deviation is 0 (at most
+ *   1e-9, which absorbs only floating-point rounding noise).
  */
 object PmcCalculator {
     /** Fitness's smoothing constant, `1 - e^(-1/42)`. */
@@ -55,8 +56,12 @@ object PmcCalculator {
     /** How many days before a computed day its windows reach back: 34, the oldest day of the chronic window. */
     const val LOOKBACK_DAYS = ACUTE_DAYS + CHRONIC_DAYS - 1
 
-    /** A standard deviation this small, relative to the mean, is a week of equal loads with rounding noise. */
-    private const val ZERO_SD_TOLERANCE = 1e-9
+    /**
+     * A standard deviation at most this is taken as 0: a week of equal loads whose float sum or mean left rounding
+     * noise (around 1e-14 for realistic loads). Absolute, so any real variation, however small, still gives Foster's
+     * finite Monotony.
+     */
+    private const val ZERO_SD_EPSILON = 1e-9
 
     /**
      * The chart for each day from [from] to the last of [loads], where `loads[i]` is day `i`'s summed load (0 for a day
@@ -104,7 +109,7 @@ object PmcCalculator {
     private fun monotony(week: DoubleArray): Double? {
         val mean = week.average()
         val sd = sqrt(week.sumOf { (it - mean) * (it - mean) } / (week.size - 1))
-        if (sd <= ZERO_SD_TOLERANCE * maxOf(1.0, mean)) return null
+        if (sd <= ZERO_SD_EPSILON) return null
         return mean / sd
     }
 }

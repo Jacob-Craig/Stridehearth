@@ -303,6 +303,62 @@ class DailyLoadRollupIntegrationTest {
         assertEquals(0, drain().rollupsRebuilt, "a current rollup is not rebuilt again")
     }
 
+    /** Leaves [owner] as if their Activities had been inserted by SQL: no state row and no rollup rows. */
+    private fun forgetRollups(owner: User = runner) {
+        jdbcTemplate.update("DELETE FROM athlete_daily_metrics WHERE user_id = ?", owner.id)
+        jdbcTemplate.update("DELETE FROM athlete_daily_load WHERE user_id = ?", owner.id)
+        jdbcTemplate.update("DELETE FROM athlete_analytics_state WHERE user_id = ?", owner.id)
+    }
+
+    @Test
+    fun `the worker builds the rollups of an athlete with Activities but no state row`() {
+        listOf(10, 20).forEach { import(march(it)) }
+        forgetRollups()
+
+        assertEquals(1, drain().rollupsRebuilt)
+        assertEquals(listOf(day("2026-03-10"), day("2026-03-20")), loads().map { it.day })
+        assertMatchesRebuild()
+        assertEquals(0, drain().rollupsRebuilt, "the rebuild recorded the rollups as current")
+    }
+
+    @Test
+    fun `the worker leaves an athlete with neither Activities nor a state row alone`() {
+        forgetRollups()
+
+        assertEquals(0, drain().rollupsRebuilt)
+    }
+
+    @Test
+    fun `a Threshold change that creates the state row of an athlete with Activities rebuilds their rollups in full`() {
+        listOf(10, 20, 30).forEach { import(march(it)) }
+        forgetRollups()
+
+        athleteThresholds.record(runner.id!!, ThresholdKind.LTHR, day("2026-03-20"), 160.0)
+        drain()
+
+        assertEquals(listOf(day("2026-03-10"), day("2026-03-20"), day("2026-03-30")), loads().map { it.day })
+        assertEquals(day("2026-03-10"), metrics().first().day)
+        assertMatchesRebuild()
+    }
+
+    @Test
+    fun `one athlete whose rollups cannot be rebuilt does not hold back the others`() {
+        import(march(10))
+        import(march(12), owner = otherRunner)
+        jdbcTemplate.update("UPDATE athlete_analytics_state SET rollup_version = 0 WHERE user_id IN (?, ?)", runner.id, otherRunner.id)
+        jdbcTemplate.update("DELETE FROM athlete_daily_load WHERE user_id = ?", otherRunner.id)
+        // An athlete id below the other's, with a zone their rebuild cannot use.
+        assertTrue(runner.id!! < otherRunner.id!!)
+        jdbcTemplate.update("UPDATE app_user SET time_zone = 'Not/A_Zone' WHERE id = ?", runner.id)
+
+        val result = drain()
+
+        assertEquals(1, result.rollupsRebuilt)
+        assertEquals(1, result.rollupsFailed)
+        assertEquals(listOf(day("2026-03-12")), loads(otherRunner).map { it.day })
+        assertEquals(RecomputeResult(0, 0), drain(), "the failed athlete is backed off, not retried every run")
+    }
+
     @Test
     fun `a Threshold change that alters loads updates the chart from its date`() {
         listOf(10, 20, 30).forEach { import(march(it)) }
