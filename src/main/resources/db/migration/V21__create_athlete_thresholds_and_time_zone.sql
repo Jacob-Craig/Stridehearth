@@ -1,4 +1,4 @@
--- V20: an athlete's dated Thresholds, the Threshold Proposals awaiting their confirmation, and their time zone
+-- V21: an athlete's dated Thresholds, the Threshold Proposals awaiting their confirmation, and their time zone
 -- (ADR-0015, #34).
 -- athlete_threshold: one row per kind and effective date, the value in force from that date in the athlete's time
 -- zone (bpm for MAX_HR, RESTING_HR and LTHR; m/s for THRESHOLD_PACE; W for CRITICAL_POWER). Before a kind's first

@@ -1960,6 +1960,184 @@ export const PmcResponseDTOSchema = {
     ]
 } as const;
 
+export const BenchmarkProgressionDTOSchema = {
+    type: 'object',
+    properties: {
+        benchmarkDistance: {
+            type: 'string',
+            enum: [
+                'FOUR_HUNDRED_METERS',
+                'ONE_KILOMETER',
+                'ONE_MILE',
+                'FIVE_KILOMETERS',
+                'TEN_KILOMETERS',
+                'HALF_MARATHON'
+            ]
+        },
+        benchmarkName: {
+            type: 'string'
+        },
+        distanceMeters: {
+            type: 'number',
+            format: 'double'
+        },
+        records: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/PersonalRecordStepDTO'
+            }
+        }
+    },
+    required: [
+        'benchmarkDistance',
+        'benchmarkName',
+        'distanceMeters',
+        'records'
+    ]
+} as const;
+
+export const PersonalRecordProgressionResponseDTOSchema = {
+    type: 'object',
+    properties: {
+        progressions: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/BenchmarkProgressionDTO'
+            }
+        }
+    },
+    required: [
+        'progressions'
+    ]
+} as const;
+
+export const PersonalRecordStepDTOSchema = {
+    type: 'object',
+    properties: {
+        activityId: {
+            type: 'integer',
+            format: 'int64'
+        },
+        activityTitle: {
+            type: 'string'
+        },
+        activityStartedAt: {
+            type: 'string',
+            format: 'date-time'
+        },
+        elapsedTimeSeconds: {
+            type: 'number',
+            format: 'double'
+        }
+    },
+    required: [
+        'activityId',
+        'activityStartedAt',
+        'activityTitle',
+        'elapsedTimeSeconds'
+    ]
+} as const;
+
+export const PeakEffortDTOSchema = {
+    type: 'object',
+    properties: {
+        value: {
+            type: 'number',
+            format: 'double'
+        },
+        activityId: {
+            type: 'integer',
+            format: 'int64'
+        },
+        activityTitle: {
+            type: 'string'
+        },
+        activityStartedAt: {
+            type: 'string',
+            format: 'date-time'
+        }
+    },
+    required: [
+        'activityId',
+        'activityStartedAt',
+        'activityTitle',
+        'value'
+    ]
+} as const;
+
+export const PeakEffortSlotDTOSchema = {
+    type: 'object',
+    properties: {
+        benchmarkDuration: {
+            type: 'string',
+            enum: [
+                'FIVE_SECONDS',
+                'FIFTEEN_SECONDS',
+                'THIRTY_SECONDS',
+                'ONE_MINUTE',
+                'TWO_MINUTES',
+                'THREE_MINUTES',
+                'FIVE_MINUTES',
+                'TEN_MINUTES',
+                'TWENTY_MINUTES',
+                'THIRTY_MINUTES',
+                'SIXTY_MINUTES'
+            ]
+        },
+        durationSeconds: {
+            type: 'integer',
+            format: 'int32'
+        },
+        recent: {
+            type: [
+                'object',
+                'null'
+            ],
+            $ref: '#/components/schemas/PeakEffortDTO'
+        },
+        allTime: {
+            type: [
+                'object',
+                'null'
+            ],
+            $ref: '#/components/schemas/PeakEffortDTO'
+        }
+    },
+    required: [
+        'allTime',
+        'benchmarkDuration',
+        'durationSeconds',
+        'recent'
+    ]
+} as const;
+
+export const PeakEffortsResponseDTOSchema = {
+    type: 'object',
+    properties: {
+        windowDays: {
+            type: 'integer',
+            format: 'int32'
+        },
+        pace: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/PeakEffortSlotDTO'
+            }
+        },
+        power: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/PeakEffortSlotDTO'
+            }
+        }
+    },
+    required: [
+        'pace',
+        'power',
+        'windowDays'
+    ]
+} as const;
+
 export const PagedResponseDTOActivitySummaryDTOSchema = {
     type: 'object',
     properties: {

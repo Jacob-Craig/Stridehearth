@@ -16,7 +16,7 @@ describe('Router & Route Protection', () => {
             JSON.stringify(
               String(input) === '/api/athlete/pmc'
                 ? { timeZone: 'UTC', firstDay: null, days: [] }
-                : { personalRecordSlots: [] },
+                : { personalRecordSlots: [], progressions: [] },
             ),
             { status: 200, headers: { 'Content-Type': 'application/json' } },
           ),

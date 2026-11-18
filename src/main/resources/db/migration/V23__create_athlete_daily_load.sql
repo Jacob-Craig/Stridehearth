@@ -1,4 +1,4 @@
--- V22: an athlete's Daily Load and their Performance Management Chart (ADR-0016, #36), rebuilt before commit from
+-- V23: an athlete's Daily Load and their Performance Management Chart (ADR-0016, #36), rebuilt before commit from
 -- their Activities' Training Loads and never edited.
 -- athlete_daily_load: one row per athlete-local day with at least one Activity. training_load sums the day's scored
 -- Activities; unscored_activity_count counts the day's Activities without a Training Load (they contribute 0).

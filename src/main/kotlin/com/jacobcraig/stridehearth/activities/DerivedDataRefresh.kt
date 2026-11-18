@@ -25,14 +25,17 @@ import java.time.ZoneId
  *
  * - 1: Grade-Adjusted Pace (#32).
  * - 2: Moving Time, Normalized Graded Pace, Efficiency Factor and Aerobic Decoupling of Runs (#33).
- * - 3: Training Load of every Activity (#35).
+ * - 3: Grade-Adjusted Pace measures grade over a 180 m baseline between 60 m altitude anchors (#51).
+ * - 4: Peak Efforts of Runs by Benchmark Duration, over GAP speed and power (#38).
+ * - 5: Training Load of every Activity (#35).
  */
-const val DERIVED_DATA_VERSION: Short = 3
+const val DERIVED_DATA_VERSION: Short = 5
 
 /**
  * The derived-data module (ADR-0014): the only writer of `activity_derived_metrics`, which holds one row per
  * **Activity** of every sport, computed in one pure pass ([ActivityAnalysis]) from its **Cleaned Activity
- * Details** and stamped with [DERIVED_DATA_VERSION]. It also marks the athlete's rollups ([AthleteRollups]).
+ * Details** and stamped with [DERIVED_DATA_VERSION], and of `activity_peak_effort`, a Run's **Peak Efforts** from
+ * the same pass. It also marks the athlete's rollups ([AthleteRollups]).
  *
  * Caller contract, as for [BestEffortRefresh]:
  * - Call it in the caller's transaction whenever an input changes: an Activity is created (with or without Activity
@@ -44,7 +47,7 @@ const val DERIVED_DATA_VERSION: Short = 3
  * - `details`, if passed, must be the Activity Details just stored; otherwise the stored ones are read.
  * - The **Training Load** is scored against the **Thresholds** in force on the Activity's athlete-local date (in the
  *   **Athlete Time Zone**). When the Thresholds or the time zone change, [refreshTrainingLoad] recomputes only it.
- * - A deleted Activity's row goes by `ON DELETE CASCADE`; the refresh only marks its athlete's rollups.
+ * - A deleted Activity's rows go by `ON DELETE CASCADE`; the refresh only marks its athlete's rollups.
  * - It is idempotent and writes no **Activity History Entry**. Its only lock of its own is the shared side of each
  *   athlete's scoring lock, taken before it reads their Thresholds and held to commit, so a Threshold or time-zone
  *   change waits for it and the recompute that change requests sees this transaction's Activities (ADR-0014).
@@ -54,6 +57,7 @@ class DerivedDataRefresh(
     private val entityManager: EntityManager,
     private val activityDetailsService: ActivityDetailsService,
     private val derivedMetricsRepository: ActivityDerivedMetricsRepository,
+    private val peakEffortRepository: ActivityPeakEffortRepository,
     private val athleteRollups: AthleteRollups,
     private val thresholdRepository: AthleteThresholdRepository,
     private val analyticsStateRepository: AthleteAnalyticsStateRepository,
@@ -124,14 +128,16 @@ class DerivedDataRefresh(
         details: FitTelemetry?,
         thresholds: Thresholds,
     ) {
+        val activityId = activity.id!!
         val analysis = analyse(activity, details, thresholds)
         derivedMetricsRepository.upsert(
-            activity.id!!,
+            activityId,
             DERIVED_DATA_VERSION,
             analysis?.gapSpeed,
             analysis?.runMetrics,
             analysis?.trainingLoad ?: noActivityDetails(),
         )
+        peakEffortRepository.replace(activityId, analysis?.peakEfforts.orEmpty())
     }
 
     /** [activity]'s analysis from [details] or its stored Activity Details, or null when it has none. */

@@ -4,8 +4,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { acceptThresholdProposal, backfillBestEfforts, batchDelete, batchUpdate, cancelImportBatch, createActivity, createInvite, deleteActivity, deleteAthleteThreshold, dismissThresholdProposal, getActivity, getActivityTelemetry, getAthleteThresholds, getDashboard, getHeatmapRenderer, getHeatmapRevision, getHeatmapStartingView, getHeatmapTile, getHeatmapYears, getImportBatch, getImportHistory, getPerformanceManagementChart, inviteStatus, listActivities, listPendingInvites, login, logout, me, type Options, recordAthleteThreshold, redeemInvite, register, registrationStatus, revokeInvite, setAthleteTimeZone, submitImportBatch, updateActivity, uploadActivityFile } from '../sdk.gen';
-import type { AcceptThresholdProposalData, AcceptThresholdProposalError, AcceptThresholdProposalResponse, BackfillBestEffortsData, BackfillBestEffortsError, BackfillBestEffortsResponse, BatchDeleteData, BatchDeleteError, BatchDeleteResponse, BatchUpdateData, BatchUpdateError, BatchUpdateResponse, CancelImportBatchData, CancelImportBatchError, CancelImportBatchResponse, CreateActivityData, CreateActivityError, CreateActivityResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, DeleteActivityData, DeleteActivityError, DeleteActivityResponse, DeleteAthleteThresholdData, DeleteAthleteThresholdError, DeleteAthleteThresholdResponse, DismissThresholdProposalData, DismissThresholdProposalError, DismissThresholdProposalResponse, GetActivityData, GetActivityError, GetActivityResponse, GetActivityTelemetryData, GetActivityTelemetryError, GetActivityTelemetryResponse, GetAthleteThresholdsData, GetAthleteThresholdsError, GetAthleteThresholdsResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetHeatmapRendererData, GetHeatmapRendererError, GetHeatmapRendererResponse, GetHeatmapRevisionData, GetHeatmapRevisionError, GetHeatmapRevisionResponse, GetHeatmapStartingViewData, GetHeatmapStartingViewError, GetHeatmapStartingViewResponse, GetHeatmapTileData, GetHeatmapTileError, GetHeatmapTileResponse, GetHeatmapYearsData, GetHeatmapYearsError, GetHeatmapYearsResponse, GetImportBatchData, GetImportBatchError, GetImportBatchResponse, GetImportHistoryData, GetImportHistoryError, GetImportHistoryResponse, GetPerformanceManagementChartData, GetPerformanceManagementChartError, GetPerformanceManagementChartResponse, InviteStatusData, InviteStatusError, InviteStatusResponse, ListActivitiesData, ListActivitiesError, ListActivitiesResponse, ListPendingInvitesData, ListPendingInvitesError, ListPendingInvitesResponse, LoginData, LoginError, LoginResponse, LogoutData, MeData, MeError, MeResponse, RecordAthleteThresholdData, RecordAthleteThresholdError, RecordAthleteThresholdResponse, RedeemInviteData, RedeemInviteError, RedeemInviteResponse, RegisterData, RegisterError, RegisterResponse, RegistrationStatusData, RegistrationStatusResponse, RevokeInviteData, RevokeInviteError, RevokeInviteResponse, SetAthleteTimeZoneData, SetAthleteTimeZoneError, SetAthleteTimeZoneResponse, SubmitImportBatchData, SubmitImportBatchError, SubmitImportBatchResponse, UpdateActivityData, UpdateActivityError, UpdateActivityResponse, UploadActivityFileData, UploadActivityFileError, UploadActivityFileResponse } from '../types.gen';
+import { acceptThresholdProposal, backfillBestEfforts, batchDelete, batchUpdate, cancelImportBatch, createActivity, createInvite, deleteActivity, deleteAthleteThreshold, dismissThresholdProposal, getActivity, getActivityTelemetry, getAthleteThresholds, getDashboard, getHeatmapRenderer, getHeatmapRevision, getHeatmapStartingView, getHeatmapTile, getHeatmapYears, getImportBatch, getImportHistory, getPeakEfforts, getPerformanceManagementChart, getPersonalRecordProgression, inviteStatus, listActivities, listPendingInvites, login, logout, me, type Options, recordAthleteThreshold, redeemInvite, register, registrationStatus, revokeInvite, setAthleteTimeZone, submitImportBatch, updateActivity, uploadActivityFile } from '../sdk.gen';
+import type { AcceptThresholdProposalData, AcceptThresholdProposalError, AcceptThresholdProposalResponse, BackfillBestEffortsData, BackfillBestEffortsError, BackfillBestEffortsResponse, BatchDeleteData, BatchDeleteError, BatchDeleteResponse, BatchUpdateData, BatchUpdateError, BatchUpdateResponse, CancelImportBatchData, CancelImportBatchError, CancelImportBatchResponse, CreateActivityData, CreateActivityError, CreateActivityResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, DeleteActivityData, DeleteActivityError, DeleteActivityResponse, DeleteAthleteThresholdData, DeleteAthleteThresholdError, DeleteAthleteThresholdResponse, DismissThresholdProposalData, DismissThresholdProposalError, DismissThresholdProposalResponse, GetActivityData, GetActivityError, GetActivityResponse, GetActivityTelemetryData, GetActivityTelemetryError, GetActivityTelemetryResponse, GetAthleteThresholdsData, GetAthleteThresholdsError, GetAthleteThresholdsResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetHeatmapRendererData, GetHeatmapRendererError, GetHeatmapRendererResponse, GetHeatmapRevisionData, GetHeatmapRevisionError, GetHeatmapRevisionResponse, GetHeatmapStartingViewData, GetHeatmapStartingViewError, GetHeatmapStartingViewResponse, GetHeatmapTileData, GetHeatmapTileError, GetHeatmapTileResponse, GetHeatmapYearsData, GetHeatmapYearsError, GetHeatmapYearsResponse, GetImportBatchData, GetImportBatchError, GetImportBatchResponse, GetImportHistoryData, GetImportHistoryError, GetImportHistoryResponse, GetPeakEffortsData, GetPeakEffortsError, GetPeakEffortsResponse, GetPerformanceManagementChartData, GetPerformanceManagementChartError, GetPerformanceManagementChartResponse, GetPersonalRecordProgressionData, GetPersonalRecordProgressionError, GetPersonalRecordProgressionResponse, InviteStatusData, InviteStatusError, InviteStatusResponse, ListActivitiesData, ListActivitiesError, ListActivitiesResponse, ListPendingInvitesData, ListPendingInvitesError, ListPendingInvitesResponse, LoginData, LoginError, LoginResponse, LogoutData, MeData, MeError, MeResponse, RecordAthleteThresholdData, RecordAthleteThresholdError, RecordAthleteThresholdResponse, RedeemInviteData, RedeemInviteError, RedeemInviteResponse, RegisterData, RegisterError, RegisterResponse, RegistrationStatusData, RegistrationStatusResponse, RevokeInviteData, RevokeInviteError, RevokeInviteResponse, SetAthleteTimeZoneData, SetAthleteTimeZoneError, SetAthleteTimeZoneResponse, SubmitImportBatchData, SubmitImportBatchError, SubmitImportBatchResponse, UpdateActivityData, UpdateActivityError, UpdateActivityResponse, UploadActivityFileData, UploadActivityFileError, UploadActivityFileResponse } from '../types.gen';
 
 /**
  * Sets the IANA time zone the athlete's local dates are counted in
@@ -591,6 +591,42 @@ export const getPerformanceManagementChartOptions = (options?: Options<GetPerfor
         return data;
     },
     queryKey: getPerformanceManagementChartQueryKey(options)
+});
+
+export const getPersonalRecordProgressionQueryKey = (options?: Options<GetPersonalRecordProgressionData>) => createQueryKey('getPersonalRecordProgression', options);
+
+/**
+ * Every running Personal Record the athlete has set, per Benchmark Distance, oldest first
+ */
+export const getPersonalRecordProgressionOptions = (options?: Options<GetPersonalRecordProgressionData>) => queryOptions<GetPersonalRecordProgressionResponse, GetPersonalRecordProgressionError, GetPersonalRecordProgressionResponse, ReturnType<typeof getPersonalRecordProgressionQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPersonalRecordProgression({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPersonalRecordProgressionQueryKey(options)
+});
+
+export const getPeakEffortsQueryKey = (options?: Options<GetPeakEffortsData>) => createQueryKey('getPeakEfforts', options);
+
+/**
+ * The athlete's best Peak Effort per Benchmark Duration, over the last 90 days and all-time
+ */
+export const getPeakEffortsOptions = (options?: Options<GetPeakEffortsData>) => queryOptions<GetPeakEffortsResponse, GetPeakEffortsError, GetPeakEffortsResponse, ReturnType<typeof getPeakEffortsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPeakEfforts({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPeakEffortsQueryKey(options)
 });
 
 export const getActivityTelemetryQueryKey = (options: Options<GetActivityTelemetryData>) => createQueryKey('getActivityTelemetry', options);

@@ -11,7 +11,10 @@ import com.jacobcraig.stridehearth.system.fit.FitTelemetry
  *
  * [gapSpeed] is the **Grade-Adjusted Pace** stream, parallel to `cleaned.t`; `null` for a sport outside
  * [GradeAdjustedPace.GAP_SPORTS] or when no sample has a cleaned speed. [runMetrics] (Moving Time, Normalized Graded
- * Pace, Efficiency Factor and Aerobic Decoupling) exist for a Run only. [trainingLoad] is the **Training Load**
+ * Pace, Efficiency Factor and Aerobic Decoupling) exist for a Run only, and so do [peakEfforts]: one per
+ * **Benchmark Duration** the Run spans over its GAP stream, plus power peaks when any power sample was recorded.
+ * GAP peaks read the cleaned stream, so a GPS spike cannot produce one; power is read as recorded, except that a
+ * sample above [MAX_RUN_POWER_WATTS] or below zero is read as missing. [trainingLoad] is the **Training Load**
  * ([TrainingLoadCalculator]) against the Thresholds in force on the Activity's date, from the raw power and the
  * cleaned heart rate.
  *
@@ -21,9 +24,17 @@ class ActivityAnalysis private constructor(
     val cleaned: CleanedTelemetry,
     val gapSpeed: Array<Float?>?,
     val runMetrics: RunMetrics?,
+    val peakEfforts: List<PeakEffort>,
     val trainingLoad: TrainingLoadResult,
 ) {
     companion object {
+        /**
+         * The highest power, in W, a Run's power peaks believe. Running power meters report well under this even
+         * in an all-out sprint, so a sample above it (or below zero) is a glitch: it is read as missing, which
+         * counts as zero and can only lower a window, never set a peak.
+         */
+        const val MAX_RUN_POWER_WATTS = 1500
+
         /**
          * Cleans [details] for [sport], then computes every derived stream from the result, scoring the Training Load
          * against [thresholds].
@@ -46,7 +57,24 @@ class ActivityAnalysis private constructor(
                     movingSeconds = runMetrics?.movingSeconds,
                     thresholds = thresholds,
                 )
-            return ActivityAnalysis(cleaned, gapSpeed, runMetrics, trainingLoad)
+            val peakEfforts = if (sport == ActivitySport.RUN) peakEfforts(details, cleaned, gapSpeed) else emptyList()
+            return ActivityAnalysis(cleaned, gapSpeed, runMetrics, peakEfforts, trainingLoad)
+        }
+
+        private fun peakEfforts(
+            details: FitTelemetry,
+            cleaned: CleanedTelemetry,
+            gapSpeed: Array<Float?>?,
+        ): List<PeakEffort> {
+            val gapPeaks = gapSpeed?.let { PeakEffortDetector.detect(cleaned.t, it, PeakEffortMetric.GAP_SPEED) }.orEmpty()
+            val powerPeaks =
+                if (details.power.any { it != null }) {
+                    val plausible = Array(details.power.size) { i -> details.power[i]?.takeIf { it in 0..MAX_RUN_POWER_WATTS } }
+                    PeakEffortDetector.detect(details.t, plausible, PeakEffortMetric.POWER)
+                } else {
+                    emptyList()
+                }
+            return gapPeaks + powerPeaks
         }
     }
 }

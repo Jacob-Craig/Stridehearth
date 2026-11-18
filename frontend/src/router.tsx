@@ -125,6 +125,8 @@ export const dashboardRoute = createRoute({
       // Prefetched so the chart draws with the page, but never awaited into a failure: a PMC that
       // cannot be loaded shows its error inside its own panel.
       context.queryClient.prefetchQuery(queries.pmc),
+      // The progression is fetched alongside but never fails the route: its card shows its own error.
+      context.queryClient.prefetchQuery(queries.progression),
     ]);
   },
   component: DashboardRoute,

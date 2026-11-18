@@ -258,6 +258,23 @@ class DerivedDataRecomputeWorkerTest {
     }
 
     @Test
+    fun `recomputes a run whose GAP and Run metrics were written before grade was smoothed`() {
+        val run = historical()
+        // As #33 (version 2) left it, with GAP from the ±10 m grade.
+        jdbcTemplate.update(
+            "INSERT INTO activity_derived_metrics (activity_id, algorithm_version, gap_speed, moving_seconds, ngp_mps) " +
+                "VALUES (?, 2, '{3.2}', 1, 3.2)",
+            run.id,
+        )
+
+        assertEquals(RecomputeResult(1, 0), drain())
+
+        assertEquals(DERIVED_DATA_VERSION.toInt(), row(run)?.version)
+        assertEquals(120, gapLength(run))
+        assertEquals(RecomputeResult(0, 0), drain())
+    }
+
+    @Test
     fun `stops after maxPages pages, and the next drain continues`() {
         val first = historical()
         val second = historical()
