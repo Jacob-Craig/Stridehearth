@@ -1,14 +1,22 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory } from '@tanstack/react-router';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   DashboardResponseDto,
   PersonalRecordDto,
   PersonalRecordSlotDto,
+  PmcResponseDto,
   UserResponseDto,
 } from '../src/api/generated/types.gen';
 import { createAppRouter } from '../src/router';
+import { pmcSeries, renderedPmcCharts } from './support/fakePmcChart';
+
+vi.mock('../src/features/pmc/pmcChart', () =>
+  import('./support/fakePmcChart').then((m) => m.fakePmcChartModule),
+);
+
+const NO_PMC: PmcResponseDto = { timeZone: 'Europe/London', firstDay: null, days: [] };
 
 const BENCHMARKS: ReadonlyArray<
   Pick<PersonalRecordSlotDto, 'benchmarkDistance' | 'benchmarkName' | 'distanceMeters'>
@@ -48,21 +56,32 @@ const runner: UserResponseDto = {
   timeZone: 'Europe/London',
 };
 
-function stubDashboardApi(responses: ReadonlyArray<DashboardResponseDto | { status: number }>) {
+const json = (body: unknown) =>
+  new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+const requestsTo = (fetchMock: ReturnType<typeof vi.fn>, url: string) =>
+  fetchMock.mock.calls.filter(([input]) => String(input) === url).length;
+
+function stubDashboardApi(
+  responses: ReadonlyArray<DashboardResponseDto | { status: number }>,
+  pmc: PmcResponseDto = NO_PMC,
+) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     const url = typeof input === 'string' ? input : input.toString();
+    if (url === '/api/athlete/pmc') return json(pmc);
     if (url !== '/api/dashboard') throw new Error(`Unexpected request to ${url}`);
-    const next = responses[Math.min(fetchMock.mock.calls.length - 1, responses.length - 1)];
+    const call = requestsTo(fetchMock, '/api/dashboard') - 1;
+    const next = responses[Math.min(call, responses.length - 1)];
     if (next && 'status' in next) {
       return new Response(JSON.stringify({ kind: 'BAD_REQUEST', message: 'Server exploded' }), {
         status: next.status,
         headers: { 'Content-Type': 'application/json' },
       });
     }
-    return new Response(JSON.stringify(next), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return json(next);
   });
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
@@ -90,6 +109,7 @@ async function findCard(benchmarkName: string) {
 describe('Dashboard', () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
+    renderedPmcCharts.reset();
   });
 
   afterEach(() => {
@@ -106,7 +126,7 @@ describe('Dashboard', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders all six benchmark slots as empty states with Coming Soon placeholders', async () => {
+  it('renders all six benchmark slots as empty states, the PMC panel and the Weekly placeholder', async () => {
     stubDashboardApi([dashboardWith({})]);
     renderApp('/dashboard', runner);
 
@@ -128,8 +148,9 @@ describe('Dashboard', () => {
       screen.getByRole('heading', { name: /weekly activity summary.*coming soon/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: /performance trends.*coming soon/i }),
+      screen.getByRole('heading', { name: 'Performance Management Chart' }),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/performance trends/i)).not.toBeInTheDocument();
   });
 
   it('renders a partial set of personal records with formatted figures and an activity link', async () => {
@@ -201,7 +222,40 @@ describe('Dashboard', () => {
     const card = await findCard('5k');
     await waitFor(() => expect(within(card).getByText(/no record yet/i)).toBeInTheDocument());
     expect(screen.queryByText('Fast 5k Race')).not.toBeInTheDocument();
+    expect(requestsTo(fetchMock, '/api/dashboard')).toBe(2);
+    expect(requestsTo(fetchMock, '/api/athlete/pmc')).toBe(2);
+  });
+
+  it('draws the PMC from the PMC endpoint and changes its range without fetching again', async () => {
+    const pmc = pmcSeries(400);
+    const fetchMock = stubDashboardApi([dashboardWith({})], pmc);
+    renderApp('/dashboard', runner);
+
+    await waitFor(() => expect(renderedPmcCharts.live()).toHaveLength(1));
+    const chart = renderedPmcCharts.live()[0]!;
+    expect(chart.options.days).toEqual(pmc.days);
+    expect(requestsTo(fetchMock, '/api/athlete/pmc')).toBe(1);
+
+    fireEvent.click(screen.getByRole('button', { name: '1 year' }));
+    fireEvent.click(screen.getByRole('button', { name: 'All' }));
+    fireEvent.click(screen.getByRole('button', { name: '90 days' }));
+
+    expect(chart.setRange.mock.calls).toEqual([['1y'], ['all'], ['90d']]);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(requestsTo(fetchMock, '/api/athlete/pmc')).toBe(1);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(renderedPmcCharts.charts).toHaveLength(1);
+    expect(chart.destroy).not.toHaveBeenCalled();
+  });
+
+  it('shows the PMC empty state when the athlete has no Training Load', async () => {
+    stubDashboardApi([dashboardWith({})]);
+    renderApp('/dashboard', runner);
+
+    const panel = await screen.findByRole('region', { name: 'Performance Management Chart' });
+    expect(within(panel).getByText('No Training Load yet')).toBeVisible();
+    expect(renderedPmcCharts.charts).toHaveLength(0);
+    expect(screen.getAllByRole('article')).toHaveLength(6);
   });
 
   it('shows an error message when the dashboard cannot be loaded', async () => {

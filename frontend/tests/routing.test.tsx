@@ -11,11 +11,15 @@ describe('Router & Route Protection', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(
-        async () =>
-          new Response(JSON.stringify({ personalRecordSlots: [] }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          }),
+        async (input: RequestInfo | URL) =>
+          new Response(
+            JSON.stringify(
+              String(input) === '/api/athlete/pmc'
+                ? { timeZone: 'UTC', firstDay: null, days: [] }
+                : { personalRecordSlots: [] },
+            ),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
       ),
     );
   });

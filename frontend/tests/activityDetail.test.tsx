@@ -258,6 +258,7 @@ describe('/activities/$activityId loading', () => {
 
   it('preloads the Activity and its Activity Details when its Personal Record link is focused on the Dashboard', async () => {
     const requests = stubActivity(detail(), () => json(telemetry()), {
+      'GET /api/athlete/pmc': () => json({ timeZone: 'UTC', firstDay: null, days: [] }),
       'GET /api/dashboard': () =>
         json({
           personalRecordSlots: [
