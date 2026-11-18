@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router';
-import { type RefObject, useEffect, useMemo, useRef, useState } from 'react';
+import { type RefObject, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { PmcResponseDto } from '../../api/generated/types.gen';
 import { useColorScheme } from '../../lib/colorScheme';
 import { loadPmcChart } from '../charts/lazyCharts';
@@ -13,7 +13,6 @@ import { formatPmcReadout } from './pmcReadout';
 type PmcChartModule = typeof import('./pmcChart');
 
 const HEADING_ID = 'pmc-heading';
-const NO_DAY = 'Hover the chart to read a day’s values.';
 const CHART_FAILED = 'This chart could not be displayed.';
 
 /** The PMC query as the panel sees it: a failure stays inside the panel instead of failing the Dashboard. */
@@ -121,6 +120,14 @@ function PmcChart({ pmc, latestRange, liveChartRef }: PmcChartProps) {
   const acwr = useRef<HTMLDivElement>(null);
   const readout = useRef<HTMLOutputElement>(null);
   const { days } = pmc;
+  // The latest day's reading, shown whenever no day is hovered, so the values never need a pointer.
+  const latestReading = useRef('');
+  useLayoutEffect(() => {
+    const last = days.at(-1);
+    latestReading.current = last ? formatPmcReadout(last) : '';
+    // Written to the DOM, not rendered, because hovering rewrites the same node directly.
+    if (readout.current) readout.current.textContent = latestReading.current;
+  }, [days]);
 
   const mount = useMemo(
     () =>
@@ -134,7 +141,9 @@ function PmcChart({ pmc, latestRange, liveChartRef }: PmcChartProps) {
           // Written straight to the DOM: a React render per pointer move would be wasted work.
           onHover: (dayIndex) => {
             const day = dayIndex == null ? undefined : days[dayIndex];
-            if (readout.current) readout.current.textContent = day ? formatPmcReadout(day) : NO_DAY;
+            if (readout.current) {
+              readout.current.textContent = day ? formatPmcReadout(day) : latestReading.current;
+            }
           },
         });
         // Published at once, not after the next render, so a range picked in between still moves it.
@@ -145,7 +154,7 @@ function PmcChart({ pmc, latestRange, liveChartRef }: PmcChartProps) {
             if (liveChartRef.current === handle) liveChartRef.current = null;
             handle.destroy();
             // The day under the cursor belonged to this chart's series, which a redraw may replace.
-            if (readout.current) readout.current.textContent = NO_DAY;
+            if (readout.current) readout.current.textContent = latestReading.current;
           },
         };
       },
@@ -163,16 +172,14 @@ function PmcChart({ pmc, latestRange, liveChartRef }: PmcChartProps) {
   return (
     <div className="space-y-2">
       <output
-        aria-label="Day under the cursor"
+        aria-label="Latest day, or the day under the cursor"
         // Rewritten on every pointer move, so it is read on demand rather than announced.
         aria-live="off"
         ref={readout}
         // Reserves the lines a full day's reading wraps to (four on a phone, two from the sm breakpoint), so
         // hovering never shifts the chart under the pointer.
         className="block min-h-20 sm:min-h-10 text-sm tabular-nums text-slate-600 dark:text-slate-300"
-      >
-        {NO_DAY}
-      </output>
+      />
       {chart.kind === 'failed' && (
         <p className="text-sm text-slate-500 dark:text-slate-400">{CHART_FAILED}</p>
       )}

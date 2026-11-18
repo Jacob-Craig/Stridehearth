@@ -40,7 +40,8 @@ async function liveChart() {
   return renderedPmcCharts.live()[0]!;
 }
 
-const readout = () => screen.getByRole('status', { name: 'Day under the cursor' });
+const readout = () =>
+  screen.getByRole('status', { name: 'Latest day, or the day under the cursor' });
 
 beforeEach(() => {
   renderedPmcCharts.reset();
@@ -85,7 +86,15 @@ describe('Performance Management Chart panel', () => {
     expect(chart.destroy).not.toHaveBeenCalled();
   });
 
-  it('reads out every value of the hovered day, and clears it when the cursor leaves', async () => {
+  it('reads out the latest day before any hover, without needing a pointer', async () => {
+    const pmc = pmcSeries(3, '2026-11-18');
+    renderPanel(pmc);
+    await liveChart();
+
+    expect(readout()).toHaveTextContent(/^18 Nov 2026 · Load 50\.0 · Fitness \(CTL\) 30\.2/);
+  });
+
+  it('reads out every value of the hovered day, and returns to the latest day when the cursor leaves', async () => {
     const pmc = pmcSeries(3, '2026-11-18');
     pmc.days[1] = pmcDay({
       date: '2026-11-17',
@@ -106,7 +115,7 @@ describe('Performance Management Chart panel', () => {
     );
 
     act(() => chart.options.onHover(null));
-    expect(readout()).toHaveTextContent('Hover the chart to read a day');
+    expect(readout()).toHaveTextContent(/^18 Nov 2026 · /);
   });
 
   it('shows dashes for withheld values in the readout', async () => {
@@ -200,17 +209,19 @@ describe('Performance Management Chart panel', () => {
     expect(readout()).toHaveClass('min-h-20', 'sm:min-h-10');
   });
 
-  it('clears the readout when a refetched series redraws the chart', async () => {
-    const { refetched } = renderPanel(pmcSeries(3));
+  it('reads out the new series’ latest day when a refetched series redraws the chart', async () => {
+    const { refetched } = renderPanel(pmcSeries(3, '2026-11-18'));
     const first = await liveChart();
     act(() => first.options.onHover(1));
-    expect(readout()).not.toHaveTextContent('Hover the chart to read a day');
+    expect(readout()).toHaveTextContent(/^17 Nov 2026 · /);
 
-    refetched(pmcSeries(4));
+    refetched(pmcSeries(4, '2026-11-19'));
 
     await waitFor(() => expect(first.destroy).toHaveBeenCalled());
-    await liveChart();
-    expect(readout()).toHaveTextContent('Hover the chart to read a day');
+    const second = await liveChart();
+    expect(readout()).toHaveTextContent(/^19 Nov 2026 · /);
+    act(() => second.options.onHover(null));
+    expect(readout()).toHaveTextContent(/^19 Nov 2026 · /);
   });
 
   it('says the chart could not be displayed when the PMC could not be loaded', async () => {
