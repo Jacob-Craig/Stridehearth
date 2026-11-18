@@ -8,6 +8,7 @@ import kotlin.math.exp
 import kotlin.math.pow
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 /**
  * Synthetic streams with every expected value worked out by hand from the formulas in the brief for #35, never read
@@ -232,6 +233,16 @@ class TrainingLoadCalculatorTest {
             val halfPower = everything(power = { if (it < 1800) 300 else null })
 
             assertEquals(TrainingLoadMethod.RTSS, method(halfPower))
+        }
+
+        @Test
+        fun `power that scores no finite RSS falls through to rTSS rather than storing NaN`() {
+            // Negative power (a wrapped uint16 the caller did not filter) makes (P10 / CP)^3.5 NaN.
+            val negative = everything(power = { -100 })
+
+            val scored = assertIs<TrainingLoadResult.Scored>(negative)
+            assertEquals(TrainingLoadMethod.RTSS, scored.method)
+            assertTrue(scored.value.isFinite())
         }
 
         @Test

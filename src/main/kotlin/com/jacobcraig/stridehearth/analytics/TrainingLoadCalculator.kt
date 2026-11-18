@@ -67,7 +67,8 @@ sealed interface TrainingLoadResult {
  * `dt` of a sample is `t[i] - t[i-1]` (0 for the first). A step longer than [RECORDING_PAUSE_SECONDS] is a recording
  * pause and adds nothing, as does a null sample. A stream is usable when its non-null samples cover at least
  * [MIN_COVERAGE] of the recorded time (the sum of the steps that are not pauses), and that time is at least
- * [MIN_RECORDED_SECONDS]: a sensor that died early would understate the load, so the next method is better.
+ * [MIN_RECORDED_SECONDS]: a sensor that died early would understate the load, so the next method is better. An RSS
+ * that is not finite is passed over too, so NaN is never stored.
  *
  * No Spring and no I/O.
  */
@@ -90,7 +91,8 @@ object TrainingLoadCalculator {
 
     /**
      * The Training Load of an Activity of [sport]. [t] is its Activity Details' time series (seconds since the start),
-     * or null when it has none; [power] (W) and [heartRate] (cleaned, bpm) are parallel to it or empty. [ngpMps] and
+     * or null when it has none; [power] (W, implausible samples already read as missing, see
+     * [ActivityAnalysis.MAX_RUN_POWER_WATTS]) and [heartRate] (cleaned, bpm) are parallel to it or empty. [ngpMps] and
      * [movingSeconds] are its Normalized Graded Pace and Moving Time, and [thresholds] those in force on its date.
      */
     fun compute(
@@ -109,8 +111,14 @@ object TrainingLoadCalculator {
 
         if (sport in RSS_SPORTS && steps.usable(power)) {
             val cp = thresholds.criticalPowerWatts
-            if (cp != null && cp > 0) return TrainingLoadResult.Scored(rss(t, steps, power, cp), TrainingLoadMethod.RSS)
-            lackedThreshold = true
+            if (cp != null && cp > 0) {
+                // A finite score only: implausible samples the caller should have dropped (a negative one makes
+                // (P10 / CP)^3.5 NaN) fall through to the next method rather than storing NaN and poisoning the PMC.
+                val rss = rss(t, steps, power, cp)
+                if (rss.isFinite()) return TrainingLoadResult.Scored(rss, TrainingLoadMethod.RSS)
+            } else {
+                lackedThreshold = true
+            }
         }
 
         if (sport == ActivitySport.RUN && ngpMps != null && movingSeconds != null) {
