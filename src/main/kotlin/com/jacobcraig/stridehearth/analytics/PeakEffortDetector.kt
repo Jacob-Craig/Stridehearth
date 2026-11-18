@@ -21,8 +21,9 @@ data class PeakEffort(
  * Pure **Peak Effort** detection over one rate stream (ADR-0003's two-pointer sliding window, applied to time).
  *
  * The rate `x` (GAP speed or power) is integrated over wall-clock time into a cumulative series `C`: `C[0] = 0`,
- * and `C[i] = C[i-1] + (x[i] ?: 0) x dt` for the step `dt = t[i] - t[i-1]`, unless `dt <= 0` or
- * `dt > RECORDING_PAUSE_SECONDS`, when `C[i] = C[i-1]`. Pauses are not removed: a recording pause counts as
+ * and `C[i] = C[i-1] + (x[i] ?: 0) x dt` for the step `dt = t[i] - t[i-1]`, unless
+ * `dt > RECORDING_PAUSE_SECONDS`, when `C[i] = C[i-1]`. A sample whose time does not advance past the last kept
+ * sample is dropped first, so `t` is strictly increasing; reported indices point into the original stream. Pauses are not removed: a recording pause counts as
  * standing still, and a missing sample as zero, so neither can inflate a peak. `C` is linear between samples.
  *
  * For each [BenchmarkDuration] `D` the peak is the maximum of `(C(s + D) - C(s)) / D`. Because `C` is piecewise
@@ -42,18 +43,34 @@ object PeakEffortDetector {
         rate: Array<out Number?>,
         metric: PeakEffortMetric,
     ): List<PeakEffort> {
-        val n = t.size
-        if (n < 2 || rate.size != n) return emptyList()
+        if (t.size < 2 || rate.size != t.size) return emptyList()
+        // Keep only the samples that advance time past the last kept one, as RunMetrics does: a sample stepping
+        // back or repeating a time covers no time, and would break the passes' assumption that t increases.
+        val kept = advancingSamples(t)
+        val n = kept.size
+        if (n < 2) return emptyList()
+        val keptTime = IntArray(n) { t[kept[it]] }
         val cumulative = DoubleArray(n)
         for (i in 1 until n) {
-            val dt = t[i] - t[i - 1]
-            val step = if (dt in 1..RECORDING_PAUSE_SECONDS) (rate[i]?.toDouble() ?: 0.0) * dt else 0.0
+            val dt = keptTime[i] - keptTime[i - 1]
+            val step = if (dt <= RECORDING_PAUSE_SECONDS) (rate[kept[i]]?.toDouble() ?: 0.0) * dt else 0.0
             cumulative[i] = cumulative[i - 1] + step
         }
-        val span = t[n - 1] - t[0]
+        val span = keptTime[n - 1] - keptTime[0]
         return BenchmarkDuration.entries
             .filter { it.seconds <= span }
-            .mapNotNull { duration -> peakFor(t, cumulative, metric, duration) }
+            .mapNotNull { duration -> peakFor(keptTime, cumulative, metric, duration) }
+            .map { it.copy(startIndex = kept[it.startIndex], endIndex = kept[it.endIndex]) }
+    }
+
+    /** Indices of [t] whose time is later than every kept sample before it; the first sample is always kept. */
+    private fun advancingSamples(t: IntArray): IntArray {
+        val kept = ArrayList<Int>(t.size)
+        kept += 0
+        for (i in 1 until t.size) {
+            if (t[i] > t[kept.last()]) kept += i
+        }
+        return kept.toIntArray()
     }
 
     private fun peakFor(
