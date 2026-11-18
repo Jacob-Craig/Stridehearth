@@ -269,12 +269,41 @@ class TrainingLoadCalculatorTest {
         }
 
         @Test
-        fun `max heart rate not above resting gives NO_THRESHOLDS`() {
+        fun `max heart rate not above resting gives INCONSISTENT_THRESHOLDS`() {
+            val thresholds =
+                ThresholdsOn(maxHr = 110.0, restingHr = 115.0, lthr = null, thresholdSpeedMps = null, criticalPowerWatts = null)
+            val load = compute(oneHz(3600), heartRate = { 150 }, thresholds = thresholds)
+
+            assertEquals(TrainingLoadUnavailableReason.INCONSISTENT_THRESHOLDS, reason(load))
+        }
+
+        @Test
+        fun `max heart rate equal to resting gives INCONSISTENT_THRESHOLDS`() {
             val thresholds =
                 ThresholdsOn(maxHr = 120.0, restingHr = 120.0, lthr = null, thresholdSpeedMps = null, criticalPowerWatts = null)
             val load = compute(oneHz(3600), heartRate = { 150 }, thresholds = thresholds)
 
-            assertEquals(TrainingLoadUnavailableReason.NO_THRESHOLDS, reason(load))
+            assertEquals(TrainingLoadUnavailableReason.INCONSISTENT_THRESHOLDS, reason(load))
+        }
+
+        @Test
+        fun `LTHR at or below resting heart rate gives INCONSISTENT_THRESHOLDS`() {
+            for (lthr in listOf(95.0, 100.0)) {
+                val thresholds =
+                    ThresholdsOn(maxHr = 190.0, restingHr = 100.0, lthr = lthr, thresholdSpeedMps = null, criticalPowerWatts = null)
+                val load = compute(oneHz(3600), sport = ActivitySport.RIDE, heartRate = { 150 }, thresholds = thresholds)
+
+                assertEquals(TrainingLoadUnavailableReason.INCONSISTENT_THRESHOLDS, reason(load), "LTHR $lthr")
+            }
+        }
+
+        @Test
+        fun `a run without threshold pace whose heart-rate Thresholds are inconsistent names the inconsistency`() {
+            val thresholds =
+                ThresholdsOn(maxHr = 190.0, restingHr = 100.0, lthr = 95.0, thresholdSpeedMps = null, criticalPowerWatts = null)
+            val load = compute(oneHz(3600), ngpMps = 3.6, movingSeconds = 3600, heartRate = { 150 }, thresholds = thresholds)
+
+            assertEquals(TrainingLoadUnavailableReason.INCONSISTENT_THRESHOLDS, reason(load))
         }
 
         @Test

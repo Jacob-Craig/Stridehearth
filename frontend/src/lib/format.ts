@@ -92,14 +92,26 @@ export function formatTrainingLoad(load: TrainingLoadDto): string {
   return `${Math.round(load.value)} · ${TRAINING_LOAD_METHOD_LABELS[load.method]}`;
 }
 
+/** Sports whose power counts toward **Training Load** (RSS); any other sport is scored from heart rate only. */
+const RSS_SPORTS: ReadonlySet<ActivitySport> = new Set(['RUN', 'WALK', 'HIKE']);
+
 const TRAINING_LOAD_UNAVAILABLE_LABELS: Readonly<Record<TrainingLoadUnavailableReason, string>> = {
   NO_ACTIVITY_DETAILS: 'No Activity Details recorded',
   NO_THRESHOLDS: 'Set your Thresholds',
+  INCONSISTENT_THRESHOLDS:
+    'Check your Thresholds: max and threshold heart rate must be above resting',
   NO_USABLE_STREAM: 'No usable heart rate or power',
 };
 
-/** Why an Activity has no **Training Load**, e.g. `No usable heart rate or power`. */
-export function formatTrainingLoadUnavailableReason(reason: TrainingLoadUnavailableReason): string {
+/**
+ * Why an Activity of `sport` has no **Training Load**, e.g. `No usable heart rate or power`. Power counts only for
+ * Runs, Walks and Hikes, so another sport without usable heart rate reads `No usable heart rate`.
+ */
+export function formatTrainingLoadUnavailableReason(
+  reason: TrainingLoadUnavailableReason,
+  sport: ActivitySport,
+): string {
+  if (reason === 'NO_USABLE_STREAM' && !RSS_SPORTS.has(sport)) return 'No usable heart rate';
   return TRAINING_LOAD_UNAVAILABLE_LABELS[reason];
 }
 

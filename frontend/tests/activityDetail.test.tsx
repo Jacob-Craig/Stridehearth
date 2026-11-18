@@ -494,6 +494,42 @@ describe('/activities/$activityId summary', () => {
       expect(within(tile).queryByRole('link')).toBeNull();
     });
 
+    it.each(['RIDE', 'SWIM', 'WORKOUT'] as const)(
+      'does not blame power for a %s, whose power never counts',
+      async (sport) => {
+        const tile = await trainingLoadTile({
+          sport,
+          trainingLoadUnavailableReason: 'NO_USABLE_STREAM',
+        });
+
+        expect(tile).toHaveTextContent('No usable heart rate');
+        expect(tile).not.toHaveTextContent(/power/i);
+      },
+    );
+
+    it.each(['WALK', 'HIKE'] as const)('names heart rate or power for a %s', async (sport) => {
+      const tile = await trainingLoadTile({
+        sport,
+        trainingLoadUnavailableReason: 'NO_USABLE_STREAM',
+      });
+
+      expect(tile).toHaveTextContent('No usable heart rate or power');
+    });
+
+    it('links to the settings page when heart-rate Thresholds contradict each other', async () => {
+      const tile = await trainingLoadTile({
+        trainingLoadUnavailableReason: 'INCONSISTENT_THRESHOLDS',
+      });
+
+      expect(tile).toHaveTextContent('No Training Load');
+      expect(
+        within(tile).getByRole('link', {
+          name: /max and threshold heart rate must be above resting/i,
+        }),
+      ).toHaveAttribute('href', '/settings');
+      expect(tile).not.toHaveTextContent(/set your thresholds/i);
+    });
+
     it('links to the settings page when Thresholds are missing', async () => {
       const tile = await trainingLoadTile({ trainingLoadUnavailableReason: 'NO_THRESHOLDS' });
 

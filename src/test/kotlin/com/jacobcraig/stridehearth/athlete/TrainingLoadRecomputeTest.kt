@@ -16,6 +16,7 @@ import com.jacobcraig.stridehearth.users.UserRepository
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.doAnswer
@@ -24,6 +25,8 @@ import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.system.CapturedOutput
+import org.springframework.boot.test.system.OutputCaptureExtension
 import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean
@@ -49,6 +52,7 @@ import kotlin.test.assertNull
  */
 @SpringBootTest
 @Import(TestcontainersConfiguration::class)
+@ExtendWith(OutputCaptureExtension::class)
 class TrainingLoadRecomputeTest {
     @MockitoSpyBean
     private lateinit var fitActivityParser: FitActivityParser
@@ -320,6 +324,25 @@ class TrainingLoadRecomputeTest {
         assertEquals(RecomputeResult(0, 0, 1), worker.drain(onlyUserIds = scope, now = afterBackOff))
         assertEquals(hrssAt170(150.0), load(april).first!!, 0.01)
         assertEquals(false, request()!!.pending)
+    }
+
+    @Test
+    fun `a request held only by backed-off Activities is not logged again on every drain`(output: CapturedOutput) {
+        heartRateThresholds()
+        import("2026-04-01T08:00:00Z")
+        drain()
+        threshold(ThresholdKind.LTHR, 150.0, from = "2026-03-01")
+        val scope = listOf(runner.id!!, otherRunner.id!!)
+        val failedAt = Instant.now()
+        val keptPending = "Training Load recompute request for athlete ${runner.id} kept pending"
+        doThrow(IllegalStateException("cannot analyse")).whenever(refreshSpy).refreshTrainingLoad(any())
+
+        worker.drain(onlyUserIds = scope, now = failedAt)
+        assertEquals(1, output.all.split(keptPending).size - 1, "the drain that skipped the Activity says so")
+
+        repeat(3) { worker.drain(onlyUserIds = scope, now = failedAt.plusSeconds(15L * (it + 1))) }
+        assertEquals(true, request()!!.pending)
+        assertEquals(1, output.all.split(keptPending).size - 1, "drains that only pass over the backed-off Activity stay quiet")
     }
 
     @Test

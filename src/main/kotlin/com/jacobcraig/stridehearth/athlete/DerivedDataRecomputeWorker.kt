@@ -168,6 +168,9 @@ class DerivedDataRecomputeWorker(
             var afterId = cursor?.afterId ?: 0L
             var scanned = cursor?.scanned ?: false
             val skipped = cursor?.skipped.orEmpty().toSortedSet()
+            // Whether this drain ran any page of the request: a drain that only passes over backed-off Activities
+            // changes nothing, so it does not log again (the schedule drains every few seconds).
+            var attempted = false
 
             fun saveCursor() {
                 requestCursors[request.userId] = RequestCursor(request.requestedAt, afterId, scanned, skipped.toSet())
@@ -184,6 +187,7 @@ class DerivedDataRecomputeWorker(
                     break
                 }
                 tally.trainingLoads += runPage(page, afterId, now, tally, ::recomputeTrainingLoadPage, skipped)
+                attempted = true
                 afterId = page.last()
                 tally.pages++
             }
@@ -194,10 +198,12 @@ class DerivedDataRecomputeWorker(
                 }
                 skipped.removeAll(retry.toSet())
                 tally.trainingLoads += runPage(retry, retry.first() - 1, now, tally, ::recomputeTrainingLoadPage, skipped)
+                attempted = true
                 tally.pages++
             }
             if (skipped.isNotEmpty()) {
                 saveCursor()
+                if (!attempted) continue
                 logger.info(
                     "Training Load recompute request for athlete {} kept pending: {} Activities are retried after their back-off",
                     request.userId,

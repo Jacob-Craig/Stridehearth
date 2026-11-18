@@ -149,7 +149,7 @@ _Avoid_: Locale, timezone offset
 
 **Training Load**:
 One number per Activity for how much physiological stress it imposed, scaled so one hour at threshold is 100, computed by the first Training Load Method whose data and Threshold the Activity has, against the Thresholds in force on its date.
-An Activity with none (no Activity Details, no usable stream, or a missing Threshold) has no Training Load and records why. Derived, so recomputed, never edited.
+An Activity with none (no Activity Details, no usable stream, a missing Threshold, or heart-rate Thresholds that contradict each other, such as a max heart rate not above resting) has no Training Load and records why. Derived, so recomputed, never edited.
 _Avoid_: TSS, stress score, effort, load score
 
 **Training Load Method**:

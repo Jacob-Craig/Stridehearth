@@ -634,7 +634,7 @@ export type TrainingLoadDto = {
 
 export type TrainingLoadMethod = 'RSS' | 'RTSS' | 'HRSS';
 
-export type TrainingLoadUnavailableReason = 'NO_ACTIVITY_DETAILS' | 'NO_THRESHOLDS' | 'NO_USABLE_STREAM';
+export type TrainingLoadUnavailableReason = 'NO_ACTIVITY_DETAILS' | 'NO_THRESHOLDS' | 'INCONSISTENT_THRESHOLDS' | 'NO_USABLE_STREAM';
 
 export type ActivityDerivedStreamsDto = {
     /**

@@ -28,6 +28,12 @@ enum class TrainingLoadUnavailableReason {
     /** A method had the data it needs, but the athlete has not recorded the Threshold it needs. */
     NO_THRESHOLDS,
 
+    /**
+     * Heart rate was usable and every heart-rate Threshold is recorded, but they contradict each other: max heart rate,
+     * or the recorded LTHR, is not above resting heart rate, so there is no heart-rate reserve to score against.
+     */
+    INCONSISTENT_THRESHOLDS,
+
     /** No power or heart-rate stream covers enough of the recording, and there is no Normalized Graded Pace. */
     NO_USABLE_STREAM,
 }
@@ -53,7 +59,7 @@ sealed interface TrainingLoadResult {
  *    [POWER_SMOOTHING_SECONDS] of time `(t - 10, t]`. A Ride's power against a running Critical Power is meaningless,
  *    so other sports fall through.
  * 2. **rTSS** (RUN, with Normalized Graded Pace and threshold pace): `movingSeconds x (NGP / vT)^2 / 3600 x 100`.
- * 3. **HRSS** (any sport, with a usable heart-rate stream, resting and max heart rate, max above resting):
+ * 3. **HRSS** (any sport, with a usable heart-rate stream, resting and max heart rate, max and LTHR above resting):
  *    `HRr = clamp((HR - rest) / (max - rest), 0, 1)`, `TRIMP = sum (dt / 60) x HRr x 0.64 x e^(1.92 HRr)`, and
  *    `HRSS = 100 x TRIMP / (60 x HRr_LT x 0.64 x e^(1.92 HRr_LT))`, where LTHR is the athlete's or, without one,
  *    `rest + 0.85 x (max - rest)`.
@@ -99,6 +105,7 @@ object TrainingLoadCalculator {
         if (t == null || t.isEmpty()) return TrainingLoadResult.Unavailable(TrainingLoadUnavailableReason.NO_ACTIVITY_DETAILS)
         val steps = Steps(t)
         var lackedThreshold = false
+        var inconsistentThresholds = false
 
         if (sport in RSS_SPORTS && steps.usable(power)) {
             val cp = thresholds.criticalPowerWatts
@@ -115,13 +122,27 @@ object TrainingLoadCalculator {
         }
 
         if (steps.usable(heartRate)) {
-            val hrss = hrss(steps, heartRate, thresholds)
-            if (hrss != null) return TrainingLoadResult.Scored(hrss, TrainingLoadMethod.HRSS)
-            lackedThreshold = true
+            val rest = thresholds.restingHr
+            val max = thresholds.maxHr
+            if (rest == null || max == null) {
+                lackedThreshold = true
+            } else {
+                val lthr = thresholds.lthr ?: (rest + DEFAULT_LTHR_RESERVE_FRACTION * (max - rest))
+                if (max <= rest || lthr <= rest) {
+                    inconsistentThresholds = true
+                } else {
+                    return TrainingLoadResult.Scored(hrss(steps, heartRate, rest, max, lthr), TrainingLoadMethod.HRSS)
+                }
+            }
         }
 
+        // Inconsistent heart-rate Thresholds come first: fixing them alone would score the Activity.
         return TrainingLoadResult.Unavailable(
-            if (lackedThreshold) TrainingLoadUnavailableReason.NO_THRESHOLDS else TrainingLoadUnavailableReason.NO_USABLE_STREAM,
+            when {
+                inconsistentThresholds -> TrainingLoadUnavailableReason.INCONSISTENT_THRESHOLDS
+                lackedThreshold -> TrainingLoadUnavailableReason.NO_THRESHOLDS
+                else -> TrainingLoadUnavailableReason.NO_USABLE_STREAM
+            },
         )
     }
 
@@ -156,19 +177,16 @@ object TrainingLoadCalculator {
         return total
     }
 
-    /** HRSS, or null when resting or max heart rate is missing, max is not above resting, or LTHR is not above resting. */
+    /** HRSS against [rest], [max] and [lthr], which the caller has checked are both above [rest]. */
     private fun hrss(
         steps: Steps,
         heartRate: Array<Short?>,
-        thresholds: ThresholdsOn,
-    ): Double? {
-        val rest = thresholds.restingHr ?: return null
-        val max = thresholds.maxHr ?: return null
-        if (max <= rest) return null
+        rest: Double,
+        max: Double,
+        lthr: Double,
+    ): Double {
         val reserve = max - rest
-        val lthr = thresholds.lthr ?: (rest + DEFAULT_LTHR_RESERVE_FRACTION * reserve)
         val hrrLt = ((lthr - rest) / reserve).coerceIn(0.0, 1.0)
-        if (hrrLt <= 0) return null
         var trimp = 0.0
         for (i in heartRate.indices) {
             val dt = steps.dt(i)

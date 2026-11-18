@@ -3336,7 +3336,7 @@
       },
       "TrainingLoadUnavailableReason" : {
         "type" : "string",
-        "enum" : [ "NO_ACTIVITY_DETAILS", "NO_THRESHOLDS", "NO_USABLE_STREAM" ]
+        "enum" : [ "NO_ACTIVITY_DETAILS", "NO_THRESHOLDS", "INCONSISTENT_THRESHOLDS", "NO_USABLE_STREAM" ]
       },
       "ActivityDerivedStreamsDTO" : {
         "type" : "object",

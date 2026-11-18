@@ -608,6 +608,7 @@ export const zTrainingLoadDto = z.object({
 export const zTrainingLoadUnavailableReason = z.enum([
     'NO_ACTIVITY_DETAILS',
     'NO_THRESHOLDS',
+    'INCONSISTENT_THRESHOLDS',
     'NO_USABLE_STREAM'
 ]);
 

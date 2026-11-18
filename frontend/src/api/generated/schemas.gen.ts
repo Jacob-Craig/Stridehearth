@@ -2391,6 +2391,7 @@ export const TrainingLoadUnavailableReasonSchema = {
     enum: [
         'NO_ACTIVITY_DETAILS',
         'NO_THRESHOLDS',
+        'INCONSISTENT_THRESHOLDS',
         'NO_USABLE_STREAM'
     ]
 } as const;
