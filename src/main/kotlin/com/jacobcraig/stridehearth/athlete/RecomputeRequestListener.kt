@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component
 
 /**
  * Turns a change to an athlete's **Thresholds** or **Athlete Time Zone** into a durable request to recompute their
- * **Training Load**, which [DerivedDataRecomputeWorker] serves in the background (ADR-0014). A plain listener, so the
+ * **Training Load** (and, for a time zone, a full rebuild of their rollups), which [DerivedDataRecomputeWorker] serves in the background (ADR-0014). A plain listener, so the
  * request commits or rolls back with the change itself.
  */
 @Component
@@ -16,7 +16,14 @@ class RecomputeRequestListener(
     @EventListener
     fun onThresholdsChanged(event: ThresholdsChanged) = stateRepository.requestRecompute(event.userId, event.affectedFrom)
 
-    /** A new zone can move any Activity to another local date, and so to other Thresholds. */
+    /**
+     * A new zone can move any Activity to another local date, and so to other Thresholds and another day of their
+     * Daily Load: every Training Load is recomputed, and their rollups are marked stale for the worker to rebuild in
+     * full (ADR-0016).
+     */
     @EventListener
-    fun onTimeZoneChanged(event: AthleteTimeZoneChanged) = stateRepository.requestRecompute(event.userId, from = null)
+    fun onTimeZoneChanged(event: AthleteTimeZoneChanged) {
+        stateRepository.requestRecompute(event.userId, from = null)
+        stateRepository.markRollupsStale(event.userId)
+    }
 }

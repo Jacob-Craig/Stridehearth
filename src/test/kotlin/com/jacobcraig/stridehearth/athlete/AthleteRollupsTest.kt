@@ -1,15 +1,26 @@
 package com.jacobcraig.stridehearth.athlete
 
+import jakarta.persistence.EntityManager
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.inOrder
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
 import org.springframework.transaction.support.TransactionSynchronization
 import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.Instant
 import kotlin.test.assertEquals
 
 class AthleteRollupsTest {
-    private val rollups = AthleteRollups()
+    private val entityManager = mock<EntityManager>()
+    private val stateRepository = mock<AthleteAnalyticsStateRepository>()
+    private val dailyLoadRollup = mock<DailyLoadRollup>()
+    private val rollups = AthleteRollups(entityManager, stateRepository, dailyLoadRollup)
 
     private fun at(text: String) = Instant.parse(text)
 
@@ -63,5 +74,79 @@ class AthleteRollupsTest {
     fun `marking requires the caller's transaction`() {
         assertThrows<IllegalStateException> { rollups.markDailyLoad(1, at("2026-03-02T08:00:00Z")) }
         assertThrows<IllegalStateException> { rollups.markPeaksChanged(1, at("2026-03-02T08:00:00Z")) }
+    }
+
+    private fun commit() {
+        TransactionSynchronizationManager.getSynchronizations().forEach { it.beforeCommit(false) }
+    }
+
+    @Test
+    fun `before commit, a current athlete's daily load is recomputed from the earliest mark under their lock, after a flush`() {
+        whenever(stateRepository.findRollupVersion(1)).thenReturn(ROLLUP_VERSION)
+        TransactionSynchronizationManager.initSynchronization()
+        rollups.markDailyLoad(1, at("2026-03-02T08:00:00Z"))
+        rollups.markDailyLoad(1, at("2026-02-01T08:00:00Z"))
+
+        commit()
+
+        inOrder(entityManager, stateRepository, dailyLoadRollup) {
+            verify(entityManager).flush()
+            verify(stateRepository).lockRollups(1)
+            verify(dailyLoadRollup).recomputeFrom(1, at("2026-02-01T08:00:00Z"))
+        }
+    }
+
+    @Test
+    fun `athletes are rolled up in ascending id order`() {
+        whenever(stateRepository.findRollupVersion(any(), any())).thenReturn(ROLLUP_VERSION)
+        TransactionSynchronizationManager.initSynchronization()
+        rollups.markDailyLoad(7, at("2026-03-02T08:00:00Z"))
+        rollups.markDailyLoad(3, at("2026-03-02T08:00:00Z"))
+
+        commit()
+
+        inOrder(stateRepository) {
+            verify(stateRepository).lockRollups(3)
+            verify(stateRepository).lockRollups(7)
+        }
+    }
+
+    @Test
+    fun `an athlete without a state row gets a full rebuild and is recorded current`() {
+        whenever(stateRepository.findRollupVersion(1)).thenReturn(null)
+        TransactionSynchronizationManager.initSynchronization()
+        rollups.markDailyLoad(1, at("2026-03-02T08:00:00Z"))
+
+        commit()
+
+        inOrder(dailyLoadRollup, stateRepository) {
+            verify(dailyLoadRollup).recomputeFrom(1, null)
+            verify(stateRepository).insertRollupVersionIfAbsent(1)
+        }
+    }
+
+    @Test
+    fun `stale rollups are left to the worker's full rebuild`() {
+        whenever(stateRepository.findRollupVersion(1)).thenReturn(0)
+        TransactionSynchronizationManager.initSynchronization()
+        rollups.markDailyLoad(1, at("2026-03-02T08:00:00Z"))
+
+        commit()
+
+        verify(stateRepository).lockRollups(1)
+        verify(dailyLoadRollup, never()).recomputeFrom(any(), anyOrNull())
+    }
+
+    @Test
+    fun `a stale rebuild runs once and records the current version`() {
+        whenever(stateRepository.findRollupVersion(1, forUpdate = true)).thenReturn(0)
+        whenever(stateRepository.findRollupVersion(2, forUpdate = true)).thenReturn(ROLLUP_VERSION)
+
+        assertEquals(true, rollups.rebuildStale(1))
+        assertEquals(false, rollups.rebuildStale(2))
+
+        verify(dailyLoadRollup).recomputeFrom(1, null)
+        verify(stateRepository).setRollupVersion(1)
+        verify(dailyLoadRollup, never()).recomputeFrom(2, null)
     }
 }

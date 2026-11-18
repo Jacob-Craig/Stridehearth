@@ -27,10 +27,11 @@ data class RecomputeResult(
     val activitiesRecomputed: Int,
     val activitiesFailed: Int,
     val trainingLoadsRecomputed: Int = 0,
+    val rollupsRebuilt: Int = 0,
 )
 
 /**
- * Brings every **Activity**'s derived data up to date in the background (ADR-0014), in two stages:
+ * Brings every **Activity**'s derived data up to date in the background (ADR-0014), in three stages:
  *
  * 1. The durable **Training Load** recompute requests that a change to an athlete's Thresholds or time zone writes
  *    ([RecomputeRequestListener]): the Training Load of each of their Activities dated on or after the request's date
@@ -38,6 +39,9 @@ data class RecomputeResult(
  *    meanwhile (compare-and-clear).
  * 2. The **Backfill** of Activities that have no `activity_derived_metrics` row yet (imported before derived data
  *    existed), and the **Recompute** of rows an older algorithm version wrote ([DERIVED_DATA_VERSION]).
+ * 3. The full rebuild of athlete rollups that are stale ([ROLLUP_VERSION]: never built, built by an older version, or
+ *    marked stale by a time-zone change), one athlete per transaction under their rollup lock (ADR-0016). It runs
+ *    only once the first two stages have caught up within the run.
  *
  * It is always present, so tests call [drain] directly; [DerivedDataRecomputeSchedule] runs it periodically.
  *
@@ -58,6 +62,7 @@ class DerivedDataRecomputeWorker(
     private val derivedMetricsRepository: ActivityDerivedMetricsRepository,
     private val derivedDataRefresh: DerivedDataRefresh,
     private val stateRepository: AthleteAnalyticsStateRepository,
+    private val athleteRollups: AthleteRollups,
     private val transactionTemplate: TransactionTemplate,
 ) {
     private val logger = LoggerFactory.getLogger(DerivedDataRecomputeWorker::class.java)
@@ -130,6 +135,7 @@ class DerivedDataRecomputeWorker(
             if (candidates.isEmpty()) {
                 if (wrapped) {
                     resumeAfterId = 0L
+                    rebuildStaleRollups(limit, maxPages, onlyUserIds, tally)
                     return tally.result()
                 }
                 wrapped = true
@@ -205,6 +211,28 @@ class DerivedDataRecomputeWorker(
             }
         }
         return true
+    }
+
+    /**
+     * Stage 3: rebuilds each athlete's stale rollups in full, one athlete per transaction, in id order, counting each
+     * [limit] athletes as one page against [maxPages]. A lost lock race is retried like a page's.
+     */
+    private fun rebuildStaleRollups(
+        limit: Int,
+        maxPages: Int,
+        onlyUserIds: Collection<Long>?,
+        tally: Tally,
+    ) {
+        var afterId = 0L
+        while (tally.pages < maxPages) {
+            val stale = stateRepository.findStaleRollups(afterId, limit, onlyUserIds)
+            if (stale.isEmpty()) return
+            stale.forEach { userId ->
+                if (inTransaction(listOf(userId)) { if (athleteRollups.rebuildStale(userId)) 1 else 0 } > 0) tally.rollups++
+            }
+            afterId = stale.last()
+            tally.pages++
+        }
     }
 
     /**
@@ -296,9 +324,10 @@ class DerivedDataRecomputeWorker(
         var recomputed = 0
         var failed = 0
         var trainingLoads = 0
+        var rollups = 0
         var pages = 0
 
-        fun result() = RecomputeResult(recomputed, failed, trainingLoads)
+        fun result() = RecomputeResult(recomputed, failed, trainingLoads, rollups)
     }
 
     companion object {

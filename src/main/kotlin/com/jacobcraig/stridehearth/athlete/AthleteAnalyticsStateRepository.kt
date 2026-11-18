@@ -22,7 +22,7 @@ data class RecomputeRequest(
 
 /**
  * Data access for `athlete_analytics_state`, one row per athlete holding their athlete-level derived-data bookkeeping:
- * the durable Training Load recompute request (ADR-0014). Raw SQL through [JdbcClient]; every statement is scoped by
+ * the durable Training Load recompute request (ADR-0014) and the version of their rollups (ADR-0016). Raw SQL through [JdbcClient]; every statement is scoped by
  * the athlete.
  */
 @Repository
@@ -46,8 +46,8 @@ class AthleteAnalyticsStateRepository(
         jdbcClient
             .sql(
                 """
-                INSERT INTO athlete_analytics_state (user_id, recompute_from, recompute_requested_at)
-                VALUES (:userId, :from, clock_timestamp())
+                INSERT INTO athlete_analytics_state (user_id, recompute_from, recompute_requested_at, rollup_version)
+                VALUES (:userId, :from, clock_timestamp(), :rollupVersion)
                 ON CONFLICT (user_id) DO UPDATE
                 SET recompute_from =
                         CASE
@@ -59,7 +59,112 @@ class AthleteAnalyticsStateRepository(
                 """.trimIndent(),
             ).param("userId", userId)
             .param("from", from, Types.DATE)
+            // A new row's athlete has had no rollup marked yet, so no Activity of theirs is missing from their rollups.
+            .param("rollupVersion", ROLLUP_VERSION)
             .update()
+    }
+
+    /**
+     * Marks [userId]'s rollups stale, so the recompute worker rebuilds them in full and the before-commit rollup leaves
+     * them alone until it has. Takes the scoring lock first, as [requestRecompute] does, so it never waits on a row
+     * while a writer that holds the scoring lock waits on it.
+     */
+    fun markRollupsStale(userId: Long) {
+        advisoryLock("pg_advisory_xact_lock", userId)
+        jdbcClient
+            .sql(
+                """
+                INSERT INTO athlete_analytics_state (user_id, rollup_version) VALUES (:userId, 0)
+                ON CONFLICT (user_id) DO UPDATE SET rollup_version = 0
+                """.trimIndent(),
+            ).param("userId", userId)
+            .update()
+    }
+
+    /**
+     * Takes [userId]'s rollup lock until the transaction ends (ADR-0016): the last lock any transaction takes, only
+     * before commit, so its holder never waits on another lock while holding it.
+     */
+    fun lockRollups(userId: Long) {
+        jdbcClient
+            .sql("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))")
+            .param("key", "$ROLLUP_LOCK_NAMESPACE:$userId")
+            .query { _, _ -> }
+            .list()
+    }
+
+    /**
+     * The version [userId]'s stored rollups were computed at, or null when they have no state row (an athlete who
+     * joined after rollups existed and has had none marked). With [forUpdate], the row stays locked to commit, so a
+     * concurrent time-zone change cannot mark it stale between a rebuild's read and its [setRollupVersion].
+     */
+    fun findRollupVersion(
+        userId: Long,
+        forUpdate: Boolean = false,
+    ): Int? =
+        jdbcClient
+            .sql("SELECT rollup_version FROM athlete_analytics_state WHERE user_id = :userId" + if (forUpdate) " FOR UPDATE" else "")
+            .param("userId", userId)
+            .query { rs, _ -> rs.getInt("rollup_version") }
+            .optional()
+            .orElse(null)
+
+    /** Records that [userId]'s rollups are now current at [version], inserting their state row if they have none. */
+    fun setRollupVersion(
+        userId: Long,
+        version: Int = ROLLUP_VERSION,
+    ) {
+        jdbcClient
+            .sql(
+                """
+                INSERT INTO athlete_analytics_state (user_id, rollup_version) VALUES (:userId, :version)
+                ON CONFLICT (user_id) DO UPDATE SET rollup_version = EXCLUDED.rollup_version
+                """.trimIndent(),
+            ).param("userId", userId)
+            .param("version", version)
+            .update()
+    }
+
+    /**
+     * Records [userId]'s rollups as current, unless a state row already exists: then a concurrent writer either set it
+     * current, or a time-zone change marked it stale, and that must stand.
+     */
+    fun insertRollupVersionIfAbsent(userId: Long) {
+        jdbcClient
+            .sql(
+                "INSERT INTO athlete_analytics_state (user_id, rollup_version) VALUES (:userId, :version) ON CONFLICT (user_id) DO NOTHING",
+            ).param("userId", userId)
+            .param("version", ROLLUP_VERSION)
+            .update()
+    }
+
+    /**
+     * Athletes whose rollups are stale (below [ROLLUP_VERSION]), in id order, after [afterUserId]: every athlete's, or
+     * only those of [onlyUserIds]. An athlete without a state row is not stale: V22 gave every athlete who existed then a
+     * row, so a missing one means no Activity of theirs has been written since, and the first write that is rebuilds
+     * their rollups in full before it commits.
+     */
+    fun findStaleRollups(
+        afterUserId: Long,
+        limit: Int,
+        onlyUserIds: Collection<Long>? = null,
+    ): List<Long> {
+        if (onlyUserIds != null && onlyUserIds.isEmpty()) return emptyList()
+        val userFilter = if (onlyUserIds == null) "" else "AND s.user_id IN (:userIds)"
+        return jdbcClient
+            .sql(
+                """
+                SELECT s.user_id FROM athlete_analytics_state s
+                WHERE s.rollup_version < :version AND s.user_id > :afterId $userFilter
+                ORDER BY s.user_id
+                LIMIT :limit
+                """.trimIndent(),
+            ).param("version", ROLLUP_VERSION)
+            .param("afterId", afterUserId)
+            .param("limit", limit)
+            .apply { if (onlyUserIds != null) param("userIds", onlyUserIds.distinct()) }
+            .query { rs, _ -> rs.getLong("user_id") }
+            .list()
     }
 
     /** The pending requests, in athlete id order: every athlete's, or only those of [onlyUserIds]. */
@@ -131,5 +236,8 @@ class AthleteAnalyticsStateRepository(
     private companion object {
         /** Prefixes the scoring lock's key, distinct from every other advisory lock's prefix. */
         const val SCORING_LOCK_NAMESPACE = "training_load_scoring"
+
+        /** Prefixes the rollup lock's key (ADR-0016). */
+        const val ROLLUP_LOCK_NAMESPACE = "athlete_rollup"
     }
 }
