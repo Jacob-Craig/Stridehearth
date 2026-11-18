@@ -43,8 +43,9 @@ data class RecomputeResult(
  *    existed), and the **Recompute** of rows an older algorithm version wrote ([DERIVED_DATA_VERSION]).
  * 3. The full rebuild of athlete rollups that are stale ([ROLLUP_VERSION]: never built, built by an older version, or
  *    marked stale by a time-zone change), one athlete per transaction under their rollup lock (ADR-0016). It runs
- *    only once the first two stages have caught up within the run. An athlete whose rebuild fails is logged and
- *    backed off like a failed Activity.
+ *    only once the first two stages have caught up within the run; stage 2's Activities that are backed off after
+ *    failing are passed over without counting as pages, so they cannot keep it from being reached. An athlete whose
+ *    rebuild fails is logged and backed off like a failed Activity.
  *
  * It is always present, so tests call [drain] directly; [DerivedDataRecomputeSchedule] runs it periodically.
  *
@@ -113,7 +114,8 @@ class DerivedDataRecomputeWorker(
      * once, stopping where it started. So Activities that keep failing are retried once per pass over all the
      * candidates, rather than at the start of every run, where enough of them would use up every run's pages and
      * keep the Activities after them from ever being reached. An Activity that failed less than [FAILED_RETRY_AFTER]
-     * before [now] is passed over without being analysed or logged again.
+     * before [now] is passed over without being analysed or logged again, and a page holding only such Activities
+     * does not count against [maxPages].
      *
      * @throws PessimisticLockingFailureException when a page still loses its lock race after [LOCK_ATTEMPTS]
      *   tries; the pages before it stay committed, and the next run resumes.
@@ -149,10 +151,13 @@ class DerivedDataRecomputeWorker(
                 afterId = 0L
                 continue
             }
+            // A page of Activities that are all backed off does no work, so it costs no page: otherwise enough
+            // failures would use up every run's pages and the scan would never finish, nor reach stage 3.
+            val anyDue = candidates.any { !failedAt.containsKey(it) }
             tally.recomputed += runPage(candidates, afterId, now, tally, ::recomputePage)
             afterId = candidates.last()
             resumeAfterId = afterId
-            tally.pages++
+            if (anyDue) tally.pages++
         }
         return tally.result()
     }
