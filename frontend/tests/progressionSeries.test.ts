@@ -6,6 +6,7 @@ import type {
 import {
   defaultBenchmark,
   progressionSteps,
+  progressionTickLabels,
 } from '../src/features/pr-progression/progressionSeries';
 
 const step = (activityId: number, startedAt: string, seconds: number): PersonalRecordStepDto => ({
@@ -65,5 +66,28 @@ describe('progressionSteps', () => {
 
   it('is empty without records', () => {
     expect(progressionSteps([], mar * 1000)).toEqual({ x: [], y: [] });
+  });
+});
+
+describe('progressionTickLabels', () => {
+  const at = (iso: string) => Date.parse(iso) / 1000;
+
+  it('labels month ticks in the zone uPlot placed them in, not UTC', () => {
+    // uPlot puts month ticks at local midnight: 1 Mar in Berlin is 28 Feb 23:00 UTC.
+    const ticks = [at('2026-01-31T23:00:00Z'), at('2026-02-28T23:00:00Z')];
+    expect(progressionTickLabels(ticks, 'Europe/Berlin')).toEqual(['Feb 2026', 'Mar 2026']);
+  });
+
+  it('labels ticks under a month apart by day', () => {
+    const ticks = [
+      at('2026-11-02T00:00:00Z'),
+      at('2026-11-09T00:00:00Z'),
+      at('2026-11-16T00:00:00Z'),
+    ];
+    expect(progressionTickLabels(ticks, 'UTC')).toEqual(['2 Nov', '9 Nov', '16 Nov']);
+  });
+
+  it('labels a lone tick by month', () => {
+    expect(progressionTickLabels([at('2026-03-01T00:00:00Z')], 'UTC')).toEqual(['Mar 2026']);
   });
 });
