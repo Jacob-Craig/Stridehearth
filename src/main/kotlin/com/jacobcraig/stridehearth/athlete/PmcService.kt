@@ -4,6 +4,7 @@ import com.jacobcraig.stridehearth.analytics.PmcCalculator
 import com.jacobcraig.stridehearth.analytics.PmcDay
 import com.jacobcraig.stridehearth.analytics.PmcSeed
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDate
 import java.time.ZoneId
@@ -36,8 +37,11 @@ class PmcService(
     /**
      * [userId]'s chart for each day from [from] (default and floor: their first scored day) to [to] (default and cap:
      * [today] in their zone), ascending and dense. Empty without a scored Activity.
+     *
+     * Read from one snapshot: under READ COMMITTED a rollup committing between the bounds and the rows could remove a
+     * day the later reads rely on.
      */
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     fun series(
         userId: Long,
         from: LocalDate?,

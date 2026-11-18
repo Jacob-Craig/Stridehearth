@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
-import java.time.Instant
+import java.time.Clock
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
 
@@ -23,6 +23,7 @@ import java.time.format.DateTimeParseException
 class PmcApiController(
     private val pmcService: PmcService,
     private val athleteTimeZone: AthleteTimeZone,
+    private val clock: Clock,
 ) {
     @GetMapping
     @Operation(
@@ -51,7 +52,7 @@ class PmcApiController(
         val toDay = parseDate(to, "to", errors)
         if (errors.isEmpty() && fromDay != null && toDay != null && fromDay > toDay) errors["from"] = "Must not be after to"
         if (errors.isNotEmpty()) throw RequestValidationException(errors)
-        val today = athleteTimeZone.localDate(currentUser.id, Instant.now())
+        val today = athleteTimeZone.localDate(currentUser.id, clock.instant())
         return pmcService.series(currentUser.id, fromDay, toDay, today).toDTO()
     }
 

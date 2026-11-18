@@ -17,21 +17,29 @@ import org.hamcrest.Matchers.nullValue
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.any
+import org.mockito.kotlin.doAnswer
+import org.mockito.kotlin.whenever
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.context.annotation.Import
+import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.test.context.support.TestExecutionEvent
 import org.springframework.security.test.context.support.WithAnonymousUser
 import org.springframework.security.test.context.support.WithUserDetails
+import org.springframework.test.context.bean.override.convention.TestBean
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+import java.util.concurrent.CompletableFuture
 import kotlin.math.exp
 
 /**
@@ -45,6 +53,16 @@ import kotlin.math.exp
 class PmcApiIntegrationTest {
     @MockitoSpyBean
     private lateinit var fitActivityParser: FitActivityParser
+
+    @MockitoSpyBean
+    private lateinit var dailyLoadRollup: DailyLoadRollup
+
+    /** Today is fixed, so a run that crosses midnight cannot see one day in the test and another in the controller. */
+    @TestBean
+    private lateinit var clock: Clock
+
+    @Autowired
+    private lateinit var jdbcClient: JdbcClient
 
     @Autowired
     private lateinit var mockMvc: MockMvc
@@ -121,7 +139,7 @@ class PmcApiIntegrationTest {
         )
     }
 
-    private val today: LocalDate get() = LocalDate.now(ZoneOffset.UTC)
+    private val today: LocalDate = LocalDate.ofInstant(NOW, ZoneOffset.UTC)
 
     @Test
     @WithAnonymousUser
@@ -214,5 +232,51 @@ class PmcApiIntegrationTest {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.firstDay").value(nullValue()))
             .andExpect(jsonPath("$.days", hasSize<Any>(0)))
+    }
+
+    @Test
+    fun `today is the clock's date in the athlete's zone`() {
+        importHour(today.minusDays(2))
+
+        mockMvc
+            .perform(get("/api/athlete/pmc"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.days", hasSize<Any>(3)))
+            .andExpect(jsonPath("$.days[2].date").value(today.toString()))
+    }
+
+    @Test
+    fun `the series is read from one snapshot, so a rollup committing mid-read cannot fail the request`() {
+        val first = today.minusDays(10)
+        importHour(first)
+        importHour(first.plusDays(5))
+        val userId = runner.id!!
+        // After the bounds are read, another transaction cuts the stored series back to the first day and commits, as
+        // the rollup does when the athlete's last Activity is deleted.
+        doAnswer { invocation ->
+            val bounds = invocation.callRealMethod()
+            CompletableFuture
+                .runAsync {
+                    jdbcClient
+                        .sql("DELETE FROM athlete_daily_metrics WHERE user_id = :u AND day > :d")
+                        .param("u", userId)
+                        .param("d", first)
+                        .update()
+                }.join()
+            bounds
+        }.whenever(dailyLoadRollup).findMetricsBounds(any())
+
+        mockMvc
+            .perform(get("/api/athlete/pmc"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.days", hasSize<Any>(11)))
+            .andExpect(jsonPath("$.days[10].date").value(today.toString()))
+    }
+
+    companion object {
+        private val NOW: Instant = Instant.parse("2026-03-30T12:00:00Z")
+
+        @JvmStatic
+        fun clock(): Clock = Clock.fixed(NOW, ZoneOffset.UTC)
     }
 }
