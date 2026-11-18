@@ -17,6 +17,6 @@ The Threshold as-of lookup is per kind: the latest entry with `effective_date` o
 
 ## Consequences
 
-- An athlete who never opens the SPA after this change stays on UTC until they do; a time-zone change later is a full recompute of their athlete-local data, which the event lets later issues schedule.
+- An athlete who never opens the SPA after this change stays on UTC until they do; a time-zone change later is a full recompute of their athlete-local data.
 - Only region ids are accepted: PostgreSQL reads a bare offset such as `+02:00` with the POSIX sign, the other way round.
-- Threshold and time-zone events have no subscriber that recomputes anything yet; Training Load (#35) and the daily rollups (#36) subscribe. The only listener today withdraws pending Threshold Proposals that a newly recorded value already matches within 3%.
+- Both events have subscribers inside the writing transaction, so what they schedule commits or rolls back with the change. `RecomputeRequestListener` turns `ThresholdsChanged` into a durable request to recompute the Training Load (#35) of the athlete's Activities dated on or after `affectedFrom` (all of them when it is null). It turns `AthleteTimeZoneChanged` into a request covering all of them, and marks the athlete's daily rollups (#36) stale for a full rebuild (ADR-0016). `DerivedDataRecomputeWorker` serves both in the background (ADR-0014). `ThresholdProposals` also listens to `ThresholdsChanged`: it withdraws pending Threshold Proposals that the value now in force already matches within 3%.
