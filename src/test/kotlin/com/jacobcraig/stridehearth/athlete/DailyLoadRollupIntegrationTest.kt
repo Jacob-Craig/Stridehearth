@@ -29,6 +29,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean
 import org.springframework.transaction.support.TransactionTemplate
+import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import java.util.concurrent.Executors
@@ -79,6 +80,9 @@ class DailyLoadRollupIntegrationTest {
 
     @Autowired
     private lateinit var transactionTemplate: TransactionTemplate
+
+    @Autowired
+    private lateinit var clock: Clock
 
     private lateinit var runner: User
     private lateinit var otherRunner: User
@@ -278,6 +282,29 @@ class DailyLoadRollupIntegrationTest {
 
         assertEquals(listOf(day("2026-07-11")), loads().map { it.day }, "23:30Z is 00:30 the next day in British Summer Time")
         assertEquals(listOf(day("2026-07-10")), loads(otherRunner).map { it.day }, "an athlete without a zone counts in UTC")
+    }
+
+    @Test
+    fun `setting the time zone of an athlete without Activities leaves their rollups current, so their first import builds them`() {
+        athleteTimeZone.set(runner.id!!, "Europe/London")
+
+        import(march(10))
+
+        assertEquals(listOf(day("2026-03-10")), loads().map { it.day }, "built before commit, without waiting for the worker")
+        assertEquals(listOf(day("2026-03-10")), metrics().map { it.day })
+    }
+
+    @Test
+    fun `the chart stops at the athlete's today however far ahead an Activity is dated`() {
+        import(march(10))
+        import("2999-01-01T08:00:00Z")
+        val today = LocalDate.now(clock)
+
+        assertEquals(day("2999-01-01"), loads().last().day, "the future day's load is kept, for the chart to read once it comes")
+        val stored = dailyLoadRollup.findMetricsBounds(runner.id!!)!!
+        assertEquals(day("2026-03-10"), stored.first)
+        assertTrue(stored.second == today || stored.second == today.minusDays(1), "capped at today, not ${stored.second}")
+        assertMatchesRebuild()
     }
 
     @Test

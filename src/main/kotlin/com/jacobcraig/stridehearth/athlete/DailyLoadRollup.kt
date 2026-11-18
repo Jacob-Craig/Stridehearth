@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Component
 import java.sql.Date
 import java.sql.Types
+import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -39,11 +40,14 @@ data class DailyMetrics(
 class DailyLoadRollup(
     private val jdbcClient: JdbcClient,
     private val jdbcTemplate: JdbcTemplate,
+    private val clock: Clock,
 ) {
     /**
      * Rebuilds [userId]'s Daily Loads and chart from the local day containing [from] onwards, or everything when it
-     * is null. The chart runs from the athlete's first scored day to their last day with an Activity; an athlete
-     * with no scored Activity has none.
+     * is null. The chart runs from the athlete's first scored day to their last day with an Activity, but never past
+     * their today: one Activity dated years ahead would otherwise make every later write rewrite each day up to it.
+     * [PmcService] continues the chart from the stored Daily Loads, so a future day's load counts once that day comes.
+     * An athlete with no scored Activity up to today has none.
      */
     fun recomputeFrom(
         userId: Long,
@@ -58,7 +62,12 @@ class DailyLoadRollup(
             jdbcClient.sql("DELETE FROM athlete_daily_metrics WHERE user_id = :u").param("u", userId).update()
             return
         }
-        val (firstDay, lastDay) = bounds
+        val firstDay = bounds.first
+        val lastDay = minOf(bounds.second, LocalDate.now(clock.withZone(zone)))
+        if (firstDay > lastDay) {
+            jdbcClient.sql("DELETE FROM athlete_daily_metrics WHERE user_id = :u").param("u", userId).update()
+            return
+        }
         // Continue from the latest stored day before the affected one, or from the first scored day.
         val seedRow = if (fromDay == null || fromDay <= firstDay) null else latestMetricsBefore(userId, fromDay, firstDay)
         val start = seedRow?.day?.plusDays(1) ?: firstDay
