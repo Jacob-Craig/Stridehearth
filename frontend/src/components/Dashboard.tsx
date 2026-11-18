@@ -1,6 +1,10 @@
 import { Link } from '@tanstack/react-router';
 import type { PersonalRecordDto, PersonalRecordSlotDto } from '../api/generated/types.gen';
 import {
+  PersonalRecordProgression,
+  type ProgressionState,
+} from '../features/pr-progression/PersonalRecordProgression';
+import {
   averageSpeedKmh,
   formatDate,
   formatDistanceMeters,
@@ -10,9 +14,10 @@ import {
 
 interface DashboardProps {
   personalRecordSlots: readonly PersonalRecordSlotDto[];
+  progression: ProgressionState;
 }
 
-export function Dashboard({ personalRecordSlots }: DashboardProps) {
+export function Dashboard({ personalRecordSlots, progression }: DashboardProps) {
   return (
     <div className="space-y-8">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
@@ -58,6 +63,7 @@ export function Dashboard({ personalRecordSlots }: DashboardProps) {
             <PersonalRecordCard key={slot.benchmarkDistance} slot={slot} />
           ))}
         </div>
+        <PersonalRecordProgression progression={progression} />
       </section>
 
       <section aria-label="Training summaries and performance trends">

@@ -1,14 +1,23 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory } from '@tanstack/react-router';
 import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   DashboardResponseDto,
   PersonalRecordDto,
+  PersonalRecordProgressionResponseDto,
   PersonalRecordSlotDto,
+  PersonalRecordStepDto,
   UserResponseDto,
 } from '../src/api/generated/types.gen';
 import { createAppRouter } from '../src/router';
+import { stubColourScheme } from './support/colourScheme';
+import { progressionCharts } from './support/fakeProgressionChart';
+
+vi.mock('../src/features/pr-progression/progressionChart', () =>
+  import('./support/fakeProgressionChart').then((m) => m.fakeProgressionChartModule),
+);
 
 const BENCHMARKS: ReadonlyArray<
   Pick<PersonalRecordSlotDto, 'benchmarkDistance' | 'benchmarkName' | 'distanceMeters'>
@@ -40,14 +49,48 @@ const fiveKRecord: PersonalRecordDto = {
   elapsedTimeSeconds: 1200,
 };
 
+function progressionWith(
+  records: Partial<Record<PersonalRecordSlotDto['benchmarkDistance'], PersonalRecordStepDto[]>>,
+): PersonalRecordProgressionResponseDto {
+  return {
+    progressions: BENCHMARKS.map((b) => ({ ...b, records: records[b.benchmarkDistance] ?? [] })),
+  };
+}
+
+const step = (activityId: number, startedAt: string, seconds: number): PersonalRecordStepDto => ({
+  activityId,
+  activityTitle: `Record run ${activityId}`,
+  activityStartedAt: startedAt,
+  elapsedTimeSeconds: seconds,
+});
+
+const DASHBOARD_URL = '/api/dashboard';
+const PROGRESSION_URL = '/api/athlete/personal-record-progression';
+
 const runner: UserResponseDto = { id: 1, username: 'runner_bob', email: 'bob@example.com' };
 
-function stubDashboardApi(responses: ReadonlyArray<DashboardResponseDto | { status: number }>) {
+type Stubbed<T> = T | { status: number };
+
+/**
+ * Serves the Dashboard and the Personal Record Progression: each call to a URL takes the next of its
+ * responses, repeating the last.
+ */
+function stubDashboardApi(
+  responses: ReadonlyArray<Stubbed<DashboardResponseDto>>,
+  progressions: ReadonlyArray<Stubbed<PersonalRecordProgressionResponseDto>> = [
+    progressionWith({}),
+  ],
+) {
+  const served = { [DASHBOARD_URL]: 0, [PROGRESSION_URL]: 0 };
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     const url = typeof input === 'string' ? input : input.toString();
-    if (url !== '/api/dashboard') throw new Error(`Unexpected request to ${url}`);
-    const next = responses[Math.min(fetchMock.mock.calls.length - 1, responses.length - 1)];
-    if (next && 'status' in next) {
+    if (url !== DASHBOARD_URL && url !== PROGRESSION_URL) {
+      throw new Error(`Unexpected request to ${url}`);
+    }
+    const list: ReadonlyArray<Stubbed<object>> = url === DASHBOARD_URL ? responses : progressions;
+    const next = list[Math.min(served[url], list.length - 1)];
+    served[url]++;
+    if (next && 'status' in next && typeof next.status === 'number') {
       return new Response(JSON.stringify({ kind: 'BAD_REQUEST', message: 'Server exploded' }), {
         status: next.status,
         headers: { 'Content-Type': 'application/json' },
@@ -61,6 +104,9 @@ function stubDashboardApi(responses: ReadonlyArray<DashboardResponseDto | { stat
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
 }
+
+const callsTo = (fetchMock: ReturnType<typeof stubDashboardApi>, url: string) =>
+  fetchMock.mock.calls.filter(([input]) => String(input) === url).length;
 
 function renderApp(path: string, user: UserResponseDto, queryClient = newQueryClient()) {
   const history = createMemoryHistory({ initialEntries: [path] });
@@ -84,6 +130,7 @@ async function findCard(benchmarkName: string) {
 describe('Dashboard', () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
+    progressionCharts.reset();
   });
 
   afterEach(() => {
@@ -195,7 +242,8 @@ describe('Dashboard', () => {
     const card = await findCard('5k');
     await waitFor(() => expect(within(card).getByText(/no record yet/i)).toBeInTheDocument());
     expect(screen.queryByText('Fast 5k Race')).not.toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(callsTo(fetchMock, DASHBOARD_URL)).toBe(2);
+    expect(callsTo(fetchMock, PROGRESSION_URL)).toBe(2);
   });
 
   it('shows an error message when the dashboard cannot be loaded', async () => {
@@ -203,5 +251,118 @@ describe('Dashboard', () => {
     renderApp('/dashboard', runner);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/server exploded/i);
+  });
+
+  describe('Personal Record Progression', () => {
+    const progressionSection = () =>
+      screen.findByRole('region', { name: 'Personal Record Progression' });
+
+    it('shows an empty state and no chart when no Benchmark Distance has a record', async () => {
+      stubDashboardApi([dashboardWith({})], [progressionWith({})]);
+      renderApp('/dashboard', runner);
+
+      const section = await progressionSection();
+      expect(within(section).getByText('No records yet')).toBeInTheDocument();
+      expect(within(section).queryByRole('combobox')).not.toBeInTheDocument();
+      expect(progressionCharts.all).toHaveLength(0);
+      // It sits inside the Running Personal Records section.
+      expect(screen.getByRole('region', { name: 'Running Personal Records' })).toContainElement(
+        section,
+      );
+    });
+
+    it('opens on the longest distance with a record and steps down to today', async () => {
+      stubDashboardApi(
+        [dashboardWith({ FIVE_KILOMETERS: fiveKRecord })],
+        [
+          progressionWith({
+            ONE_KILOMETER: [step(7, '2026-01-05T08:00:00Z', 250)],
+            FIVE_KILOMETERS: [
+              step(1, '2026-01-01T08:00:00Z', 1600),
+              step(2, '2026-02-01T08:00:00Z', 1550),
+              step(3, '2026-03-01T08:00:00Z', 1500),
+            ],
+          }),
+        ],
+      );
+      const before = Date.now() / 1000;
+      renderApp('/dashboard', runner);
+
+      const section = await progressionSection();
+      expect(within(section).getByRole('combobox', { name: 'Benchmark Distance' })).toHaveValue(
+        'FIVE_KILOMETERS',
+      );
+      expect(
+        within(section)
+          .getAllByRole('option')
+          .map((o) => o.textContent),
+      ).toEqual(['1k', '5k']);
+      await waitFor(() => expect(progressionCharts.live()).toHaveLength(1));
+      const { points, recordCount } = progressionCharts.live()[0]!.options;
+      // 2026-01-01T08:00Z, 2026-02-01T08:00Z, 2026-03-01T08:00Z in epoch seconds, then today.
+      expect(points.x.slice(0, 3)).toEqual([1_767_254_400, 1_769_932_800, 1_772_352_000]);
+      expect(points.x[3]).toBeGreaterThanOrEqual(before);
+      expect(points.y).toEqual([1600, 1550, 1500, 1500]);
+      expect(recordCount).toBe(3);
+
+      const table = within(section).getByRole('table', { name: '5k Personal Record Progression' });
+      expect(within(table).getAllByRole('row')).toHaveLength(4);
+      expect(within(table).getByText('25:00')).toBeInTheDocument();
+      expect(within(table).getByRole('link', { name: 'Record run 3' })).toHaveAttribute(
+        'href',
+        '/activities/3',
+      );
+    });
+
+    it('redraws the chart for the Benchmark Distance the athlete selects', async () => {
+      stubDashboardApi(
+        [dashboardWith({})],
+        [
+          progressionWith({
+            ONE_KILOMETER: [step(7, '2026-01-05T08:00:00Z', 250)],
+            FIVE_KILOMETERS: [step(1, '2026-01-01T08:00:00Z', 1600)],
+          }),
+        ],
+      );
+      renderApp('/dashboard', runner);
+      const section = await progressionSection();
+      await waitFor(() => expect(progressionCharts.live()).toHaveLength(1));
+
+      await userEvent.selectOptions(
+        within(section).getByRole('combobox', { name: 'Benchmark Distance' }),
+        'ONE_KILOMETER',
+      );
+
+      await waitFor(() => expect(progressionCharts.live()[0]?.options.points.y[0]).toBe(250));
+      expect(progressionCharts.live()).toHaveLength(1);
+      expect(
+        within(section).getByRole('table', { name: '1k Personal Record Progression' }),
+      ).toBeInTheDocument();
+    });
+
+    it('draws in the dark palette when the system is dark', async () => {
+      stubColourScheme('dark');
+      stubDashboardApi(
+        [dashboardWith({})],
+        [progressionWith({ FIVE_KILOMETERS: [step(1, '2026-01-01T08:00:00Z', 1600)] })],
+      );
+      renderApp('/dashboard', runner);
+
+      await waitFor(() => expect(progressionCharts.live()).toHaveLength(1));
+      expect(progressionCharts.live()[0]!.options.theme).toBe('dark');
+    });
+
+    it('shows an error in its own card, and keeps the Personal Records, when the progression cannot be loaded', async () => {
+      stubDashboardApi([dashboardWith({})], [{ status: 500 }]);
+      renderApp('/dashboard', runner);
+
+      const section = await progressionSection();
+      const alert = await within(section).findByRole('alert');
+      expect(alert).toHaveTextContent(/progression could not be loaded/i);
+      expect(alert).toHaveTextContent(/server exploded/i);
+      expect(await findCard('5k')).toBeInTheDocument();
+      expect(screen.queryByText(/your dashboard could not be loaded/i)).not.toBeInTheDocument();
+      expect(progressionCharts.all).toHaveLength(0);
+    });
   });
 });

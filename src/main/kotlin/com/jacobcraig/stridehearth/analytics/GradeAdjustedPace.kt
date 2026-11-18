@@ -11,7 +11,7 @@ import com.jacobcraig.stridehearth.system.ActivitySport
  * `C(i) = 155.4 i^5 - 30.4 i^4 - 43.3 i^3 + 46.3 i^2 + 19.5 i + 3.6` J/(kg m) (Minetti et al. 2002) and `i`
  * is rise over run. It is used for Runs, Walks and Hikes alike.
  *
- * The grade of sample `k` is measured over a long baseline so that altitude noise cannot make hills (#51): it is
+ * The grade of sample `k` is measured over a long baseline so that altitude noise barely makes hills (#51; see ADR-0013 for the residual GPS-noise bias): it is
  * the slope between two **anchors**, the mean (distance, altitude) of the samples within half an anchor window of
  * `d[k] - GRADE_HALF_BASELINE_METERS` and of `d[k] + GRADE_HALF_BASELINE_METERS` of cleaned distance:
  * `grade = (altAhead - altBehind) / (dAhead - dBehind)`. For an Activity whose samples with altitude span `L` metres,

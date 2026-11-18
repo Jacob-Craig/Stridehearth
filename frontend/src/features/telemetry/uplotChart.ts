@@ -8,6 +8,7 @@ import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import type { ColorScheme } from '../../lib/colorScheme';
 import { formatDuration } from '../../lib/format';
+import { AXIS_PALETTE } from '../charts/chartTheme';
 import { BEST_EFFORT_HIGHLIGHT_COLOR } from './bestEffortHighlight';
 import { CHART_PLOT_HEIGHT_PX } from './chartLayout';
 import type { XySeries } from './lttb';
@@ -16,10 +17,6 @@ import type { ScrubbableChart } from './scrubberBus';
 import { readingAt, sensorDropouts } from './sensorDropouts';
 import type { ChartOverlay, ChartSeries } from './sensorStreams';
 
-const AXIS_PALETTE: Record<ColorScheme, { readonly axis: string; readonly grid: string }> = {
-  light: { axis: '#475569', grid: '#e2e8f0' },
-  dark: { axis: '#94a3b8', grid: '#1e293b' },
-};
 /** The **Best Effort** band is the highlight colour, translucent over the series. */
 const HIGHLIGHT_BAND_ALPHA = 0.22;
 

@@ -376,6 +376,44 @@ export type PendingInviteDto = {
     expiresAt: string;
 };
 
+export type BenchmarkProgressionDto = {
+    benchmarkDistance: 'FOUR_HUNDRED_METERS' | 'ONE_KILOMETER' | 'ONE_MILE' | 'FIVE_KILOMETERS' | 'TEN_KILOMETERS' | 'HALF_MARATHON';
+    benchmarkName: string;
+    distanceMeters: number;
+    records: Array<PersonalRecordStepDto>;
+};
+
+export type PersonalRecordProgressionResponseDto = {
+    progressions: Array<BenchmarkProgressionDto>;
+};
+
+export type PersonalRecordStepDto = {
+    activityId: number;
+    activityTitle: string;
+    activityStartedAt: string;
+    elapsedTimeSeconds: number;
+};
+
+export type PeakEffortDto = {
+    value: number;
+    activityId: number;
+    activityTitle: string;
+    activityStartedAt: string;
+};
+
+export type PeakEffortSlotDto = {
+    benchmarkDuration: 'FIVE_SECONDS' | 'FIFTEEN_SECONDS' | 'THIRTY_SECONDS' | 'ONE_MINUTE' | 'TWO_MINUTES' | 'THREE_MINUTES' | 'FIVE_MINUTES' | 'TEN_MINUTES' | 'TWENTY_MINUTES' | 'THIRTY_MINUTES' | 'SIXTY_MINUTES';
+    durationSeconds: number;
+    recent: PeakEffortDto | null;
+    allTime: PeakEffortDto | null;
+};
+
+export type PeakEffortsResponseDto = {
+    windowDays: number;
+    pace: Array<PeakEffortSlotDto>;
+    power: Array<PeakEffortSlotDto>;
+};
+
 export type PagedResponseDtoActivitySummaryDto = {
     items: Array<ActivitySummaryDto>;
     page: number;
@@ -1390,6 +1428,56 @@ export type InviteStatusResponses = {
 };
 
 export type InviteStatusResponse = InviteStatusResponses[keyof InviteStatusResponses];
+
+export type GetPersonalRecordProgressionData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/athlete/personal-record-progression';
+};
+
+export type GetPersonalRecordProgressionErrors = {
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type GetPersonalRecordProgressionError = GetPersonalRecordProgressionErrors[keyof GetPersonalRecordProgressionErrors];
+
+export type GetPersonalRecordProgressionResponses = {
+    /**
+     * The authenticated athlete's running Personal Record Progression
+     */
+    200: PersonalRecordProgressionResponseDto;
+};
+
+export type GetPersonalRecordProgressionResponse = GetPersonalRecordProgressionResponses[keyof GetPersonalRecordProgressionResponses];
+
+export type GetPeakEffortsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/athlete/peak-efforts';
+};
+
+export type GetPeakEffortsErrors = {
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type GetPeakEffortsError = GetPeakEffortsErrors[keyof GetPeakEffortsErrors];
+
+export type GetPeakEffortsResponses = {
+    /**
+     * The authenticated athlete's best running Peak Efforts
+     */
+    200: PeakEffortsResponseDto;
+};
+
+export type GetPeakEffortsResponse = GetPeakEffortsResponses[keyof GetPeakEffortsResponses];
 
 export type GetActivityTelemetryData = {
     body?: never;
