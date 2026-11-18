@@ -1,10 +1,6 @@
 import { Link } from '@tanstack/react-router';
-import type {
-  PersonalRecordDto,
-  PersonalRecordSlotDto,
-  PmcResponseDto,
-} from '../api/generated/types.gen';
-import { PmcPanel } from '../features/pmc/PmcPanel';
+import type { PersonalRecordDto, PersonalRecordSlotDto } from '../api/generated/types.gen';
+import { PmcPanel, type PmcQueryState } from '../features/pmc/PmcPanel';
 import {
   averageSpeedKmh,
   formatDate,
@@ -15,7 +11,7 @@ import {
 
 interface DashboardProps {
   personalRecordSlots: readonly PersonalRecordSlotDto[];
-  pmc: PmcResponseDto;
+  pmc: PmcQueryState;
 }
 
 export function Dashboard({ personalRecordSlots, pmc }: DashboardProps) {

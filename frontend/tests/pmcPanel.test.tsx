@@ -5,6 +5,7 @@ import {
   createRouter,
 } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PmcResponseDto } from '../src/api/generated/types.gen';
 import { PmcPanel } from '../src/features/pmc/PmcPanel';
@@ -16,13 +17,22 @@ vi.mock('../src/features/pmc/pmcChart', () =>
 );
 
 /** Renders the panel inside a router, since its empty state links to the settings page. */
-function renderPanel(pmc: PmcResponseDto) {
-  const rootRoute = createRootRoute({ component: () => <PmcPanel pmc={pmc} /> });
+function renderPanel(pmc: PmcResponseDto | undefined, { isError = false } = {}) {
+  let replace: (next: PmcResponseDto) => void = () => {};
+  function Panel() {
+    const [data, setData] = useState(pmc);
+    replace = setData;
+    return <PmcPanel pmc={{ data, isError }} />;
+  }
+  const rootRoute = createRootRoute({ component: Panel });
   const router = createRouter({
     routeTree: rootRoute,
     history: createMemoryHistory({ initialEntries: ['/'] }),
   });
-  return render(<RouterProvider router={router} />);
+  const rendered = render(<RouterProvider router={router} />);
+  /** Swaps in a refetched PMC, as after the Dashboard is invalidated. */
+  const refetched = (next: PmcResponseDto) => act(() => replace(next));
+  return { ...rendered, refetched };
 }
 
 async function liveChart() {
@@ -161,5 +171,45 @@ describe('Performance Management Chart panel', () => {
     await waitFor(() => expect(chart.setTheme).toHaveBeenLastCalledWith('light'));
     expect(renderedPmcCharts.charts).toHaveLength(1);
     expect(chart.destroy).not.toHaveBeenCalled();
+  });
+
+  it('moves the chart to a range picked between its creation and the first render that sees it', async () => {
+    renderedPmcCharts.onCreate = () =>
+      queueMicrotask(() => fireEvent.click(screen.getByRole('button', { name: '1 year' })));
+    renderPanel(pmcSeries(400));
+    const chart = await liveChart();
+
+    expect(chart.options.range).toBe('90d');
+    await waitFor(() => expect(chart.setRange).toHaveBeenLastCalledWith('1y'));
+    expect(screen.getByRole('button', { name: '1 year' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('keeps the readout out of the live announcements, since it changes on every pointer move', async () => {
+    renderPanel(pmcSeries(3));
+    await liveChart();
+
+    expect(readout()).toHaveAttribute('aria-live', 'off');
+  });
+
+  it('clears the readout when a refetched series redraws the chart', async () => {
+    const { refetched } = renderPanel(pmcSeries(3));
+    const first = await liveChart();
+    act(() => first.options.onHover(1));
+    expect(readout()).not.toHaveTextContent('Hover the chart to read a day');
+
+    refetched(pmcSeries(4));
+
+    await waitFor(() => expect(first.destroy).toHaveBeenCalled());
+    await liveChart();
+    expect(readout()).toHaveTextContent('Hover the chart to read a day');
+  });
+
+  it('says the chart could not be displayed when the PMC could not be loaded', async () => {
+    renderPanel(undefined, { isError: true });
+
+    const panel = await screen.findByRole('region', { name: 'Performance Management Chart' });
+    expect(within(panel).getByText('This chart could not be displayed.')).toBeVisible();
+    expect(within(panel).queryByRole('button', { name: '90 days' })).not.toBeInTheDocument();
+    expect(renderedPmcCharts.charts).toHaveLength(0);
   });
 });

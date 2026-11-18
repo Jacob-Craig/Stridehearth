@@ -21,8 +21,11 @@ export const renderedPmcCharts = {
   live(): FakePmcChart[] {
     return this.charts.filter((chart) => chart.destroy.mock.calls.length === 0);
   },
+  /** Called with each chart just after it is created. */
+  onCreate: undefined as ((chart: FakePmcChart) => void) | undefined,
   reset() {
     this.charts.length = 0;
+    this.onCreate = undefined;
   },
 };
 
@@ -30,6 +33,7 @@ export const fakePmcChartModule = {
   createPmcChart(options: PmcChartOptions): FakePmcChart {
     const chart = { options, setRange: vi.fn(), setTheme: vi.fn(), destroy: vi.fn() };
     renderedPmcCharts.charts.push(chart);
+    renderedPmcCharts.onCreate?.(chart);
     return chart;
   },
 };

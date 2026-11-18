@@ -14,21 +14,28 @@ type PmcChartModule = typeof import('./pmcChart');
 
 const HEADING_ID = 'pmc-heading';
 const NO_DAY = 'Hover the chart to read a day’s values.';
+const CHART_FAILED = 'This chart could not be displayed.';
+
+/** The PMC query as the panel sees it: a failure stays inside the panel instead of failing the Dashboard. */
+export interface PmcQueryState {
+  readonly data: PmcResponseDto | undefined;
+  readonly isError: boolean;
+}
 
 interface PmcPanelProps {
-  readonly pmc: PmcResponseDto;
+  readonly pmc: PmcQueryState;
 }
 
 /**
  * The athlete's **Performance Management Chart** on the Dashboard. The whole series is loaded once; the
  * range picker only changes what the chart shows, so it never refetches.
  */
-export function PmcPanel({ pmc }: PmcPanelProps) {
+export function PmcPanel({ pmc: { data: pmc, isError } }: PmcPanelProps) {
   const [range, setRange] = useState<PmcRange>(DEFAULT_PMC_RANGE);
   // The range the chart is created with; later picks move the live chart in place.
   const latestRange = useRef(range);
   const chart = useRef<PmcChartHandle | null>(null);
-  const empty = pmc.days.length === 0;
+  const empty = pmc?.days.length === 0;
 
   const pick = (next: PmcRange) => {
     latestRange.current = next;
@@ -45,7 +52,7 @@ export function PmcPanel({ pmc }: PmcPanelProps) {
         <h2 id={HEADING_ID} className="text-lg font-bold">
           Performance Management Chart
         </h2>
-        {!empty && (
+        {pmc && !empty && (
           <fieldset className="flex gap-1 text-sm font-medium">
             <legend className="sr-only">Range</legend>
             {PMC_RANGES.map((option) => (
@@ -66,7 +73,13 @@ export function PmcPanel({ pmc }: PmcPanelProps) {
           </fieldset>
         )}
       </div>
-      {empty ? <EmptyPmc /> : <PmcChart pmc={pmc} latestRange={latestRange} liveChartRef={chart} />}
+      {pmc === undefined ? (
+        isError && <p className="text-sm text-slate-500 dark:text-slate-400">{CHART_FAILED}</p>
+      ) : empty ? (
+        <EmptyPmc />
+      ) : (
+        <PmcChart pmc={pmc} latestRange={latestRange} liveChartRef={chart} />
+      )}
     </section>
   );
 }
@@ -124,19 +137,22 @@ function PmcChart({ pmc, latestRange, liveChartRef }: PmcChartProps) {
             if (readout.current) readout.current.textContent = day ? formatPmcReadout(day) : NO_DAY;
           },
         });
-        return { handle, unmount: () => handle.destroy() };
+        // Published at once, not after the next render, so a range picked in between still moves it.
+        liveChartRef.current = handle;
+        return {
+          handle,
+          unmount: () => {
+            if (liveChartRef.current === handle) liveChartRef.current = null;
+            handle.destroy();
+            // The day under the cursor belonged to this chart's series, which a redraw may replace.
+            if (readout.current) readout.current.textContent = NO_DAY;
+          },
+        };
       },
-    [days, latestRange],
+    [days, latestRange, liveChartRef],
   );
   const chart = useLazyRenderer(loadPmcChart, mount);
   const liveChart = chart.kind === 'ready' ? chart.handle : null;
-
-  useEffect(() => {
-    liveChartRef.current = liveChart;
-    return () => {
-      liveChartRef.current = null;
-    };
-  }, [liveChart, liveChartRef]);
   useEffect(() => {
     liveChart?.setTheme(theme);
   }, [liveChart, theme]);
@@ -148,6 +164,8 @@ function PmcChart({ pmc, latestRange, liveChartRef }: PmcChartProps) {
     <div className="space-y-2">
       <output
         aria-label="Day under the cursor"
+        // Rewritten on every pointer move, so it is read on demand rather than announced.
+        aria-live="off"
         ref={readout}
         // Reserves two lines so a long reading wrapping on a phone does not shift the chart.
         className="block min-h-10 text-sm tabular-nums text-slate-600 dark:text-slate-300"
@@ -155,9 +173,7 @@ function PmcChart({ pmc, latestRange, liveChartRef }: PmcChartProps) {
         {NO_DAY}
       </output>
       {chart.kind === 'failed' && (
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          This chart could not be displayed.
-        </p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">{CHART_FAILED}</p>
       )}
       <Pane
         paneRef={fitness}

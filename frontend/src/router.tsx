@@ -122,7 +122,9 @@ export const dashboardRoute = createRoute({
     const queries = dashboardQueries(context.user.id);
     return Promise.all([
       context.queryClient.ensureQueryData(queries.dashboard),
-      context.queryClient.ensureQueryData(queries.pmc),
+      // Prefetched so the chart draws with the page, but never awaited into a failure: a PMC that
+      // cannot be loaded shows its error inside its own panel.
+      context.queryClient.prefetchQuery(queries.pmc),
     ]);
   },
   component: DashboardRoute,

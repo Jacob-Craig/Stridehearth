@@ -65,22 +65,23 @@ const json = (body: unknown) =>
 const requestsTo = (fetchMock: ReturnType<typeof vi.fn>, url: string) =>
   fetchMock.mock.calls.filter(([input]) => String(input) === url).length;
 
+const failure = (status: number) =>
+  new Response(JSON.stringify({ kind: 'BAD_REQUEST', message: 'Server exploded' }), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
 function stubDashboardApi(
   responses: ReadonlyArray<DashboardResponseDto | { status: number }>,
-  pmc: PmcResponseDto = NO_PMC,
+  pmc: PmcResponseDto | { status: number } = NO_PMC,
 ) {
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
     const url = typeof input === 'string' ? input : input.toString();
-    if (url === '/api/athlete/pmc') return json(pmc);
+    if (url === '/api/athlete/pmc') return 'status' in pmc ? failure(pmc.status) : json(pmc);
     if (url !== '/api/dashboard') throw new Error(`Unexpected request to ${url}`);
     const call = requestsTo(fetchMock, '/api/dashboard') - 1;
     const next = responses[Math.min(call, responses.length - 1)];
-    if (next && 'status' in next) {
-      return new Response(JSON.stringify({ kind: 'BAD_REQUEST', message: 'Server exploded' }), {
-        status: next.status,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
+    if (next && 'status' in next) return failure(next.status);
     return json(next);
   });
   vi.stubGlobal('fetch', fetchMock);
@@ -263,5 +264,18 @@ describe('Dashboard', () => {
     renderApp('/dashboard', runner);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/server exploded/i);
+  });
+
+  it('still shows the Personal Records when only the PMC cannot be loaded', async () => {
+    stubDashboardApi([dashboardWith({ FIVE_KILOMETERS: fiveKRecord })], { status: 500 });
+    renderApp('/dashboard', runner);
+
+    const panel = await screen.findByRole('region', { name: 'Performance Management Chart' });
+    await waitFor(() =>
+      expect(within(panel).getByText('This chart could not be displayed.')).toBeVisible(),
+    );
+    expect(screen.getAllByRole('article')).toHaveLength(6);
+    expect(screen.getByRole('link', { name: 'Fast 5k Race' })).toBeVisible();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });
