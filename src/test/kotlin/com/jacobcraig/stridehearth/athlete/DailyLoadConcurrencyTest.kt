@@ -39,7 +39,7 @@ import kotlin.test.assertTrue
 /**
  * The daily rollup under concurrent writers for one athlete (#36, ADR-0016): concurrent imports, including a file
  * holding a Ride and a Run against a concurrent Run import, and a concurrent delete, never deadlock, and leave the
- * same Daily Loads and chart as the same changes made one after another.
+ * same Daily Loads and chart, and the same Critical Speed models (#39), as the same changes made one after another.
  */
 @SpringBootTest
 @Import(TestcontainersConfiguration::class)
@@ -64,6 +64,12 @@ class DailyLoadConcurrencyTest {
 
     @Autowired
     private lateinit var athleteTimeZone: AthleteTimeZone
+
+    @Autowired
+    private lateinit var criticalSpeedRollup: CriticalSpeedRollup
+
+    @Autowired
+    private lateinit var criticalSpeedModels: CriticalSpeedModelRepository
 
     @Autowired
     private lateinit var stateRepository: AthleteAnalyticsStateRepository
@@ -156,6 +162,15 @@ class DailyLoadConcurrencyTest {
             snapshot(owner).also { status.setRollbackOnly() }
         }!!
 
+    /** [owner]'s stored Critical Speed models (#39), and what a from-scratch refit stores, rolled back. */
+    private fun criticalSpeed(owner: User) = criticalSpeedModels.findAll(owner.id!!)
+
+    private fun criticalSpeedRebuilt(owner: User) =
+        transactionTemplate.execute { status ->
+            criticalSpeedRollup.refit(owner.id!!, changedAt = null)
+            criticalSpeed(owner).also { status.setRollbackOnly() }
+        }!!
+
     @Test
     fun `a concurrent Import Batch and delete give the same result as a sequential one`() {
         listOf(concurrent, sequential).forEach { activityImportService.importParsed(listOf(deleted), it.id!!) }
@@ -188,6 +203,10 @@ class DailyLoadConcurrencyTest {
         assertEquals(LocalDate.parse("2026-04-27"), result.second.last().day)
         assertEquals(26, result.second.size, "one chart row per day")
         assertEquals(3, result.first.single { it.day == LocalDate.parse("2026-04-10") }.activityCount)
+        val models = criticalSpeed(concurrent)
+        assertEquals(criticalSpeed(sequential), models, "Critical Speed models (#39)")
+        assertEquals(criticalSpeedRebuilt(concurrent), models)
+        assertEquals(7, models.size, "one model per day with a Run")
     }
 
     @Test

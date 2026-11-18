@@ -77,6 +77,28 @@ class ThresholdProposals(
             .single()
     }
 
+    /**
+     * Withdraws [source]'s pending proposal for [userId]'s [kind], if there is one, because it no longer suggests a
+     * change. A dismissed one stays, so the athlete is still not offered that value again.
+     */
+    @Transactional
+    fun withdraw(
+        userId: Long,
+        kind: ThresholdKind,
+        source: String,
+    ) {
+        jdbcClient
+            .sql(
+                """
+                DELETE FROM athlete_threshold_proposal
+                WHERE user_id = :userId AND kind = :kind AND source = :source AND status = 'PENDING'
+                """.trimIndent(),
+            ).param("userId", userId)
+            .param("kind", kind.name)
+            .param("source", source)
+            .update()
+    }
+
     /** [userId]'s proposals awaiting a decision, oldest first. */
     @Transactional(readOnly = true)
     fun pending(userId: Long): List<ThresholdProposal> =
