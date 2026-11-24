@@ -34,6 +34,7 @@ import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -73,6 +74,9 @@ class DailyLoadConcurrencyTest {
 
     @Autowired
     private lateinit var stateRepository: AthleteAnalyticsStateRepository
+
+    @Autowired
+    private lateinit var thresholdProposals: ThresholdProposals
 
     @Autowired
     private lateinit var userRepository: UserRepository
@@ -275,5 +279,36 @@ class DailyLoadConcurrencyTest {
         manual.get(30, TimeUnit.SECONDS)
         assertEquals(listOf(LocalDate.parse("2026-07-11")), snapshot(concurrent).first.map { it.day }, "23:30Z is the 11th in London")
         assertEquals(ROLLUP_VERSION, stateRepository.findRollupVersion(concurrent.id!!))
+    }
+
+    @Test
+    fun `accepting a proposal while a writer holding the scoring lock rewrites it never deadlocks`() {
+        // The acceptor must take the exclusive scoring lock before it touches the proposal row (ADR-0016): the writer,
+        // which holds the shared side, then upserts the row, commits, and lets the acceptor through.
+        val userId = concurrent.id!!
+        val date = LocalDate.parse("2026-04-01")
+        val source = CriticalSpeedRollup.PROPOSAL_SOURCE
+        val proposal = assertNotNull(thresholdProposals.propose(userId, ThresholdKind.THRESHOLD_PACE, 4.0, date, source))
+        val holding = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val writerPid = java.util.concurrent.CompletableFuture<Int>()
+        val writer =
+            pool.submit {
+                transactionTemplate.execute {
+                    writerPid.complete(locks.currentBackendPid())
+                    stateRepository.lockScoringInputs(userId)
+                    holding.countDown()
+                    check(release.await(30, TimeUnit.SECONDS))
+                    thresholdProposals.propose(userId, ThresholdKind.THRESHOLD_PACE, 4.6, date, source)
+                }
+            }
+        assertTrue(holding.await(30, TimeUnit.SECONDS))
+
+        val accept = pool.submit<ThresholdEntry> { thresholdProposals.accept(userId, proposal.id) }
+        locks.awaitAdvisoryLockWaiter(excluding = setOf(writerPid.get()), ended = { accept.isDone })
+
+        release.countDown()
+        writer.get(30, TimeUnit.SECONDS)
+        assertEquals(4.0, accept.get(30, TimeUnit.SECONDS).value, 1e-9)
     }
 }

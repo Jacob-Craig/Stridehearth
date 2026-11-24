@@ -1,6 +1,8 @@
 package com.jacobcraig.stridehearth.athlete
 
 import org.springframework.context.event.EventListener
+import org.springframework.core.Ordered
+import org.springframework.core.annotation.Order
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -153,9 +155,12 @@ class ThresholdProposals(
 
     /**
      * When an athlete's Threshold changes, withdraws their pending proposals of that kind that the value now in force
-     * on the proposal's date already matches, within [SAME_VALUE_TOLERANCE]: there is nothing left to suggest.
+     * on the proposal's date already matches, within [SAME_VALUE_TOLERANCE]: there is nothing left to suggest. Runs
+     * after [RecomputeRequestListener] has taken the exclusive scoring lock, so it never holds a proposal row while
+     * waiting for that lock (ADR-0016).
      */
     @EventListener
+    @Order(Ordered.LOWEST_PRECEDENCE)
     fun onThresholdsChanged(event: ThresholdsChanged) {
         val history = athleteThresholds.history(event.userId)
         pending(event.userId)

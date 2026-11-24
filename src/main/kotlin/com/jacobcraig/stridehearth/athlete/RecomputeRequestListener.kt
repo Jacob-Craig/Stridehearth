@@ -1,6 +1,8 @@
 package com.jacobcraig.stridehearth.athlete
 
 import org.springframework.context.event.EventListener
+import org.springframework.core.Ordered
+import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 
 /**
@@ -12,8 +14,13 @@ import org.springframework.stereotype.Component
 class RecomputeRequestListener(
     private val stateRepository: AthleteAnalyticsStateRepository,
 ) {
-    /** Every Threshold kind feeds some Training Load Method, so any change recomputes from its affected date. */
+    /**
+     * Every Threshold kind feeds some Training Load Method, so any change recomputes from its affected date. Runs
+     * before every other listener, so the exclusive scoring lock is taken before any of them touches a row a
+     * before-commit rollup (holding the shared side) may write, such as a Threshold Proposal (ADR-0016).
+     */
     @EventListener
+    @Order(Ordered.HIGHEST_PRECEDENCE)
     fun onThresholdsChanged(event: ThresholdsChanged) = stateRepository.requestRecompute(event.userId, event.affectedFrom)
 
     /**
