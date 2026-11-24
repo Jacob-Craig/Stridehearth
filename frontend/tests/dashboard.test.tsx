@@ -74,6 +74,24 @@ const step = (activityId: number, startedAt: string, seconds: number): PersonalR
 const DASHBOARD_URL = '/api/dashboard';
 const PROGRESSION_URL = '/api/athlete/personal-record-progression';
 const PMC_URL = '/api/athlete/pmc';
+const PEAK_EFFORTS_URL = '/api/athlete/peak-efforts';
+const CRITICAL_SPEED_URL = '/api/athlete/critical-speed';
+
+// An athlete with no Peak Efforts and so no Critical Speed model: the Pace-Duration Curve's empty state.
+const NO_PEAK_EFFORTS = { windowDays: 90, pace: [], power: [] };
+const NO_CRITICAL_SPEED = {
+  asOf: '2026-11-24',
+  windowDays: 90,
+  pace: {
+    status: 'INSUFFICIENT_POINTS',
+    criticalValue: null,
+    reserveCapacity: null,
+    pointCount: 0,
+    points: [],
+    rSquared: null,
+  },
+  power: null,
+};
 
 // An athlete whose time zone is already set, so the app sends no one-off time-zone request.
 const runner: UserResponseDto = {
@@ -86,7 +104,7 @@ const runner: UserResponseDto = {
 type Stubbed<T> = T | { status: number };
 
 /**
- * Serves the Dashboard, the Personal Record Progression and the PMC: each call to a URL takes the next
+ * Serves the Dashboard, the Personal Record Progression and the PMC (and an empty Pace-Duration Curve): each call to a URL takes the next
  * of its responses, repeating the last.
  */
 function stubDashboardApi(
@@ -100,6 +118,8 @@ function stubDashboardApi(
     [DASHBOARD_URL]: responses,
     [PROGRESSION_URL]: progressions,
     [PMC_URL]: pmc,
+    [PEAK_EFFORTS_URL]: [NO_PEAK_EFFORTS],
+    [CRITICAL_SPEED_URL]: [NO_CRITICAL_SPEED],
   };
   const served = new Map<string, number>();
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
@@ -266,6 +286,8 @@ describe('Dashboard', () => {
     expect(callsTo(fetchMock, DASHBOARD_URL)).toBe(2);
     expect(callsTo(fetchMock, PROGRESSION_URL)).toBe(2);
     expect(callsTo(fetchMock, PMC_URL)).toBe(2);
+    expect(callsTo(fetchMock, PEAK_EFFORTS_URL)).toBe(2);
+    expect(callsTo(fetchMock, CRITICAL_SPEED_URL)).toBe(2);
   });
 
   it('draws the PMC from the PMC endpoint and changes its range without fetching again', async () => {
@@ -285,7 +307,7 @@ describe('Dashboard', () => {
     expect(chart.setRange.mock.calls).toEqual([['1y'], ['all'], ['90d']]);
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(callsTo(fetchMock, PMC_URL)).toBe(1);
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
     expect(renderedPmcCharts.charts).toHaveLength(1);
     expect(chart.destroy).not.toHaveBeenCalled();
   });
