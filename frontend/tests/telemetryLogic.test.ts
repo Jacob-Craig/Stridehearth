@@ -157,6 +157,45 @@ describe('selectChartSeries', () => {
       ).toBe(false);
     });
   });
+
+  describe('Stamina', () => {
+    const run = streams({
+      enhancedSpeed: [5, 5, 3],
+      heartRate: [150, 160, 155],
+    });
+
+    it('charts Stamina as its own 0-100 % series directly after Speed', () => {
+      const series = selectChartSeries(run, { gapSpeed: null, staminaPct: [100, 50, 62.5] });
+
+      expect(series.map((s) => s.id)).toEqual(['speed', 'stamina', 'heart-rate']);
+      expect(series[1]).toMatchObject({
+        label: 'Stamina',
+        unit: '%',
+        values: [100, 50, 62.5],
+        yRange: [0, 100],
+      });
+      expect(series[1]!.overlay).toBeUndefined();
+      expect(series[0]!.yRange).toBeUndefined();
+    });
+
+    it('charts Stamina after where Speed would be when the device recorded no speed', () => {
+      const series = selectChartSeries(
+        streams({ enhancedAltitude: [30, 31, 32], heartRate: [150, 160, 155] }),
+        { gapSpeed: null, staminaPct: [100, 50, 62.5] },
+      );
+
+      expect(series.map((s) => s.id)).toEqual(['elevation', 'stamina', 'heart-rate']);
+    });
+
+    it('has no Stamina chart without a stream, or with one not parallel to the elapsed-time stream', () => {
+      for (const staminaPct of [null, [100, 50]]) {
+        expect(
+          selectChartSeries(run, { gapSpeed: null, staminaPct }).some((s) => s.id === 'stamina'),
+        ).toBe(false);
+      }
+      expect(selectChartSeries(run).some((s) => s.id === 'stamina')).toBe(false);
+    });
+  });
 });
 
 describe('sampleIndexAtTime', () => {

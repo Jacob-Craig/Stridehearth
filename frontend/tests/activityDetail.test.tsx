@@ -552,6 +552,27 @@ describe('/activities/$activityId summary', () => {
     });
   });
 
+  describe('Min Stamina', () => {
+    it('shows the lowest Stamina the Run reached as a whole percentage, after the other tiles', async () => {
+      stubActivity(detail({ minStaminaPct: 24.6 }));
+      renderApp('/activities/42');
+
+      const list = await screen.findByRole('list', { name: /summary metrics/i });
+      const tiles = within(list).getAllByRole('listitem');
+      expect(tiles).toHaveLength(6);
+      expect(tiles.at(-1)).toHaveTextContent('Min Stamina');
+      expect(tiles.at(-1)).toHaveTextContent('25%');
+    });
+
+    it('adds no tile when the Run has no Stamina stream', async () => {
+      stubActivity(detail({ minStaminaPct: null }));
+      renderApp('/activities/42');
+
+      const list = await screen.findByRole('list', { name: /summary metrics/i });
+      expect(within(list).queryByText('Min Stamina')).toBeNull();
+    });
+  });
+
   it('links to the edit screen', async () => {
     stubActivity(detail());
     renderApp('/activities/42');

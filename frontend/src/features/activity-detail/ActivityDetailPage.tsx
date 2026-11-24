@@ -15,6 +15,7 @@ import {
   formatOptional,
   formatPacePerKm,
   formatSport,
+  formatStaminaPercent,
 } from '../../lib/format';
 import type { BenchmarkDistance } from '../../types/domain';
 import { parseApiError } from '../../utils/error';
@@ -127,10 +128,11 @@ export function ActivityDetailPage({ userId, activity, telemetry }: ActivityDeta
 /**
  * The summary tiles, five per row on wide screens: the recorded metrics, then a Run's derived
  * metrics (NGP, Efficiency Factor, Aerobic Decoupling) when it has them, then the Training Load
- * once it has been computed (a value, or the reason there is none).
+ * once it has been computed (a value, or the reason there is none), then the lowest **Stamina** a
+ * Run reached when it has a Stamina stream.
  */
 function SummaryMetrics({ activity }: { activity: ActivityDetailDto }) {
-  const { runMetrics, trainingLoad, trainingLoadUnavailableReason } = activity;
+  const { runMetrics, trainingLoad, trainingLoadUnavailableReason, minStaminaPct } = activity;
   const metrics: ReadonlyArray<readonly [label: string, value: ReactNode]> = [
     ['Distance', formatDistanceKm(activity.distance)],
     ['Duration', formatDuration(activity.timeTakenSeconds)],
@@ -148,6 +150,9 @@ function SummaryMetrics({ activity }: { activity: ActivityDetailDto }) {
       ? ([
           ['Training Load', <TrainingLoadValue key="training-load" activity={activity} />],
         ] as const)
+      : []),
+    ...(minStaminaPct != null
+      ? ([['Min Stamina', formatStaminaPercent(minStaminaPct)]] as const)
       : []),
   ];
   return (

@@ -515,3 +515,33 @@ describe('ultra-long Activity downsampling', () => {
     expect(map.marker.moveTo).toHaveBeenCalledWith([-0.19, 51.54]);
   });
 });
+
+describe('Stamina', () => {
+  const speed = { enhancedSpeed: [5, 5, 5, 5, 5, 3, 3, 3, 3, 3] };
+  const staminaPct = [100, 97.5, 95, 92.5, 90, 90.6, 91.2, 91.7, 92.3, 92.8];
+  const staminaChart = () =>
+    rendered.liveCharts().find((chart) => chart.options.series.label === 'Stamina')!;
+
+  it('charts Stamina in its own 0-100 % card directly after Speed, on the shared scrubber', async () => {
+    renderActivity(telemetry(speed, undefined, { gapSpeed: null, staminaPct }));
+    const { charts } = await chartsAndMapReady(['Speed', 'Stamina', 'Heart Rate', 'Cadence']);
+    const frames = stubAnimationFrames();
+
+    expect(screen.getByRole('figure', { name: 'Stamina (%)' })).toBeInTheDocument();
+    const stamina = staminaChart();
+    expect(stamina.options.series).toMatchObject({ unit: '%', yRange: [0, 100] });
+    expect(stamina.options.samples.y).toEqual(staminaPct);
+    expect(stamina.options.overlay).toBeUndefined();
+
+    charts[0]!.options.onScrub(4);
+    frames.flush();
+    expect(stamina.setCursorTime).toHaveBeenCalledWith(4);
+  });
+
+  it('shows no Stamina card when the Run has no Stamina stream', async () => {
+    renderActivity(telemetry(speed, undefined, { gapSpeed: null, staminaPct: null }));
+    await chartsAndMapReady(['Speed', 'Heart Rate', 'Cadence']);
+
+    expect(screen.queryByRole('figure', { name: 'Stamina (%)' })).not.toBeInTheDocument();
+  });
+});

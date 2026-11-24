@@ -53,6 +53,11 @@ export function formatEfficiencyFactor(efficiencyFactor: number | null): string 
   return efficiencyFactor === null ? MISSING : efficiencyFactor.toFixed(2);
 }
 
+/** Formats a **Stamina** percentage (0-100) as a whole percentage, e.g. `25%`. */
+export function formatStaminaPercent(percent: number): string {
+  return `${Math.round(percent)}%`;
+}
+
 /** Formats an **Aerobic Decoupling** percentage to one decimal place, e.g. `4.9%`. */
 export function formatDecouplingPercent(percent: number): string {
   return `${percent.toFixed(1)}%`;
