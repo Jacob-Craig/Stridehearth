@@ -46,3 +46,12 @@ Compare-and-clear alone does not cover an Activity write that is still in flight
 
 - **Rejected: recompute synchronously in the Threshold request.** An athlete with years of history would hold one transaction over thousands of Activities, locking every one of their rows.
 - **Rejected: an after-commit listener.** A crash between commit and recompute would lose the request. The durable marker survives restarts.
+
+## Streams that depend on athlete-level models are computed on read (#40)
+
+**Stamina** depends on the athlete's Critical Speed model as well as the Run's own Grade-Adjusted speed, and that model is refitted by the before-commit rollup whenever a Peak Effort in its 90-day window changes (ADR-0016). It is therefore not part of this refresh and not stored: `StaminaService` integrates it on every read of the telemetry endpoint (`derivedStreams.staminaPct`) and of the Activity (`minStaminaPct`), from the stored `gap_speed` and the model in effect on the Run's athlete-local date.
+
+- Storing it would make the rollup rewrite other Activities' rows. The rollup writes only athlete-keyed rows, because a write to a row referencing an Activity takes a key-share lock that can deadlock with a concurrent delete of that Activity.
+- The integration is O(N) in the samples and needs no migration, version bump or Backfill; a refit simply changes the next read.
+- The model is the one dated the Run's own day, so the Run's own Peak Efforts count towards it: a breakthrough Run is measured against the model it set, not one fitted before it. This keeps one model per day for every consumer rather than a second, Run-excluding fit.
+- **Rejected: storing the stream with the model inputs it used, recomputed after each refit.** It bounds the cascade, but it still writes Activity rows from the rollup, and it adds a column set and a recompute path for a value that is cheap to compute.

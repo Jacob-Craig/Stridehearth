@@ -119,6 +119,11 @@ _Avoid_: Threshold pace (that is the Threshold the athlete records), FTP, critic
 The distance, in metres, an athlete can cover above Critical Speed before they must slow down: the intercept of the same fit. It is spent while running faster than CS and recovers below it.
 _Avoid_: Anaerobic capacity, W′ (for running speed), reserve
 
+**Stamina**:
+How much of their D′ an athlete has left at each moment of a Run, as a percentage of D′ (100% full, 0% empty), by Skiba's D′ balance (D′bal). Above Critical Speed (on Grade-Adjusted speed) it is spent metre for metre; at or below CS it recovers towards full, faster the further below CS, with time constant `τ = D′ / (CS − speed)`. A recording pause or a missing speed recovers as standing still.
+It is measured against the Critical Speed model in effect on the Run's own date (its own Peak Efforts included), and a Run has none when there is no model on that date. Computed on every read, never stored or edited. Its lowest value is the Run's **Min Stamina**.
+_Avoid_: D′bal (the balance in metres), W′bal (for power), fatigue, energy
+
 **Critical Power (CP)**:
 Critical Speed's counterpart for running power, in watts, fitted the same way from power Peak Efforts (work `P·t` against time) when the athlete has any in the window. It proposes the critical power Threshold the same way.
 _Avoid_: FTP, threshold power
