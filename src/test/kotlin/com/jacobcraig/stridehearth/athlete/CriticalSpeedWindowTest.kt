@@ -84,6 +84,29 @@ class CriticalSpeedWindowTest {
     }
 
     @Test
+    fun `the models of many days match each day's model fitted on its own`() {
+        val random = kotlin.random.Random(39)
+        val peaks =
+            (0 until 2_000).map { i ->
+                peak(
+                    daysBefore = random.nextLong(-30, 400),
+                    duration = BenchmarkDuration.entries[random.nextInt(BenchmarkDuration.entries.size)],
+                    value = 3.0 + random.nextDouble() * 3.0,
+                    activityId = random.nextLong(1, 300),
+                    metric = if (random.nextInt(4) == 0) PeakEffortMetric.POWER else PeakEffortMetric.GAP_SPEED,
+                ).copy(activityStartedAt = Instant.parse("2026-01-01T00:00:00Z").plusSeconds(i.toLong()))
+            }
+        val days = (-40L..410L step 3).map { day.minusDays(it) }.shuffled(random)
+
+        PeakEffortMetric.entries.forEach { metric ->
+            assertEquals(
+                days.sorted().map { CriticalSpeedWindow.model(peaks, metric, it) },
+                CriticalSpeedWindow.models(peaks.shuffled(random), metric, days),
+            )
+        }
+    }
+
+    @Test
     fun `a change affects the 90 model days from its own, and changes far apart refit both windows`() {
         assertEquals(
             listOf(

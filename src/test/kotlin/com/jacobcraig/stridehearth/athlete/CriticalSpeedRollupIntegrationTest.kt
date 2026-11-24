@@ -32,6 +32,7 @@ import org.springframework.transaction.support.TransactionTemplate
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+import java.time.temporal.ChronoUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
@@ -163,6 +164,21 @@ class CriticalSpeedRollupIntegrationTest {
         reserve: Double = 200.0,
         power: Pair<Double, Double>? = null,
         owner: User = runner,
+    ): Activity {
+        val durations = BenchmarkDuration.entries.filter { it.seconds in 120..1200 }
+        return runWithPeaks(
+            offset,
+            durations.map { peakAt(PeakEffortMetric.GAP_SPEED, it, critical + reserve / it.seconds) } +
+                power?.let { (cp, wPrime) -> durations.map { peakAt(PeakEffortMetric.POWER, it, cp + wPrime / it.seconds) } }.orEmpty(),
+            owner,
+        )
+    }
+
+    /** A Run on day [offset] holding exactly [peaks], stored and marked in one transaction. */
+    private fun runWithPeaks(
+        offset: Long,
+        peaks: List<PeakEffort>,
+        owner: User = runner,
     ): Activity =
         transactionTemplate.execute {
             val saved =
@@ -177,10 +193,6 @@ class CriticalSpeedRollupIntegrationTest {
                         source = ActivitySource.FIT_UPLOAD,
                     ),
                 )
-            val durations = BenchmarkDuration.entries.filter { it.seconds in 120..1200 }
-            val peaks =
-                durations.map { peakAt(PeakEffortMetric.GAP_SPEED, it, critical + reserve / it.seconds) } +
-                    power?.let { (cp, wPrime) -> durations.map { peakAt(PeakEffortMetric.POWER, it, cp + wPrime / it.seconds) } }.orEmpty()
             peakEffortRepository.replace(saved.id!!, peaks)
             athleteRollups.markPeaksChanged(owner.id!!, saved.startedAt)
             saved
@@ -466,5 +478,65 @@ class CriticalSpeedRollupIntegrationTest {
         val proposal = pending().single()
         assertEquals(ThresholdKind.CRITICAL_POWER, proposal.kind)
         assertEquals(300.0, proposal.value, 1e-6)
+    }
+
+    @Test
+    fun `deleting the Run whose model was proposed re-proposes from the latest model left`() {
+        storedRun(50, critical = 4.0)
+        val newest = storedRun(100, critical = 4.4)
+        assertEquals(4.4, pending().single().value, 1e-9)
+
+        activityService.deleteActivity(newest.id!!, runner.id!!)
+
+        val proposal = pending().single()
+        assertEquals(4.0, proposal.value, 1e-9)
+        assertEquals(day(50), proposal.effectiveDate)
+    }
+
+    @Test
+    fun `deleting the only Run withdraws the proposal its model made`() {
+        val only = storedRun(0)
+        assertEquals(4.0, pending().single().value, 1e-9)
+
+        activityService.deleteActivity(only.id!!, runner.id!!)
+
+        assertEquals(emptyList(), pending())
+    }
+
+    @Test
+    fun `a latest model that is no longer published withdraws the pending proposal`() {
+        storedRun(0)
+        assertEquals(4.0, pending().single().value, 1e-9)
+
+        // A 20-minute peak faster than every shorter one: the day-30 window no longer fits a published model.
+        runWithPeaks(30, listOf(peakAt(PeakEffortMetric.GAP_SPEED, BenchmarkDuration.TWENTY_MINUTES, 9.0)))
+
+        assertNotEquals(CriticalSpeedStatus.MODEL, model(30).fit.status)
+        assertEquals(emptyList(), pending())
+    }
+
+    @Test
+    fun `a published latest model the athlete could not accept withdraws the pending proposal`() {
+        storedRun(0)
+        assertEquals(4.0, pending().single().value, 1e-9)
+
+        // 9 m/s fits a published model but is outside the 1-8 m/s a Threshold Pace may take.
+        storedRun(30, critical = 9.0)
+
+        assertEquals(CriticalSpeedStatus.MODEL, model(30).fit.status)
+        assertEquals(9.0, model(30).fit.criticalValue!!, 1e-6)
+        assertEquals(emptyList(), pending())
+    }
+
+    @Test
+    fun `a future-dated Run does not stop today's model from proposing`() {
+        val today = LocalDate.now(ZoneOffset.UTC)
+        storedRun(ChronoUnit.DAYS.between(origin, today.plusDays(400)), critical = 4.0)
+
+        storedRun(ChronoUnit.DAYS.between(origin, today.minusDays(5)), critical = 4.4)
+
+        val proposal = pending().single()
+        assertEquals(4.4, proposal.value, 1e-9)
+        assertEquals(today.minusDays(5), proposal.effectiveDate)
     }
 }

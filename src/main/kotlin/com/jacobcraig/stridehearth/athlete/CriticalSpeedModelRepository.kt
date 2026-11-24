@@ -150,19 +150,22 @@ class CriticalSpeedModelRepository(
             .optional()
             .orElse(null)
 
-    /** [userId]'s latest stored [metric] model, or null when they have none. */
+    /** [userId]'s latest stored [metric] model dated on or before [onOrBefore], or null when they have none. */
     fun findLatest(
         userId: Long,
         metric: PeakEffortMetric,
+        onOrBefore: LocalDate,
     ): StoredCriticalSpeedModel? =
         jdbcClient
             .sql(
                 """
-                SELECT * FROM athlete_critical_speed_model WHERE user_id = :userId AND metric = :metric
+                SELECT * FROM athlete_critical_speed_model
+                WHERE user_id = :userId AND metric = :metric AND model_date <= :onOrBefore
                 ORDER BY model_date DESC LIMIT 1
                 """.trimIndent(),
             ).param("userId", userId)
             .param("metric", metric.name)
+            .param("onOrBefore", onOrBefore, Types.DATE)
             .query { rs, _ -> rs.toModel() }
             .optional()
             .orElse(null)

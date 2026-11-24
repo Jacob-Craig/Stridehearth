@@ -6,6 +6,7 @@ import com.jacobcraig.stridehearth.analytics.CriticalSpeedFitter
 import com.jacobcraig.stridehearth.analytics.PeakEffortMetric
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Component
+import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -37,9 +38,37 @@ object CriticalSpeedWindow {
         date: LocalDate,
     ): CriticalSpeedModel {
         val from = date.minusDays(CriticalSpeedFitter.WINDOW_DAYS - 1L)
+        return fitted(metric, date, peaks.filter { it.metric == metric && it.day >= from && it.day <= date })
+    }
+
+    /**
+     * [model] for each of [days], ascending, sorting [peaks] once and sliding the window over them, so a full refit
+     * costs about one pass over the peaks plus each day's own window rather than a pass over every peak per day.
+     */
+    fun models(
+        peaks: List<FitPeak>,
+        metric: PeakEffortMetric,
+        days: Collection<LocalDate>,
+    ): List<CriticalSpeedModel> {
+        val sorted = peaks.filter { it.metric == metric }.sortedBy { it.day }
+        var start = 0
+        var end = 0
+        return days.distinct().sorted().map { date ->
+            val from = date.minusDays(CriticalSpeedFitter.WINDOW_DAYS - 1L)
+            while (end < sorted.size && sorted[end].day <= date) end++
+            while (start < end && sorted[start].day < from) start++
+            fitted(metric, date, sorted.subList(start, end))
+        }
+    }
+
+    /** The model of [date] from [window], [metric]'s peaks already limited to its window. */
+    private fun fitted(
+        metric: PeakEffortMetric,
+        date: LocalDate,
+        window: List<FitPeak>,
+    ): CriticalSpeedModel {
         val best =
-            peaks
-                .filter { it.metric == metric && it.day >= from && it.day <= date }
+            window
                 .groupBy { it.benchmarkDuration }
                 .mapValues { (_, candidates) ->
                     candidates.minWith(
@@ -66,9 +95,11 @@ object CriticalSpeedWindow {
  * Effort in the window. Days are athlete-local, in the **Athlete Time Zone**.
  *
  * A Peak Effort affects only the models of the 90 days from its own, so a change refits just those days. After a
- * refit of the athlete's latest model, a published model that differs from the Threshold in force on its day by
- * more than [ThresholdProposals.SAME_VALUE_TOLERANCE] (relative to the Threshold, as a speed for pace) becomes a
- * **Threshold Proposal**; one that agrees withdraws the pending one. It never records a Threshold itself.
+ * refit that reaches the athlete's current model (their latest dated on or before their today) or a later day, a
+ * published current model that differs from the Threshold in force on its day by more than
+ * [ThresholdProposals.SAME_VALUE_TOLERANCE] (relative to the Threshold, as a speed for pace) becomes a **Threshold
+ * Proposal**; one that agrees, or a current model that is missing or unpublished, withdraws the pending one. It never
+ * records a Threshold itself.
  *
  * Its caller serialises it per athlete ([AthleteRollups], ADR-0016); it takes no lock of its own.
  */
@@ -78,6 +109,7 @@ class CriticalSpeedRollup(
     private val athleteThresholds: AthleteThresholds,
     private val thresholdProposals: ThresholdProposals,
     private val jdbcClient: JdbcClient,
+    private val clock: Clock,
 ) {
     /**
      * Refits [userId]'s models on every day within [CriticalSpeedFitter.WINDOW_DAYS] days from the local day of each
@@ -91,42 +123,42 @@ class CriticalSpeedRollup(
         val ranges: List<Pair<LocalDate?, LocalDate?>> =
             if (changedAt == null) listOf(null to null) else affectedRanges(changedAt.map { it.atZone(zone).toLocalDate() })
         if (ranges.isEmpty()) return
-        val refitted = mutableSetOf<LocalDate>()
         for ((from, to) in ranges) {
             val days = repository.findRunDays(userId, zone, from, to)
             val peaks = repository.findFitPeaks(userId, zone, from?.minusDays(CriticalSpeedFitter.WINDOW_DAYS - 1L), to)
             val models =
-                days.flatMap { day ->
-                    listOfNotNull(
-                        CriticalSpeedWindow.model(peaks, PeakEffortMetric.GAP_SPEED, day),
-                        CriticalSpeedWindow.model(peaks, PeakEffortMetric.POWER, day).takeIf { it.points.isNotEmpty() },
-                    )
-                }
+                CriticalSpeedWindow.models(peaks, PeakEffortMetric.GAP_SPEED, days) +
+                    CriticalSpeedWindow.models(peaks, PeakEffortMetric.POWER, days).filter { it.points.isNotEmpty() }
             repository.replace(userId, from, to, models.map { StoredCriticalSpeedModel(it.metric, it.modelDate, it.fit) })
-            refitted += days
         }
-        proposeThresholds(userId, refitted)
+        proposeThresholds(userId, ranges.map { it.second }, LocalDate.now(clock.withZone(zone)))
     }
 
     /**
-     * For each metric whose latest stored model was refitted ([refitted]) and is published, proposes its critical
-     * value as the matching Threshold, unless the Threshold in force on the model's day already agrees with it.
+     * For each metric, when a refit range ended on or after its current model's day (the latest model dated on or
+     * before [today], so a future-dated Run never hides it) or there is no current model, re-decides the proposal:
+     * a published current model's critical value is proposed as the matching Threshold unless the Threshold in force
+     * on the model's day already agrees with it, which withdraws the pending proposal, as does a current model that
+     * is missing or unpublished. [rangeEnds] holds each refit range's last day, null for a full refit. A refit that
+     * ends before the current model's day changes nothing it depends on.
      */
     private fun proposeThresholds(
         userId: Long,
-        refitted: Set<LocalDate>,
+        rangeEnds: List<LocalDate?>,
+        today: LocalDate,
     ) {
-        if (refitted.isEmpty()) return
         val history by lazy { athleteThresholds.history(userId) }
         for ((metric, kind) in PROPOSED_KINDS) {
-            val latest = repository.findLatest(userId, metric) ?: continue
-            if (latest.modelDate !in refitted) continue
-            val value = latest.fit.criticalValue ?: continue
-            val inForce = history.valueOf(kind, latest.modelDate)
-            if (inForce != null && ThresholdProposals.sameValue(value, inForce)) {
+            val current = repository.findLatest(userId, metric, onOrBefore = today)
+            if (current != null && rangeEnds.none { it == null || it >= current.modelDate }) continue
+            val value = current?.fit?.criticalValue
+            val inForce = current?.let { history.valueOf(kind, it.modelDate) }
+            if (current == null || value == null || (inForce != null && ThresholdProposals.sameValue(value, inForce))) {
                 thresholdProposals.withdraw(userId, kind, PROPOSAL_SOURCE)
             } else {
-                thresholdProposals.propose(userId, kind, value, latest.modelDate, PROPOSAL_SOURCE)
+                // A value the athlete could not accept stores nothing; the stale proposal must not outlive it.
+                thresholdProposals.propose(userId, kind, value, current.modelDate, PROPOSAL_SOURCE)
+                    ?: thresholdProposals.withdraw(userId, kind, PROPOSAL_SOURCE)
             }
         }
     }
