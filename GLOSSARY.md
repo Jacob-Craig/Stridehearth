@@ -132,6 +132,10 @@ _Avoid_: FTP, threshold power
 D′'s counterpart for power: the work, in joules, an athlete can do above Critical Power, the intercept of the power fit.
 _Avoid_: Anaerobic work capacity, D′ (for power)
 
+**Pace-Duration Curve**:
+An athlete's best Peak Efforts plotted against their Benchmark Durations (5 s to 60 minutes, on a log scale): one curve for the last 90 days and one for all time, with their current Critical Speed model `CS + D′/t` drawn from 2 minutes up. When they have power Peak Efforts it can show power instead, with the Critical Power model. Each point opens the Activity that set it. Worked out from the stored Peak Efforts whenever it is read.
+_Avoid_: Power-duration curve (for pace), mean-maximal curve, PDC (in the UI)
+
 **Telemetry Cleaning**:
 The pass that produces Cleaned Activity Details from an Activity's Activity Details and sport: it rejects GPS spikes (speeds above the sport's ceiling and distance jumps), treats heart rate as missing during dropouts and cadence-lock, interpolates gaps of up to 10 seconds, and smooths altitude over a 15 m distance window.
 It never changes the stored Activity Details, and an Activity with no GPS fix keeps its speed, distance and altitude exactly as recorded.
