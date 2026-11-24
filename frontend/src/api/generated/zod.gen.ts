@@ -739,11 +739,13 @@ export const zActivityDetailDto = z.object({
     bestEfforts: z.array(zActivityBestEffortDto),
     runMetrics: zRunMetricsDto.nullable(),
     trainingLoad: zTrainingLoadDto.nullable(),
-    trainingLoadUnavailableReason: zTrainingLoadUnavailableReason.nullable()
+    trainingLoadUnavailableReason: zTrainingLoadUnavailableReason.nullable(),
+    minStaminaPct: z.number().nullable()
 });
 
 export const zActivityDerivedStreamsDto = z.object({
-    gapSpeed: z.array(z.number().nullable()).nullable()
+    gapSpeed: z.array(z.number().nullable()).nullable(),
+    staminaPct: z.array(z.number()).nullable()
 });
 
 export const zActivityTelemetryBestEffortDto = z.object({

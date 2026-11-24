@@ -39,7 +39,10 @@ const coordinates = [
 function telemetry(
   streams: Partial<ActivityTelemetryStreamsDto> = {},
   route: ActivityTelemetryResponseDto['route'] = { type: 'LineString', coordinates },
-  derivedStreams: ActivityTelemetryResponseDto['derivedStreams'] = { gapSpeed: null },
+  derivedStreams: ActivityTelemetryResponseDto['derivedStreams'] = {
+    gapSpeed: null,
+    staminaPct: null,
+  },
 ): ActivityTelemetryResponseDto {
   const unrecorded = Object.fromEntries(
     Object.keys(zActivityTelemetryStreamsDto.shape).map((stream) => [stream, null]),
@@ -97,6 +100,7 @@ const activity: ActivityDetailDto = {
   runMetrics: null,
   trainingLoad: null,
   trainingLoadUnavailableReason: null,
+  minStaminaPct: null,
 };
 
 function json(body: unknown): Response {
@@ -361,7 +365,7 @@ describe('Grade-Adjusted Pace overlay', () => {
     rendered.liveCharts().find((chart) => chart.options.series.label === 'Speed')!;
 
   it('overlays GAP in km/h on the Speed chart, shown by default, with a pressed toggle in its caption', async () => {
-    renderActivity(telemetry(hilly, undefined, { gapSpeed }));
+    renderActivity(telemetry(hilly, undefined, { gapSpeed, staminaPct: null }));
     await chartsAndMapReady(['Elevation', 'Speed', 'Heart Rate', 'Cadence']);
 
     const overlay = speedChart().options.overlay!;
@@ -382,7 +386,7 @@ describe('Grade-Adjusted Pace overlay', () => {
 
   it('toggles GAP off and on again in place, without rebuilding the chart', async () => {
     const user = userEvent.setup();
-    renderActivity(telemetry(hilly, undefined, { gapSpeed }));
+    renderActivity(telemetry(hilly, undefined, { gapSpeed, staminaPct: null }));
     await chartsAndMapReady(['Elevation', 'Speed', 'Heart Rate', 'Cadence']);
     const chart = speedChart();
     const toggle = screen.getByRole('button', { name: 'GAP' });
@@ -401,7 +405,7 @@ describe('Grade-Adjusted Pace overlay', () => {
   // jsdom has no layout, so this pins the classes that keep the wider GAP reading inside a phone-width card
   // (the visual check found a fixed 20 rem box pushing the reading out of a 390 px card, where it was clipped).
   it('lets the reading box shrink and truncate in a narrow card instead of overflowing it', async () => {
-    renderActivity(telemetry(hilly, undefined, { gapSpeed }));
+    renderActivity(telemetry(hilly, undefined, { gapSpeed, staminaPct: null }));
     await chartsAndMapReady(['Elevation', 'Speed', 'Heart Rate', 'Cadence']);
     const speedFigure = screen.getByRole('figure', { name: 'Speed (km/h)' });
 
@@ -415,7 +419,7 @@ describe('Grade-Adjusted Pace overlay', () => {
   });
 
   it('leaves the charts unchanged when the Activity has no GAP stream', async () => {
-    renderActivity(telemetry(hilly, undefined, { gapSpeed: null }));
+    renderActivity(telemetry(hilly, undefined, { gapSpeed: null, staminaPct: null }));
     await chartsAndMapReady(['Elevation', 'Speed', 'Heart Rate', 'Cadence']);
 
     expect(rendered.liveCharts().some((chart) => chart.options.overlay)).toBe(false);
@@ -423,7 +427,9 @@ describe('Grade-Adjusted Pace overlay', () => {
   });
 
   it('offers no GAP toggle without elevation, where GAP repeats speed', async () => {
-    renderActivity(telemetry({ enhancedSpeed: hilly.enhancedSpeed }, undefined, { gapSpeed }));
+    renderActivity(
+      telemetry({ enhancedSpeed: hilly.enhancedSpeed }, undefined, { gapSpeed, staminaPct: null }),
+    );
     await chartsAndMapReady(['Speed', 'Heart Rate', 'Cadence']);
 
     expect(speedChart().options.overlay).toBeUndefined();
@@ -432,7 +438,12 @@ describe('Grade-Adjusted Pace overlay', () => {
 
   it('offers no GAP toggle without a GPS fix, where GAP repeats speed', async () => {
     // A treadmill Run on a watch with a barometer: elevation but no route, so the server's grade is 0.
-    renderActivity(telemetry({ ...hilly, routeIndex: Array(10).fill(null) }, null, { gapSpeed }));
+    renderActivity(
+      telemetry({ ...hilly, routeIndex: Array(10).fill(null) }, null, {
+        gapSpeed,
+        staminaPct: null,
+      }),
+    );
     await waitFor(() =>
       expect(chartLabels()).toEqual(['Elevation', 'Speed', 'Heart Rate', 'Cadence']),
     );

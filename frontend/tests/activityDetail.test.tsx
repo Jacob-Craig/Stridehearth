@@ -93,6 +93,7 @@ function detail(overrides: Partial<ActivityDetailDto> = {}): ActivityDetailDto {
     runMetrics: null,
     trainingLoad: null,
     trainingLoadUnavailableReason: null,
+    minStaminaPct: null,
     ...overrides,
   };
 }
@@ -116,7 +117,7 @@ function telemetry(): ActivityTelemetryResponseDto {
       ],
     },
     bestEfforts: [],
-    derivedStreams: { gapSpeed: null },
+    derivedStreams: { gapSpeed: null, staminaPct: null },
     telemetry: {
       ...unrecorded,
       t: [0, 1, 2],

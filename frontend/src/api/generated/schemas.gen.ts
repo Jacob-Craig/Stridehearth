@@ -2464,6 +2464,14 @@ export const ActivityDetailDTOSchema = {
             ],
             $ref: '#/components/schemas/TrainingLoadUnavailableReason',
             description: 'Why the Activity has no Training Load; null when it has one or it is not computed yet'
+        },
+        minStaminaPct: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'The lowest Stamina the Run reaches, in percent; null when it has no Stamina stream'
         }
     },
     required: [
@@ -2476,6 +2484,7 @@ export const ActivityDetailDTOSchema = {
         'history',
         'id',
         'laps',
+        'minStaminaPct',
         'ownerUsername',
         'runMetrics',
         'source',
@@ -2713,10 +2722,21 @@ export const ActivityDerivedStreamsDTOSchema = {
                     'null'
                 ]
             }
+        },
+        staminaPct: {
+            type: [
+                'array',
+                'null'
+            ],
+            description: 'Stamina: the D′ balance as a percentage of D′ (0-100, one decimal), against the Critical Speed model in effect on the Run\'s date; null unless the Activity is a Run with Grade-Adjusted Pace and that model exists',
+            items: {
+                type: 'number'
+            }
         }
     },
     required: [
-        'gapSpeed'
+        'gapSpeed',
+        'staminaPct'
     ]
 } as const;
 

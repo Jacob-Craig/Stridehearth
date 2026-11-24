@@ -7,6 +7,7 @@ import org.springframework.jdbc.datasource.DataSourceUtils
 import org.springframework.stereotype.Repository
 import java.sql.Connection
 import java.sql.ResultSet
+import java.sql.Types
 import javax.sql.DataSource
 
 /**
@@ -420,7 +421,7 @@ class ActivityDetailsRepository(
 
     /**
      * Retrieves telemetry as a JSON string in the nested telemetry contract:
-     * `{ activityId, sport, route: GeoJSON LineString | null, bestEfforts, derivedStreams: { gapSpeed },
+     * `{ activityId, sport, route: GeoJSON LineString | null, bestEfforts, derivedStreams: { gapSpeed, staminaPct },
      * telemetry: { t, routeIndex, heartRate, ... } }`.
      * Enforces user authorization by requiring a match on `activity.user_id = :userId`.
      *
@@ -432,12 +433,15 @@ class ActivityDetailsRepository(
      *
      * @param activityId the ID of the activity.
      * @param userId the ID of the authenticated user requesting the activity telemetry.
+     * @param staminaPct the Activity's **Stamina** stream, computed on read by the caller and emitted as
+     *   `derivedStreams.staminaPct`; null when it has none.
      * @return raw JSON string conforming to the telemetry response schema, or `null` if the activity
      *   does not exist, has no telemetry, or does not belong to [userId].
      */
     fun findTelemetryJson(
         activityId: Long,
         userId: Long,
+        staminaPct: FloatArray? = null,
     ): String? {
         val sql =
             """
@@ -467,7 +471,8 @@ class ActivityDetailsRepository(
                 ),
                 -- Derived streams are emitted only while parallel to t: a stale row never misaligns the charts.
                 'derivedStreams', jsonb_build_object(
-                    'gapSpeed', CASE WHEN cardinality(m.gap_speed) = cardinality(d.t) THEN m.gap_speed END
+                    'gapSpeed', CASE WHEN cardinality(m.gap_speed) = cardinality(d.t) THEN m.gap_speed END,
+                    'staminaPct', CAST(:staminaPct AS real[])
                 ),
                 'telemetry', (
                 jsonb_build_object(
@@ -565,6 +570,8 @@ class ActivityDetailsRepository(
             .sql(sql)
             .param("activityId", activityId)
             .param("userId", userId)
+            // One text literal cast to real[]: a named array parameter would expand into a list of parameters.
+            .param("staminaPct", staminaPct?.joinToString(",", "{", "}"), Types.VARCHAR)
             .query(String::class.java)
             .optional()
             .orElse(null)

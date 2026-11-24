@@ -633,6 +633,10 @@ export type ActivityDetailDto = {
      * Why the Activity has no Training Load; null when it has one or it is not computed yet
      */
     trainingLoadUnavailableReason: TrainingLoadUnavailableReason | null;
+    /**
+     * The lowest Stamina the Run reaches, in percent; null when it has no Stamina stream
+     */
+    minStaminaPct: number | null;
 };
 
 export type ActivityHistoryEntryDto = {
@@ -702,6 +706,10 @@ export type ActivityDerivedStreamsDto = {
      * Grade-Adjusted Pace as a speed in metres per second; null for sports without it. An element is null where cleaned speed is missing
      */
     gapSpeed: Array<number | null> | null;
+    /**
+     * Stamina: the D′ balance as a percentage of D′ (0-100, one decimal), against the Critical Speed model in effect on the Run's date; null unless the Activity is a Run with Grade-Adjusted Pace and that model exists
+     */
+    staminaPct: Array<number> | null;
 };
 
 export type ActivityTelemetryBestEffortDto = {
