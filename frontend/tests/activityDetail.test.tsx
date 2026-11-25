@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   ActivityBestEffortDto,
+  ActivityConditionsDto,
   ActivityDetailDto,
   ActivityHistoryEntryDto,
   ActivityLapDto,
@@ -571,6 +572,99 @@ describe('/activities/$activityId summary', () => {
 
       const list = await screen.findByRole('list', { name: /summary metrics/i });
       expect(within(list).queryByText('Min Stamina')).toBeNull();
+    });
+  });
+
+  describe('Conditions', () => {
+    const conditions: ActivityConditionsDto = {
+      deviceTemperatureC: 24,
+      ambientTemperatureC: 18,
+      wristHeatCorrectionC: 6,
+      meanAltitudeM: 312.4,
+      heatAcclimationPct: 50,
+      altitudeAcclimationPct: 7.142857142857143,
+    };
+
+    async function conditionsList(): Promise<HTMLElement> {
+      return screen.findByRole('list', { name: /conditions/i });
+    }
+
+    it('shows the Ambient Temperature with the watch reading and wrist correction, the Mean Altitude and acclimation', async () => {
+      stubActivity(detail({ conditions }));
+      renderApp('/activities/42');
+
+      const tiles = within(await conditionsList()).getAllByRole('listitem');
+      expect(tiles.map((tile) => tile.textContent)).toEqual([
+        'Temperature≈18 °Cwatch 24 °C, −6 °C wrist correction',
+        'Avg Altitude312 m',
+        'Heat Acclimation50%',
+        'Altitude Acclimation7%',
+      ]);
+    });
+
+    it('rounds temperatures to whole degrees and never shows a negative zero', async () => {
+      stubActivity(
+        detail({
+          conditions: { ...conditions, deviceTemperatureC: 5.6, ambientTemperatureC: -0.4 },
+        }),
+      );
+      renderApp('/activities/42');
+
+      const temperature = within(await conditionsList()).getAllByRole('listitem')[0];
+      expect(temperature).toHaveTextContent('≈0 °C');
+      expect(temperature).toHaveTextContent('watch 6 °C, −6 °C wrist correction');
+    });
+
+    it('shows no acclimation tile at 0 percent or before the first exposed day', async () => {
+      stubActivity(
+        detail({
+          conditions: { ...conditions, heatAcclimationPct: 0, altitudeAcclimationPct: null },
+        }),
+      );
+      renderApp('/activities/42');
+
+      const list = await conditionsList();
+      expect(within(list).getAllByRole('listitem')).toHaveLength(2);
+      expect(within(list).queryByText(/acclimation/i)).toBeNull();
+    });
+
+    it('shows no temperature tile without a temperature, and no altitude tile without one', async () => {
+      stubActivity(
+        detail({
+          conditions: {
+            ...conditions,
+            deviceTemperatureC: null,
+            ambientTemperatureC: null,
+            meanAltitudeM: null,
+          },
+        }),
+      );
+      renderApp('/activities/42');
+
+      const list = await conditionsList();
+      expect(within(list).queryByText('Temperature')).toBeNull();
+      expect(within(list).queryByText('Avg Altitude')).toBeNull();
+      expect(within(list).getAllByRole('listitem')).toHaveLength(2);
+    });
+
+    const unknown: ActivityConditionsDto = {
+      deviceTemperatureC: null,
+      ambientTemperatureC: null,
+      wristHeatCorrectionC: 6,
+      meanAltitudeM: null,
+      heatAcclimationPct: null,
+      altitudeAcclimationPct: 0,
+    };
+
+    it.each([
+      ['nothing is known', unknown],
+      ['the conditions are not computed yet', null],
+    ])('renders no Conditions group when %s', async (_, value) => {
+      stubActivity(detail({ conditions: value }));
+      renderApp('/activities/42');
+
+      await screen.findByRole('list', { name: /summary metrics/i });
+      expect(screen.queryByRole('list', { name: /conditions/i })).toBeNull();
     });
   });
 

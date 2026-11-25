@@ -22,6 +22,7 @@ import { parseApiError } from '../../utils/error';
 import { ActivityHistoryDialog } from './ActivityHistoryDialog';
 import { ActivityVisualization } from './ActivityVisualization';
 import { BestEffortsTable } from './BestEffortsTable';
+import { ConditionsMetrics } from './ConditionsMetrics';
 import { DecouplingBadge } from './DecouplingBadge';
 import { LapsTable } from './LapsTable';
 import { TrainingLoadValue } from './TrainingLoadValue';
@@ -90,6 +91,8 @@ export function ActivityDetailPage({ userId, activity, telemetry }: ActivityDeta
       </header>
 
       <SummaryMetrics activity={activity} />
+
+      <ConditionsMetrics conditions={activity.conditions} />
 
       {telemetry && <ActivityVisualization telemetry={telemetry} selectedEffort={selectedEffort} />}
 

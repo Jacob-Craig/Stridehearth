@@ -58,6 +58,16 @@ export function formatStaminaPercent(percent: number): string {
   return `${Math.round(percent)}%`;
 }
 
+/** Formats a temperature in °C to whole degrees, e.g. `18 °C`; never `-0 °C`. */
+export function formatTemperatureC(celsius: number): string {
+  return `${Math.round(celsius) || 0} °C`;
+}
+
+/** Formats an altitude in metres to whole metres, e.g. `312 m`. */
+export function formatAltitudeM(metres: number): string {
+  return `${Math.round(metres) || 0} m`;
+}
+
 /** Formats an **Aerobic Decoupling** percentage to one decimal place, e.g. `4.9%`. */
 export function formatDecouplingPercent(percent: number): string {
   return `${percent.toFixed(1)}%`;
