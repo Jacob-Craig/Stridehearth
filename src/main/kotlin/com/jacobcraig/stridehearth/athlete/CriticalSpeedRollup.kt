@@ -82,7 +82,7 @@ object CriticalSpeedWindow {
         return CriticalSpeedModel(
             metric,
             date,
-            CriticalSpeedFitter.fit(points.map { it.benchmarkDuration.seconds to it.value }),
+            CriticalSpeedFitter.fit(points.map { it.benchmarkDuration.seconds to it.value }, metric),
             points,
         )
     }

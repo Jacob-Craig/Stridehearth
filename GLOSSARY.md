@@ -112,7 +112,7 @@ _Avoid_: Duration best effort, peak, power PR, mean-maximal
 
 **Critical Speed (CS)**:
 The highest running speed an athlete can sustain without steadily using up their D′, in m/s: the slope of the 2-parameter model `D(t) = CS·t + D′`, fitted by least squares to the distances of their best Grade-Adjusted Peak Efforts at the 2, 3, 5, 10 and 20 minute Benchmark Durations from Runs on the 90 days up to a date (that day included, in their Athlete Time Zone).
-No model is published (it records why instead) with fewer than 3 such Peak Efforts, an R² below 0.9, or a non-positive CS or D′. A model is kept for every day the athlete has a Run and refitted whenever a Peak Effort in its window changes. When it differs from the threshold pace in force by more than 3% (of the threshold, as a speed) it makes a Threshold Proposal; it never changes a Threshold itself. Derived, so recomputed, never edited.
+No model is published (it records why instead) with fewer than 3 such Peak Efforts, an R² below 0.9, a non-positive CS, or a D′ under 100 m (which comes from sub-maximal efforts, such as one steady easy run, whose near-straight distance-time line fits with a high R² anyway). A model is kept for every day the athlete has a Run and refitted whenever a Peak Effort in its window changes. When it differs from the threshold pace in force by more than 3% (of the threshold, as a speed) it makes a Threshold Proposal; it never changes a Threshold itself. Derived, so recomputed, never edited.
 _Avoid_: Threshold pace (that is the Threshold the athlete records), FTP, critical pace
 
 **D′ (D prime)**:
@@ -125,7 +125,7 @@ It is measured against the Critical Speed model in effect on the Run's own date 
 _Avoid_: D′bal (the balance in metres), W′bal (for power), fatigue, energy
 
 **Critical Power (CP)**:
-Critical Speed's counterpart for running power, in watts, fitted the same way from power Peak Efforts (work `P·t` against time) when the athlete has any in the window. It proposes the critical power Threshold the same way.
+Critical Speed's counterpart for running power, in watts, fitted the same way from power Peak Efforts (work `P·t` against time) when the athlete has any in the window. No model is published with a W′ under 5 kJ, D′'s 100 m floor for power. It proposes the critical power Threshold the same way.
 _Avoid_: FTP, threshold power
 
 **W′ (W prime)**:

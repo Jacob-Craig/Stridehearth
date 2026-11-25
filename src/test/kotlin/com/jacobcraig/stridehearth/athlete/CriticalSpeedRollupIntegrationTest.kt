@@ -388,6 +388,22 @@ class CriticalSpeedRollupIntegrationTest {
     }
 
     @Test
+    fun `one steady easy Run publishes no model and proposes no Threshold Pace`() {
+        // Sub-maximal peaks of 3.05 down to 2.95 m/s fit D = v t almost exactly, but with D' about 17 m.
+        athleteThresholds.record(runner.id!!, ThresholdKind.THRESHOLD_PACE, day(-10), 3.5)
+        val speeds = listOf(3.05, 3.02, 3.0, 2.98, 2.95)
+        runWithPeaks(
+            0,
+            BenchmarkDuration.entries
+                .filter { it.seconds in 120..1200 }
+                .zip(speeds) { duration, speed -> peakAt(PeakEffortMetric.GAP_SPEED, duration, speed) },
+        )
+
+        assertEquals(CriticalSpeedStatus.NON_PHYSICAL, model(0).fit.status)
+        assertEquals(emptyList(), pending())
+    }
+
+    @Test
     fun `CS 3_1 percent from the Threshold Pace, either side, proposes it and leaves the Threshold unchanged`() {
         // |CS - vT| / vT = 0.031 with CS 4.0 m/s: vT = 4 / 1.031 (CS faster) or 4 / 0.969 (CS slower).
         listOf(4.0 / 1.031, 4.0 / 0.969).forEachIndexed { i, threshold ->
