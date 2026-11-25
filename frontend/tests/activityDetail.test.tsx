@@ -502,10 +502,9 @@ describe('/activities/$activityId summary', () => {
         'VO2max',
       );
 
-      expect(within(tile).getByRole('link', { name: 'Set your Max and Resting HR' })).toHaveAttribute(
-        'href',
-        '/settings',
-      );
+      expect(
+        within(tile).getByRole('link', { name: 'Set your Max and Resting HR' }),
+      ).toHaveAttribute('href', '/settings');
     });
 
     it('shows a dash alone before the estimate is computed', async () => {

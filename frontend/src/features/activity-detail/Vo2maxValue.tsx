@@ -18,8 +18,11 @@ export function Vo2maxValue({
     'vo2maxEstimate' | 'vo2maxEstimateRaw' | 'vo2maxUnavailableReason'
   >;
 }) {
-  const { vo2maxEstimate: corrected, vo2maxEstimateRaw: raw, vo2maxUnavailableReason: reason } =
-    runMetrics;
+  const {
+    vo2maxEstimate: corrected,
+    vo2maxEstimateRaw: raw,
+    vo2maxUnavailableReason: reason,
+  } = runMetrics;
   if (corrected != null && raw != null) {
     return (
       <span title={`Before the Correction Factor: ${formatVo2max(raw)} ml/kg/min`}>
