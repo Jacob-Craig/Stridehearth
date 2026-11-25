@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPaceDurationChart } from '../src/features/pace-duration/paceDurationChart';
 import {
+  alignedPdcData,
   PDC_TICKS_SECONDS,
   type PeakCurves,
-  alignedPdcData,
 } from '../src/features/pace-duration/paceDurationSeries';
 
 /**

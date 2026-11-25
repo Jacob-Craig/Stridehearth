@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import type { RunMetricsDto } from '../../api/generated/types.gen';
-import { MISSING, formatVo2max, formatVo2maxUnavailableReason } from '../../lib/format';
+import { formatVo2max, formatVo2maxUnavailableReason, MISSING } from '../../lib/format';
 
 const NOTE_CLASS = 'mt-1 block text-xs font-medium text-slate-500 dark:text-slate-400';
 

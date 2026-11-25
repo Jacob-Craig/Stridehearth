@@ -8,7 +8,7 @@
  * Format reference: PKWARE APPNOTE.TXT §4.3.12–4.3.16.
  */
 
-import { type FitTally, NO_FIT_FILES, addFitTallies, hasFitExtension } from './fitTally';
+import { addFitTallies, type FitTally, hasFitExtension, NO_FIT_FILES } from './fitTally';
 
 /** Random-access reader over an archive, so large exports are sliced rather than loaded whole. */
 export interface ByteSource {

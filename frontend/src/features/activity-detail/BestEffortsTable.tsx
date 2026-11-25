@@ -61,7 +61,6 @@ function BestEffortRow({
   const { window } = effort;
   const toggle = () => onToggle(effort.benchmarkDistance);
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: a pointer-only shortcut; the row's toggle button is the keyboard-accessible control.
     <tr
       onClick={toggle}
       className={

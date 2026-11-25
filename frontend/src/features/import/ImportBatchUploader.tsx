@@ -6,9 +6,9 @@ import { submitImportBatch } from '../../api/importBatches';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { parseApiError } from '../../utils/error';
 import { countOf } from './countOf';
-import { type FitTally, NO_FIT_FILES, addFitTallies, hasFitExtension } from './fitTally';
+import { addFitTallies, type FitTally, hasFitExtension, NO_FIT_FILES } from './fitTally';
 import type { ZipInspection } from './zipInspector';
-import { type ZipInspectorClient, createZipInspectorClient } from './zipInspectorClient';
+import { createZipInspectorClient, type ZipInspectorClient } from './zipInspectorClient';
 
 /** What one picked file will contribute to the **Import Batch**, known before anything is uploaded. */
 type FilePreview =

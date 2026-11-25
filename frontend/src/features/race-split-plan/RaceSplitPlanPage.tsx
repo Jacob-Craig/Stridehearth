@@ -7,27 +7,27 @@ import { type RaceSplitPlanRequest, raceSplitPlanQueryOptions } from '../../api/
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { useColorScheme } from '../../lib/colorScheme';
 import { parseApiError } from '../../utils/error';
-import { NumericCell, type TableColumn, TableSection } from '../activity-detail/TableSection';
 import { SECONDARY_BUTTON_CLASS } from '../activity-detail/styles';
+import { NumericCell, type TableColumn, TableSection } from '../activity-detail/TableSection';
 import { loadElevationProfileChart } from '../charts/lazyCharts';
 import { RACE_DISTANCES } from '../race-prognosis/prognosisSeries';
 import { type MountedRenderer, useLazyRenderer } from '../telemetry/useLazyRenderer';
 import type { ElevationProfileHandle } from './elevationProfileChart';
 import {
   BIAS_STEP_PCT,
-  MAX_BIAS_PCT,
-  PROFILE_PLOT_HEIGHT_PX,
-  type SplitUnit,
-  UNIT_LABELS,
   elevationProfileData,
   formatGoalTime,
   formatGrade,
   formatSplitTime,
   formatUnitDistance,
   initialGoalSeconds,
+  MAX_BIAS_PCT,
+  PROFILE_PLOT_HEIGHT_PX,
   parseGoalTime,
   predictedGoal,
+  type SplitUnit,
   splitsTsv,
+  UNIT_LABELS,
 } from './splitPlan';
 
 type ElevationProfileModule = typeof import('./elevationProfileChart');
@@ -185,7 +185,7 @@ function PlanControls({
       setGoalError(parsed.error);
     }
   };
-  const usePredicted = (seconds: number) => {
+  const applyPredicted = (seconds: number) => {
     setGoalText(formatGoalTime(seconds));
     setGoalError(null);
     onChange({ ...request, goalSeconds: seconds });
@@ -222,7 +222,7 @@ function PlanControls({
           {suggestion && (
             <button
               type="button"
-              onClick={() => usePredicted(suggestion.seconds)}
+              onClick={() => applyPredicted(suggestion.seconds)}
               className="rounded-md px-3 py-1 font-medium text-blue-700 ring-1 ring-blue-300 hover:bg-blue-50 dark:text-blue-300 dark:ring-blue-800 dark:hover:bg-blue-950"
             >
               Use predicted time

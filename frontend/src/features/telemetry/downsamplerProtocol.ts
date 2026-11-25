@@ -1,4 +1,4 @@
-import { type XySeries, lttb } from './lttb';
+import { lttb, type XySeries } from './lttb';
 
 /** Message posted to `downsampler.worker.ts`: series parallel to the elapsed-time stream `t`. */
 export interface DownsampleRequest {

@@ -11,6 +11,9 @@ import type { ColorScheme } from '../../lib/colorScheme';
 import { AXIS_PALETTE } from '../charts/chartTheme';
 import {
   type AlignedPdcData,
+  durationTickLabel,
+  formatPdcValue,
+  nearestPeak,
   PDC_MAX_SECONDS,
   PDC_MIN_SECONDS,
   PDC_PALETTE,
@@ -18,9 +21,6 @@ import {
   PDC_TICKS_SECONDS,
   type PdcMode,
   type PeakCurves,
-  durationTickLabel,
-  formatPdcValue,
-  nearestPeak,
 } from './paceDurationSeries';
 
 /** How near, in CSS pixels, a click must land to a peak to open its Activity. */

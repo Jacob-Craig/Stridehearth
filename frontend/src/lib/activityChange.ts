@@ -13,7 +13,6 @@ import type {
 import type { ActivityHistoryChangeType } from '../types/domain';
 import {
   type ActivitySource,
-  MISSING,
   formatCount,
   formatDateTime,
   formatDistanceKm,
@@ -21,6 +20,7 @@ import {
   formatOptional,
   formatPacePerKm,
   formatSport,
+  MISSING,
 } from './format';
 
 /**

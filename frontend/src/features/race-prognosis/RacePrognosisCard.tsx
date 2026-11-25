@@ -11,14 +11,14 @@ import { loadPrognosisChart } from '../charts/lazyCharts';
 import { type MountedRenderer, useLazyRenderer } from '../telemetry/useLazyRenderer';
 import type { PrognosisChartHandle } from './prognosisChart';
 import {
-  type ConditionsForm,
-  PROGNOSIS_PALETTE,
-  PROGNOSIS_PLOT_HEIGHT_PX,
-  RACE_DISTANCES,
   alignedPrognosisData,
+  type ConditionsForm,
   formatFinishTime,
   formatPaceSeconds,
+  PROGNOSIS_PALETTE,
+  PROGNOSIS_PLOT_HEIGHT_PX,
   parseConditions,
+  RACE_DISTANCES,
 } from './prognosisSeries';
 
 type PrognosisChartModule = typeof import('./prognosisChart');
@@ -150,11 +150,7 @@ function Predictions({ current }: { current: RacePrognosisCurrentDto }) {
 const INPUT_CLASS =
   'mt-1 block w-32 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-1 text-sm tabular-nums aria-invalid:border-red-500';
 
-function ConditionsDisclosure({
-  onApply,
-}: {
-  onApply: (conditions: RaceConditions) => void;
-}) {
+function ConditionsDisclosure({ onApply }: { onApply: (conditions: RaceConditions) => void }) {
   const [form, setForm] = useState<ConditionsForm>(BLANK_FORM);
   const [errors, setErrors] = useState<Partial<Record<keyof ConditionsForm, string>>>({});
 
@@ -237,13 +233,7 @@ function formatDayReading(day: RacePrognosisDayDto, today: string): string {
   ].join(' · ');
 }
 
-function PrognosisTrend({
-  days,
-  today,
-}: {
-  days: readonly RacePrognosisDayDto[];
-  today: string;
-}) {
+function PrognosisTrend({ days, today }: { days: readonly RacePrognosisDayDto[]; today: string }) {
   const theme = useColorScheme();
   const latestTheme = useRef(theme);
   useEffect(() => {
