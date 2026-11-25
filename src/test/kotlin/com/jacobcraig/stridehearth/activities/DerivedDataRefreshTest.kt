@@ -1,6 +1,7 @@
 package com.jacobcraig.stridehearth.activities
 
 import com.jacobcraig.stridehearth.TestcontainersConfiguration
+import com.jacobcraig.stridehearth.analytics.Vo2maxUnavailableReason
 import com.jacobcraig.stridehearth.athlete.AthleteRollups
 import com.jacobcraig.stridehearth.athlete.RollupMarks
 import com.jacobcraig.stridehearth.system.ActivitySport
@@ -210,7 +211,15 @@ class DerivedDataRefreshTest {
         assertEquals(0.0, assertNotNull(stored.aerobicDecouplingPct), 1e-3)
         assertNull(stored.reason)
         assertEquals(
-            RunMetricsDTO(3600, stored.ngpMps, stored.efficiencyFactor, stored.aerobicDecouplingPct, null),
+            // No heart-rate Thresholds are recorded, so the Run says why it has no VO2max Estimate (#42).
+            RunMetricsDTO(
+                3600,
+                stored.ngpMps,
+                stored.efficiencyFactor,
+                stored.aerobicDecouplingPct,
+                null,
+                vo2maxUnavailableReason = Vo2maxUnavailableReason.NO_HEART_RATE_THRESHOLDS,
+            ),
             activityService.getActivityDetail(run.id!!, runner.id!!)!!.runMetrics,
         )
     }
