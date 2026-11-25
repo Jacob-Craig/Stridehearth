@@ -375,6 +375,17 @@ describe('/activities/$activityId/split-plan', () => {
       'print:hidden',
     );
   });
+
+  it("keeps the page's spacing between the elevation profile and the splits", async () => {
+    stubApi();
+    renderPlan();
+    await splitsTable();
+
+    // A margin utility on the figure would override the page's space-y gap and butt the two cards together.
+    const figure = screen.getByRole('figure', { name: 'Elevation profile' });
+    expect(figure.parentElement).toHaveClass('space-y-6');
+    expect(figure.className).not.toMatch(/(^|\s)m[by]?-/);
+  });
 });
 
 describe('Race Split Plan query', () => {

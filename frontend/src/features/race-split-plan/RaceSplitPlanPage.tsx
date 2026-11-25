@@ -307,7 +307,7 @@ function ElevationProfile({ plan }: { plan: RaceSplitPlanResponseDto }) {
   return (
     <figure
       aria-label="Elevation profile"
-      className="m-0 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm break-inside-avoid"
+      className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-sm break-inside-avoid"
     >
       <figcaption className="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
         Elevation profile
