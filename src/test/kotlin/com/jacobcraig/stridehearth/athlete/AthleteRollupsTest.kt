@@ -22,7 +22,9 @@ class AthleteRollupsTest {
     private val dailyLoadRollup = mock<DailyLoadRollup>()
     private val criticalSpeedRollup = mock<CriticalSpeedRollup>()
     private val acclimationRollup = mock<AcclimationRollup>()
-    private val rollups = AthleteRollups(entityManager, stateRepository, dailyLoadRollup, criticalSpeedRollup, acclimationRollup)
+    private val fitnessRollup = mock<FitnessRollup>()
+    private val rollups =
+        AthleteRollups(entityManager, stateRepository, dailyLoadRollup, criticalSpeedRollup, acclimationRollup, fitnessRollup)
 
     private fun at(text: String) = Instant.parse(text)
 
@@ -91,12 +93,13 @@ class AthleteRollupsTest {
 
         commit()
 
-        inOrder(entityManager, stateRepository, dailyLoadRollup, acclimationRollup) {
+        inOrder(entityManager, stateRepository, dailyLoadRollup, acclimationRollup, fitnessRollup) {
             verify(entityManager).flush()
             verify(stateRepository).lockScoringInputs(1)
             verify(stateRepository).lockRollups(1)
             verify(dailyLoadRollup).recomputeFrom(1, at("2026-02-01T08:00:00Z"))
             verify(acclimationRollup).recomputeFrom(1, at("2026-02-01T08:00:00Z"))
+            verify(fitnessRollup).recomputeFrom(1, at("2026-02-01T08:00:00Z"))
         }
     }
 
@@ -123,10 +126,11 @@ class AthleteRollupsTest {
 
         commit()
 
-        inOrder(criticalSpeedRollup, dailyLoadRollup, acclimationRollup, stateRepository) {
+        inOrder(criticalSpeedRollup, dailyLoadRollup, acclimationRollup, fitnessRollup, stateRepository) {
             verify(criticalSpeedRollup).refit(1, null)
             verify(dailyLoadRollup).recomputeFrom(1, null)
             verify(acclimationRollup).recomputeFrom(1, null)
+            verify(fitnessRollup).recomputeFrom(1, null)
             verify(stateRepository).insertRollupVersionIfAbsent(1)
         }
     }
@@ -160,8 +164,8 @@ class AthleteRollupsTest {
     }
 
     @Test
-    fun `the rollup version is 3 since Heat and Altitude Acclimation joined the rollups`() {
-        assertEquals(3, ROLLUP_VERSION)
+    fun `the rollup version is 4 since Effective VO2max joined the rollups`() {
+        assertEquals(4, ROLLUP_VERSION)
     }
 
     @Test
@@ -175,6 +179,7 @@ class AthleteRollupsTest {
         verify(stateRepository).lockRollups(1)
         verify(dailyLoadRollup, never()).recomputeFrom(any(), anyOrNull())
         verify(acclimationRollup, never()).recomputeFrom(any(), anyOrNull())
+        verify(fitnessRollup, never()).recomputeFrom(any(), anyOrNull())
         verify(criticalSpeedRollup, never()).refit(any(), anyOrNull())
     }
 
@@ -189,9 +194,11 @@ class AthleteRollupsTest {
         verify(criticalSpeedRollup).refit(1, null)
         verify(dailyLoadRollup).recomputeFrom(1, null)
         verify(acclimationRollup).recomputeFrom(1, null)
+        verify(fitnessRollup).recomputeFrom(1, null)
         verify(stateRepository).setRollupVersion(1)
         verify(dailyLoadRollup, never()).recomputeFrom(2, null)
         verify(acclimationRollup, never()).recomputeFrom(2, null)
+        verify(fitnessRollup, never()).recomputeFrom(2, null)
         verify(criticalSpeedRollup, never()).refit(2, null)
     }
 

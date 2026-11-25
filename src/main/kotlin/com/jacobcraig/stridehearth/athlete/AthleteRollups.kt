@@ -14,8 +14,9 @@ import java.time.Instant
  * - 1: Daily Load and the Performance Management Chart (#36).
  * - 2: Critical Speed and Critical Power models (#39).
  * - 3: Heat Acclimation and Altitude Acclimation (#43).
+ * - 4: Effective VO2max (#42).
  */
-const val ROLLUP_VERSION = 3
+const val ROLLUP_VERSION = 4
 
 /**
  * What one transaction marked for one athlete: the earliest moment from which their daily rollups must be rebuilt
@@ -38,8 +39,8 @@ data class RollupMarks(
  * The before-commit pass flushes the caller's pending changes, then, for each athlete in ascending id order, takes
  * their rollup lock, always the last lock a transaction takes (ADR-0016), refits their **Critical Speed** models
  * within 90 days of each day their peaks changed ([CriticalSpeedRollup]), and rebuilds their **Daily Load** and
- * **Performance Management Chart** ([DailyLoadRollup]) and their **Heat Acclimation** and **Altitude Acclimation**
- * ([AcclimationRollup]) from the earliest marked day. An athlete without a state row
+ * **Performance Management Chart** ([DailyLoadRollup]), their **Heat Acclimation** and **Altitude Acclimation**
+ * ([AcclimationRollup]) and their **Effective VO2max** ([FitnessRollup]) from the earliest marked day. An athlete without a state row
  * gets a full rebuild, and their row is created current; an athlete whose rollups are stale ([ROLLUP_VERSION]) is left
  * to the recompute worker's full rebuild.
  */
@@ -50,6 +51,7 @@ class AthleteRollups(
     private val dailyLoadRollup: DailyLoadRollup,
     private val criticalSpeedRollup: CriticalSpeedRollup,
     private val acclimationRollup: AcclimationRollup,
+    private val fitnessRollup: FitnessRollup,
 ) {
     /** Marks that [userId]'s daily rollups must be rebuilt from the day containing [startedAt] onwards. */
     fun markDailyLoad(
@@ -119,6 +121,7 @@ class AthleteRollups(
                 criticalSpeedRollup.refit(userId, changedAt = null)
                 dailyLoadRollup.recomputeFrom(userId, from = null)
                 acclimationRollup.recomputeFrom(userId, from = null)
+                fitnessRollup.recomputeFrom(userId, from = null)
                 stateRepository.insertRollupVersionIfAbsent(userId)
             }
             version < ROLLUP_VERSION -> return
@@ -127,6 +130,7 @@ class AthleteRollups(
                 marks.dailyLoadFrom?.let {
                     dailyLoadRollup.recomputeFrom(userId, it)
                     acclimationRollup.recomputeFrom(userId, it)
+                    fitnessRollup.recomputeFrom(userId, it)
                 }
             }
         }
@@ -148,6 +152,7 @@ class AthleteRollups(
         criticalSpeedRollup.refit(userId, changedAt = null)
         dailyLoadRollup.recomputeFrom(userId, from = null)
         acclimationRollup.recomputeFrom(userId, from = null)
+        fitnessRollup.recomputeFrom(userId, from = null)
         if (version == null) stateRepository.insertRollupVersionIfAbsent(userId) else stateRepository.setRollupVersion(userId)
         return true
     }
