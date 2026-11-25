@@ -1,0 +1,8 @@
+# Test-only overrides, layered over src/main/resources/application.yaml (classpath:/config/ takes precedence).
+# They also apply to TestStridehearthApplication (bootTestRun), the dev entry point: set
+# stridehearth.analytics.recompute.scheduled=true there to see the background recompute run.
+stridehearth:
+  analytics:
+    recompute:
+      # A background recompute would race the tests' own fixtures; tests call DerivedDataRecomputeWorker.drain().
+      scheduled: false

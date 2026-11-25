@@ -26,4 +26,7 @@ class User(
     /** Whether this is the Server's Administrator: its first account, the one allowed to issue Invites. */
     @Column(nullable = false)
     var administrator: Boolean = false,
+    /** The athlete's IANA time zone, which their local dates are counted in; null until set, read as UTC (ADR-0015). */
+    @Column(name = "time_zone", length = 64)
+    var timeZone: String? = null,
 )

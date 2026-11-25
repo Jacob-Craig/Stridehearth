@@ -3,7 +3,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { BackfillBestEffortsData, BackfillBestEffortsErrors, BackfillBestEffortsResponses, BatchDeleteData, BatchDeleteErrors, BatchDeleteResponses, BatchUpdateData, BatchUpdateErrors, BatchUpdateResponses, CancelImportBatchData, CancelImportBatchErrors, CancelImportBatchResponses, CreateActivityData, CreateActivityErrors, CreateActivityResponses, CreateInviteData, CreateInviteErrors, CreateInviteResponses, DeleteActivityData, DeleteActivityErrors, DeleteActivityResponses, GetActivityData, GetActivityErrors, GetActivityResponses, GetActivityTelemetryData, GetActivityTelemetryErrors, GetActivityTelemetryResponses, GetDashboardData, GetDashboardErrors, GetDashboardResponses, GetHeatmapRendererData, GetHeatmapRendererErrors, GetHeatmapRendererResponses, GetHeatmapRevisionData, GetHeatmapRevisionErrors, GetHeatmapRevisionResponses, GetHeatmapStartingViewData, GetHeatmapStartingViewErrors, GetHeatmapStartingViewResponses, GetHeatmapTileData, GetHeatmapTileErrors, GetHeatmapTileResponses, GetHeatmapYearsData, GetHeatmapYearsErrors, GetHeatmapYearsResponses, GetImportBatchData, GetImportBatchErrors, GetImportBatchResponses, GetImportHistoryData, GetImportHistoryErrors, GetImportHistoryResponses, InviteStatusData, InviteStatusErrors, InviteStatusResponses, ListActivitiesData, ListActivitiesErrors, ListActivitiesResponses, ListPendingInvitesData, ListPendingInvitesErrors, ListPendingInvitesResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutResponses, MeData, MeErrors, MeResponses, RedeemInviteData, RedeemInviteErrors, RedeemInviteResponses, RegisterData, RegisterErrors, RegisterResponses, RegistrationStatusData, RegistrationStatusResponses, RevokeInviteData, RevokeInviteErrors, RevokeInviteResponses, SubmitImportBatchData, SubmitImportBatchErrors, SubmitImportBatchResponses, UpdateActivityData, UpdateActivityErrors, UpdateActivityResponses, UploadActivityFileData, UploadActivityFileErrors, UploadActivityFileResponses } from './types.gen';
+import type { AcceptThresholdProposalData, AcceptThresholdProposalErrors, AcceptThresholdProposalResponses, BackfillBestEffortsData, BackfillBestEffortsErrors, BackfillBestEffortsResponses, BatchDeleteData, BatchDeleteErrors, BatchDeleteResponses, BatchUpdateData, BatchUpdateErrors, BatchUpdateResponses, CancelImportBatchData, CancelImportBatchErrors, CancelImportBatchResponses, CreateActivityData, CreateActivityErrors, CreateActivityResponses, CreateInviteData, CreateInviteErrors, CreateInviteResponses, DeleteActivityData, DeleteActivityErrors, DeleteActivityResponses, DeleteAthleteThresholdData, DeleteAthleteThresholdErrors, DeleteAthleteThresholdResponses, DismissThresholdProposalData, DismissThresholdProposalErrors, DismissThresholdProposalResponses, GetAcclimationData, GetAcclimationErrors, GetAcclimationResponses, GetActivityData, GetActivityErrors, GetActivityResponses, GetActivityTelemetryData, GetActivityTelemetryErrors, GetActivityTelemetryResponses, GetAthleteThresholdsData, GetAthleteThresholdsErrors, GetAthleteThresholdsResponses, GetCriticalSpeedData, GetCriticalSpeedErrors, GetCriticalSpeedResponses, GetDashboardData, GetDashboardErrors, GetDashboardResponses, GetHeatmapRendererData, GetHeatmapRendererErrors, GetHeatmapRendererResponses, GetHeatmapRevisionData, GetHeatmapRevisionErrors, GetHeatmapRevisionResponses, GetHeatmapStartingViewData, GetHeatmapStartingViewErrors, GetHeatmapStartingViewResponses, GetHeatmapTileData, GetHeatmapTileErrors, GetHeatmapTileResponses, GetHeatmapYearsData, GetHeatmapYearsErrors, GetHeatmapYearsResponses, GetImportBatchData, GetImportBatchErrors, GetImportBatchResponses, GetImportHistoryData, GetImportHistoryErrors, GetImportHistoryResponses, GetMarathonShapeData, GetMarathonShapeErrors, GetMarathonShapeResponses, GetPeakEffortsData, GetPeakEffortsErrors, GetPeakEffortsResponses, GetPerformanceManagementChartData, GetPerformanceManagementChartErrors, GetPerformanceManagementChartResponses, GetPersonalRecordProgressionData, GetPersonalRecordProgressionErrors, GetPersonalRecordProgressionResponses, GetRacePrognosisData, GetRacePrognosisErrors, GetRacePrognosisResponses, GetRaceSplitPlanData, GetRaceSplitPlanErrors, GetRaceSplitPlanResponses, GetVo2MaxData, GetVo2MaxErrors, GetVo2MaxResponses, InviteStatusData, InviteStatusErrors, InviteStatusResponses, ListActivitiesData, ListActivitiesErrors, ListActivitiesResponses, ListPendingInvitesData, ListPendingInvitesErrors, ListPendingInvitesResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutResponses, MeData, MeErrors, MeResponses, RecordAthleteThresholdData, RecordAthleteThresholdErrors, RecordAthleteThresholdResponses, RedeemInviteData, RedeemInviteErrors, RedeemInviteResponses, RegisterData, RegisterErrors, RegisterResponses, RegistrationStatusData, RegistrationStatusResponses, RevokeInviteData, RevokeInviteErrors, RevokeInviteResponses, SetAthleteTimeZoneData, SetAthleteTimeZoneErrors, SetAthleteTimeZoneResponses, SubmitImportBatchData, SubmitImportBatchErrors, SubmitImportBatchResponses, UpdateActivityData, UpdateActivityErrors, UpdateActivityResponses, UploadActivityFileData, UploadActivityFileErrors, UploadActivityFileResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -18,6 +18,18 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * Sets the IANA time zone the athlete's local dates are counted in
+ */
+export const setAthleteTimeZone = <ThrowOnError extends boolean = false>(options: Options<SetAthleteTimeZoneData, ThrowOnError>): RequestResult<SetAthleteTimeZoneResponses, SetAthleteTimeZoneErrors, ThrowOnError> => (options.client ?? client).put<SetAthleteTimeZoneResponses, SetAthleteTimeZoneErrors, ThrowOnError>({
+    url: '/api/athlete/time-zone',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 export const deleteActivity = <ThrowOnError extends boolean = false>(options: Options<DeleteActivityData, ThrowOnError>): RequestResult<DeleteActivityResponses, DeleteActivityErrors, ThrowOnError> => (options.client ?? client).delete<DeleteActivityResponses, DeleteActivityErrors, ThrowOnError>({ url: '/api/activities/{id}', ...options });
 
@@ -64,6 +76,33 @@ export const redeemInvite = <ThrowOnError extends boolean = false>(options: Opti
         ...options.headers
     }
 });
+
+/**
+ * The athlete's Threshold history, today's values, Zones and proposals
+ */
+export const getAthleteThresholds = <ThrowOnError extends boolean = false>(options?: Options<GetAthleteThresholdsData, ThrowOnError>): RequestResult<GetAthleteThresholdsResponses, GetAthleteThresholdsErrors, ThrowOnError> => (options?.client ?? client).get<GetAthleteThresholdsResponses, GetAthleteThresholdsErrors, ThrowOnError>({ url: '/api/athlete/thresholds', ...options });
+
+/**
+ * Records a Threshold from a date, replacing a value already recorded for that kind and date
+ */
+export const recordAthleteThreshold = <ThrowOnError extends boolean = false>(options: Options<RecordAthleteThresholdData, ThrowOnError>): RequestResult<RecordAthleteThresholdResponses, RecordAthleteThresholdErrors, ThrowOnError> => (options.client ?? client).post<RecordAthleteThresholdResponses, RecordAthleteThresholdErrors, ThrowOnError>({
+    url: '/api/athlete/thresholds',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Dismisses a Threshold Proposal without applying it
+ */
+export const dismissThresholdProposal = <ThrowOnError extends boolean = false>(options: Options<DismissThresholdProposalData, ThrowOnError>): RequestResult<DismissThresholdProposalResponses, DismissThresholdProposalErrors, ThrowOnError> => (options.client ?? client).post<DismissThresholdProposalResponses, DismissThresholdProposalErrors, ThrowOnError>({ url: '/api/athlete/thresholds/proposals/{id}/dismiss', ...options });
+
+/**
+ * Applies a Threshold Proposal as a Threshold entry
+ */
+export const acceptThresholdProposal = <ThrowOnError extends boolean = false>(options: Options<AcceptThresholdProposalData, ThrowOnError>): RequestResult<AcceptThresholdProposalResponses, AcceptThresholdProposalErrors, ThrowOnError> => (options.client ?? client).post<AcceptThresholdProposalResponses, AcceptThresholdProposalErrors, ThrowOnError>({ url: '/api/athlete/thresholds/proposals/{id}/accept', ...options });
 
 export const listActivities = <ThrowOnError extends boolean = false>(options?: Options<ListActivitiesData, ThrowOnError>): RequestResult<ListActivitiesResponses, ListActivitiesErrors, ThrowOnError> => (options?.client ?? client).get<ListActivitiesResponses, ListActivitiesErrors, ThrowOnError>({ url: '/api/activities', ...options });
 
@@ -154,12 +193,62 @@ export const me = <ThrowOnError extends boolean = false>(options?: Options<MeDat
 export const inviteStatus = <ThrowOnError extends boolean = false>(options: Options<InviteStatusData, ThrowOnError>): RequestResult<InviteStatusResponses, InviteStatusErrors, ThrowOnError> => (options.client ?? client).get<InviteStatusResponses, InviteStatusErrors, ThrowOnError>({ url: '/api/auth/invites/{token}', ...options });
 
 /**
+ * The athlete's daily Effective VO2max, continued to today, and their Runs' VO2max Estimates
+ */
+export const getVo2Max = <ThrowOnError extends boolean = false>(options?: Options<GetVo2MaxData, ThrowOnError>): RequestResult<GetVo2MaxResponses, GetVo2MaxErrors, ThrowOnError> => (options?.client ?? client).get<GetVo2MaxResponses, GetVo2MaxErrors, ThrowOnError>({ url: '/api/athlete/vo2max', ...options });
+
+/**
+ * The athlete's predicted 5K, 10K, Half and Marathon times today, and on each day
+ */
+export const getRacePrognosis = <ThrowOnError extends boolean = false>(options?: Options<GetRacePrognosisData, ThrowOnError>): RequestResult<GetRacePrognosisResponses, GetRacePrognosisErrors, ThrowOnError> => (options?.client ?? client).get<GetRacePrognosisResponses, GetRacePrognosisErrors, ThrowOnError>({ url: '/api/athlete/race-prognosis', ...options });
+
+/**
+ * The athlete's daily Fitness, Fatigue, Form, ACWR, Monotony and Strain, extended to today
+ */
+export const getPerformanceManagementChart = <ThrowOnError extends boolean = false>(options?: Options<GetPerformanceManagementChartData, ThrowOnError>): RequestResult<GetPerformanceManagementChartResponses, GetPerformanceManagementChartErrors, ThrowOnError> => (options?.client ?? client).get<GetPerformanceManagementChartResponses, GetPerformanceManagementChartErrors, ThrowOnError>({ url: '/api/athlete/pmc', ...options });
+
+/**
+ * Every running Personal Record the athlete has set, per Benchmark Distance, oldest first
+ */
+export const getPersonalRecordProgression = <ThrowOnError extends boolean = false>(options?: Options<GetPersonalRecordProgressionData, ThrowOnError>): RequestResult<GetPersonalRecordProgressionResponses, GetPersonalRecordProgressionErrors, ThrowOnError> => (options?.client ?? client).get<GetPersonalRecordProgressionResponses, GetPersonalRecordProgressionErrors, ThrowOnError>({ url: '/api/athlete/personal-record-progression', ...options });
+
+/**
+ * The athlete's best Peak Effort per Benchmark Duration, over the last 90 days and all-time
+ */
+export const getPeakEfforts = <ThrowOnError extends boolean = false>(options?: Options<GetPeakEffortsData, ThrowOnError>): RequestResult<GetPeakEffortsResponses, GetPeakEffortsErrors, ThrowOnError> => (options?.client ?? client).get<GetPeakEffortsResponses, GetPeakEffortsErrors, ThrowOnError>({ url: '/api/athlete/peak-efforts', ...options });
+
+/**
+ * The athlete's daily Marathon Shape, continued to today
+ */
+export const getMarathonShape = <ThrowOnError extends boolean = false>(options?: Options<GetMarathonShapeData, ThrowOnError>): RequestResult<GetMarathonShapeResponses, GetMarathonShapeErrors, ThrowOnError> => (options?.client ?? client).get<GetMarathonShapeResponses, GetMarathonShapeErrors, ThrowOnError>({ url: '/api/athlete/marathon-shape', ...options });
+
+/**
+ * The athlete's Critical Speed / D′ (and Critical Power / W′) model from their last 90 days of Peak Efforts
+ */
+export const getCriticalSpeed = <ThrowOnError extends boolean = false>(options?: Options<GetCriticalSpeedData, ThrowOnError>): RequestResult<GetCriticalSpeedResponses, GetCriticalSpeedErrors, ThrowOnError> => (options?.client ?? client).get<GetCriticalSpeedResponses, GetCriticalSpeedErrors, ThrowOnError>({ url: '/api/athlete/critical-speed', ...options });
+
+/**
+ * The athlete's daily Heat and Altitude Acclimation, decayed to today
+ */
+export const getAcclimation = <ThrowOnError extends boolean = false>(options?: Options<GetAcclimationData, ThrowOnError>): RequestResult<GetAcclimationResponses, GetAcclimationErrors, ThrowOnError> => (options?.client ?? client).get<GetAcclimationResponses, GetAcclimationErrors, ThrowOnError>({ url: '/api/athlete/acclimation', ...options });
+
+/**
  * The Activity Details and Best Effort windows of an Activity
  */
 export const getActivityTelemetry = <ThrowOnError extends boolean = false>(options: Options<GetActivityTelemetryData, ThrowOnError>): RequestResult<GetActivityTelemetryResponses, GetActivityTelemetryErrors, ThrowOnError> => (options.client ?? client).get<GetActivityTelemetryResponses, GetActivityTelemetryErrors, ThrowOnError>({ url: '/api/activities/{id}/telemetry', ...options });
+
+/**
+ * Target times per km or mile over an Activity's route that hold Grade-Adjusted effort even and sum to a Goal Time
+ */
+export const getRaceSplitPlan = <ThrowOnError extends boolean = false>(options: Options<GetRaceSplitPlanData, ThrowOnError>): RequestResult<GetRaceSplitPlanResponses, GetRaceSplitPlanErrors, ThrowOnError> => (options.client ?? client).get<GetRaceSplitPlanResponses, GetRaceSplitPlanErrors, ThrowOnError>({ url: '/api/activities/{id}/race-split-plan', ...options });
 
 export const getImportHistory = <ThrowOnError extends boolean = false>(options?: Options<GetImportHistoryData, ThrowOnError>): RequestResult<GetImportHistoryResponses, GetImportHistoryErrors, ThrowOnError> => (options?.client ?? client).get<GetImportHistoryResponses, GetImportHistoryErrors, ThrowOnError>({ url: '/api/activities/import/history', ...options });
 
 export const getImportBatch = <ThrowOnError extends boolean = false>(options: Options<GetImportBatchData, ThrowOnError>): RequestResult<GetImportBatchResponses, GetImportBatchErrors, ThrowOnError> => (options.client ?? client).get<GetImportBatchResponses, GetImportBatchErrors, ThrowOnError>({ url: '/api/activities/import/batches/{id}', ...options });
 
 export const revokeInvite = <ThrowOnError extends boolean = false>(options: Options<RevokeInviteData, ThrowOnError>): RequestResult<RevokeInviteResponses, RevokeInviteErrors, ThrowOnError> => (options.client ?? client).delete<RevokeInviteResponses, RevokeInviteErrors, ThrowOnError>({ url: '/api/invites/{inviteId}', ...options });
+
+/**
+ * Deletes one of the athlete's Threshold entries
+ */
+export const deleteAthleteThreshold = <ThrowOnError extends boolean = false>(options: Options<DeleteAthleteThresholdData, ThrowOnError>): RequestResult<DeleteAthleteThresholdResponses, DeleteAthleteThresholdErrors, ThrowOnError> => (options.client ?? client).delete<DeleteAthleteThresholdResponses, DeleteAthleteThresholdErrors, ThrowOnError>({ url: '/api/athlete/thresholds/{id}', ...options });

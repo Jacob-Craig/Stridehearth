@@ -1,15 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import {
   averageSpeedKmh,
+  decouplingStatus,
+  formatAltitudeM,
   formatDate,
   formatDateTime,
+  formatDecouplingPercent,
+  formatDecouplingUnavailableReason,
   formatDistanceKm,
   formatDistanceMeters,
   formatDistanceRangeKm,
   formatDuration,
   formatDurationRange,
+  formatEfficiencyFactor,
   formatElevationGain,
+  formatNgpPerKm,
   formatPacePerKm,
+  formatStaminaPercent,
+  formatTemperatureC,
+  formatTrainingLoad,
 } from '../src/lib/format';
 
 describe('formatDuration', () => {
@@ -111,6 +120,25 @@ describe('formatElevationGain', () => {
   });
 });
 
+describe('formatTemperatureC', () => {
+  it('rounds to whole degrees Celsius', () => {
+    expect(formatTemperatureC(18.4)).toBe('18 °C');
+    expect(formatTemperatureC(23.5)).toBe('24 °C');
+    expect(formatTemperatureC(-3.6)).toBe('-4 °C');
+  });
+
+  it('never shows a negative zero', () => {
+    expect(formatTemperatureC(-0.4)).toBe('0 °C');
+  });
+});
+
+describe('formatAltitudeM', () => {
+  it('rounds to whole metres', () => {
+    expect(formatAltitudeM(312.4)).toBe('312 m');
+    expect(formatAltitudeM(1999.5)).toBe('2000 m');
+  });
+});
+
 describe('formatDateTime', () => {
   it('formats an instant as a date and 24-hour time in the given zone', () => {
     expect(formatDateTime('2026-03-01T09:05:00Z', 'UTC')).toBe('1 Mar 2026, 09:05');
@@ -133,5 +161,77 @@ describe('formatDurationRange', () => {
   it('formats a span of elapsed seconds', () => {
     expect(formatDurationRange(10, 250)).toBe('00:10 – 04:10');
     expect(formatDurationRange(3540, 3725)).toBe('59:00 – 01:02:05');
+  });
+});
+
+describe('formatNgpPerKm', () => {
+  it('formats Normalized Graded Pace in m/s as a pace per km', () => {
+    // 10/3 m/s = 12 km/h = 5:00 /km; 4 m/s = 14.4 km/h = 250 s /km.
+    expect(formatNgpPerKm(10 / 3)).toBe('05:00 /km');
+    expect(formatNgpPerKm(4)).toBe('04:10 /km');
+  });
+
+  it('shows a dash when absent', () => {
+    expect(formatNgpPerKm(null)).toBe('—');
+  });
+});
+
+describe('formatEfficiencyFactor', () => {
+  it('formats to two decimal places', () => {
+    expect(formatEfficiencyFactor(1.2)).toBe('1.20');
+    expect(formatEfficiencyFactor(1.23456)).toBe('1.23');
+  });
+
+  it('shows a dash when absent', () => {
+    expect(formatEfficiencyFactor(null)).toBe('—');
+  });
+});
+
+describe('formatDecouplingPercent', () => {
+  it('formats to one decimal place with a percent sign', () => {
+    expect(formatDecouplingPercent(4.94)).toBe('4.9%');
+    expect(formatDecouplingPercent(9.0909)).toBe('9.1%');
+    expect(formatDecouplingPercent(-2)).toBe('-2.0%');
+  });
+});
+
+describe('decouplingStatus', () => {
+  it('is coupled below 5 percent, including negative drift', () => {
+    expect(decouplingStatus(4.9)).toBe('coupled');
+    expect(decouplingStatus(4.999)).toBe('coupled');
+    expect(decouplingStatus(-3)).toBe('coupled');
+  });
+
+  it('is drifting at 5 percent or more', () => {
+    expect(decouplingStatus(5)).toBe('drifting');
+    expect(decouplingStatus(12.5)).toBe('drifting');
+  });
+});
+
+describe('formatDecouplingUnavailableReason', () => {
+  it('explains each reason', () => {
+    expect(formatDecouplingUnavailableReason('NO_HEART_RATE')).toBe('No heart rate');
+    expect(formatDecouplingUnavailableReason('HEART_RATE_GAP_IN_HALF')).toBe(
+      'Heart rate missing in one half',
+    );
+    expect(formatDecouplingUnavailableReason('TOO_SHORT')).toBe('Needs 30 min of running');
+    expect(formatDecouplingUnavailableReason('NOT_STEADY')).toBe('Pace too variable');
+    expect(formatDecouplingUnavailableReason('NO_PACE_DATA')).toBe('No pace data');
+  });
+});
+
+describe('formatTrainingLoad', () => {
+  it('rounds the load to an integer and names the method', () => {
+    expect(formatTrainingLoad({ value: 87.4, method: 'RTSS' })).toBe('87 · rTSS');
+    expect(formatTrainingLoad({ value: 99.5, method: 'RSS' })).toBe('100 · RSS');
+    expect(formatTrainingLoad({ value: 0.2, method: 'HRSS' })).toBe('0 · HRSS');
+  });
+});
+
+describe('formatStaminaPercent', () => {
+  it('rounds Stamina to a whole percentage', () => {
+    expect(formatStaminaPercent(24.6)).toBe('25%');
+    expect(formatStaminaPercent(0)).toBe('0%');
+    expect(formatStaminaPercent(100)).toBe('100%');
   });
 });

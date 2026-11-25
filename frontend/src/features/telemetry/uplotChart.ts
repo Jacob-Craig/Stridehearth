@@ -8,29 +8,28 @@ import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import type { ColorScheme } from '../../lib/colorScheme';
 import { formatDuration } from '../../lib/format';
+import { AXIS_PALETTE } from '../charts/chartTheme';
 import { BEST_EFFORT_HIGHLIGHT_COLOR } from './bestEffortHighlight';
 import { CHART_PLOT_HEIGHT_PX } from './chartLayout';
 import type { XySeries } from './lttb';
 import { type TimeWindow, sampleIndexAtTime } from './sampleLookup';
 import type { ScrubbableChart } from './scrubberBus';
 import { readingAt, sensorDropouts } from './sensorDropouts';
-import type { ChartSeries } from './sensorStreams';
+import type { ChartOverlay, ChartSeries } from './sensorStreams';
 
-const AXIS_PALETTE: Record<ColorScheme, { readonly axis: string; readonly grid: string }> = {
-  light: { axis: '#475569', grid: '#e2e8f0' },
-  dark: { axis: '#94a3b8', grid: '#1e293b' },
-};
 /** The **Best Effort** band is the highlight colour, translucent over the series. */
 const HIGHLIGHT_BAND_ALPHA = 0.22;
 
 const HIDDEN_CURSOR = { left: -10, top: -10 };
+/** The overlay is dashed so it stays distinguishable from the chart's own series without colour. */
+const OVERLAY_DASH = [6, 4];
 const NO_READING = '—';
 
 export interface TelemetryChartOptions {
   readonly container: HTMLElement;
   /** The live reading under the cursor is written here directly, without a React render. */
   readonly readout: HTMLElement;
-  readonly series: Pick<ChartSeries, 'label' | 'unit' | 'color'>;
+  readonly series: Pick<ChartSeries, 'label' | 'unit' | 'color' | 'yRange'>;
   /** `(elapsed seconds, value)` points to plot, possibly downsampled. */
   readonly data: XySeries;
   /** The full-resolution `(elapsed seconds, value)` samples, read out at the scrubbed time. */
@@ -38,6 +37,15 @@ export interface TelemetryChartOptions {
   readonly theme: ColorScheme;
   /** Called with the elapsed time under the pointer, or `null` when it leaves the chart. */
   readonly onScrub: (seconds: number | null) => void;
+  /** A derived stream drawn over the series in the same unit, such as **Grade-Adjusted Pace**. */
+  readonly overlay?: {
+    readonly label: ChartOverlay['label'];
+    readonly color: ChartOverlay['color'];
+    /** Its full-resolution `(elapsed seconds, value)` samples; plotted at the points `data` plots. */
+    readonly samples: XySeries;
+    /** Whether it is drawn and read out when the chart is created. */
+    readonly visible: boolean;
+  };
 }
 
 export interface TelemetryChartHandle extends ScrubbableChart {
@@ -45,31 +53,70 @@ export interface TelemetryChartHandle extends ScrubbableChart {
   setHighlight(window: TimeWindow | null): void;
   /** Restyles the live chart for a colour scheme, keeping its cursor and reading. */
   setTheme(theme: ColorScheme): void;
+  /** Shows or hides the overlay and its reading in place; does nothing on a chart without one. */
+  setOverlayVisible(visible: boolean): void;
   destroy(): void;
 }
 
 const formatValue = (value: number) => (Number.isInteger(value) ? String(value) : value.toFixed(1));
 
+/**
+ * The overlay's values at each plotted point of the chart's own series. Both are parallel to the same
+ * elapsed-time stream, so at full resolution they line up as they are; a downsampled series plots a
+ * subset of sample times, which are looked up in the overlay's samples.
+ */
+function overlayAtPlottedPoints(data: XySeries, samples: XySeries, overlay: XySeries): XySeries {
+  if (data === samples || data.x === overlay.x) return { x: data.x, y: overlay.y };
+  return {
+    x: data.x,
+    y: data.x.map((seconds) => {
+      const sample = sampleIndexAtTime(overlay.x, seconds);
+      return sample == null ? null : (overlay.y[sample] ?? null);
+    }),
+  };
+}
+
 export function createTelemetryChart(options: TelemetryChartOptions): TelemetryChartHandle {
-  const { container, readout, series, data, samples, onScrub } = options;
+  const { container, readout, series, data, samples, onScrub, overlay } = options;
   let theme = options.theme;
   let highlight: TimeWindow | null = null;
+  let overlayVisible = overlay?.visible ?? false;
+  let readingSeconds: number | null = null;
   // The plotted line breaks at the plotted series' dropouts; the reading follows the full samples.
   const dropouts = sensorDropouts(data);
   const sampleDropouts = data === samples ? dropouts : sensorDropouts(samples);
+  const overlayPlot = overlay && overlayAtPlottedPoints(data, samples, overlay.samples);
+  const overlayDropouts = overlayPlot ? sensorDropouts(overlayPlot) : [];
+  const overlaySampleDropouts = overlay ? sensorDropouts(overlay.samples) : [];
+
+  const formatReading = (value: number | null) =>
+    value == null ? NO_READING : `${formatValue(value)} ${series.unit}`;
 
   /** Reads out the full-resolution sample nearest `seconds`, whatever points the chart plots. */
   const showReadingAt = (seconds: number | null) => {
+    readingSeconds = seconds;
     const sample = seconds == null ? null : sampleIndexAtTime(samples.x, seconds);
     const sampleSeconds = sample == null ? undefined : samples.x[sample];
     if (sample == null || sampleSeconds === undefined) {
       readout.textContent = NO_READING;
       return;
     }
-    const value = readingAt(samples, sampleSeconds, sampleDropouts);
-    const reading = value == null ? NO_READING : `${formatValue(value)} ${series.unit}`;
-    readout.textContent = `${formatDuration(sampleSeconds)} · ${reading}`;
+    const reading = formatReading(readingAt(samples, sampleSeconds, sampleDropouts));
+    const overlayReading =
+      overlay && overlayVisible
+        ? ` · ${overlay.label} ${formatReading(readingAt(overlay.samples, sampleSeconds, overlaySampleDropouts))}`
+        : '';
+    readout.textContent = `${formatDuration(sampleSeconds)} · ${reading}${overlayReading}`;
   };
+
+  /** uPlot `gaps`: only true dropouts break a line, not every null between sparse readings. */
+  const gapsAt =
+    (windows: readonly TimeWindow[]) =>
+    (u: uPlot): [number, number][] =>
+      windows.map(({ startTimeSeconds, endTimeSeconds }) => [
+        u.valToPos(startTimeSeconds, 'x', true),
+        u.valToPos(endTimeSeconds, 'x', true),
+      ]);
 
   /**
    * The elapsed time under the pointer itself, not the nearest plotted point (`cursor.idx`), which on
@@ -106,7 +153,11 @@ export function createTelemetryChart(options: TelemetryChartOptions): TelemetryC
       height: CHART_PLOT_HEIGHT_PX,
       legend: { show: false },
       cursor: { drag: { x: false, y: false }, y: false },
-      scales: { x: { time: false } },
+      // A fixed range (Stamina's 0-100 %) keeps the axis comparable between Activities; others auto-range.
+      scales: {
+        x: { time: false },
+        ...(series.yRange && { y: { range: [series.yRange[0], series.yRange[1]] } }),
+      },
       axes: [
         { ...axis, values: (_u, ticks) => ticks.map((tick) => formatDuration(tick)) },
         { ...axis, size: 50 },
@@ -120,12 +171,21 @@ export function createTelemetryChart(options: TelemetryChartOptions): TelemetryC
           // uPlot treats every null as a gap; only true sensor dropouts break the line, so sparse
           // readings stay a line and a downsampled series (which has no nulls) still shows dropouts.
           spanGaps: false,
-          gaps: (u) =>
-            dropouts.map(({ startTimeSeconds, endTimeSeconds }) => [
-              u.valToPos(startTimeSeconds, 'x', true),
-              u.valToPos(endTimeSeconds, 'x', true),
-            ]),
+          gaps: gapsAt(dropouts),
         },
+        ...(overlay
+          ? [
+              {
+                label: overlay.label,
+                stroke: () => overlay.color[theme],
+                width: 1.5,
+                dash: OVERLAY_DASH,
+                show: overlayVisible,
+                spanGaps: false,
+                gaps: gapsAt(overlayDropouts),
+              },
+            ]
+          : []),
       ],
       hooks: {
         setCursor: [
@@ -139,7 +199,9 @@ export function createTelemetryChart(options: TelemetryChartOptions): TelemetryC
       },
     },
     // uPlot does not mutate its data; it is typed as mutable only.
-    [data.x as number[], data.y as (number | null)[]],
+    overlayPlot
+      ? [data.x as number[], data.y as (number | null)[], overlayPlot.y as (number | null)[]]
+      : [data.x as number[], data.y as (number | null)[]],
     container,
   );
 
@@ -168,6 +230,12 @@ export function createTelemetryChart(options: TelemetryChartOptions): TelemetryC
       if (next === theme) return;
       theme = next;
       plot.redraw(false);
+    },
+    setOverlayVisible(visible) {
+      if (!overlay) return;
+      overlayVisible = visible;
+      plot.setSeries(2, { show: visible });
+      showReadingAt(readingSeconds);
     },
     destroy() {
       resizeObserver?.disconnect();

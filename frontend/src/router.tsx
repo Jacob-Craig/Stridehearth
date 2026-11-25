@@ -35,6 +35,11 @@ import {
   manageActivitiesQueries,
 } from './features/manage/ManageActivitiesRoute';
 import { manageSearchSchema, toManageFilters } from './features/manage/manageSearch';
+import {
+  RaceSplitPlanRoute,
+  raceSplitPlanQueries,
+} from './features/race-split-plan/RaceSplitPlanRoute';
+import { SettingsRoute, settingsQueries } from './features/settings/SettingsRoute';
 
 export interface RouterContext {
   queryClient: QueryClient;
@@ -117,8 +122,22 @@ export const indexRoute = createRoute({
 export const dashboardRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/dashboard',
-  loader: ({ context }) =>
-    context.queryClient.ensureQueryData(dashboardQueries(context.user.id).dashboard),
+  loader: ({ context }) => {
+    const queries = dashboardQueries(context.user.id);
+    return Promise.all([
+      context.queryClient.ensureQueryData(queries.dashboard),
+      // Prefetched so the chart draws with the page, but never awaited into a failure: a PMC that
+      // cannot be loaded shows its error inside its own panel.
+      context.queryClient.prefetchQuery(queries.pmc),
+      // The progression is fetched alongside but never fails the route: its card shows its own error.
+      context.queryClient.prefetchQuery(queries.progression),
+      // So is the Pace-Duration Curve, whose section shows its own error.
+      context.queryClient.prefetchQuery(queries.peakEfforts),
+      context.queryClient.prefetchQuery(queries.criticalSpeed),
+      // So is today's Race Prognosis, whose card shows its own error and queries race-day conditions itself.
+      context.queryClient.prefetchQuery(queries.racePrognosis),
+    ]);
+  },
   component: DashboardRoute,
   errorComponent: routeErrorComponent('Your Dashboard could not be loaded'),
 });
@@ -202,6 +221,15 @@ export const activityEditRoute = createRoute({
   errorComponent: routeErrorComponent('This Activity could not be loaded'),
 });
 
+export const activitySplitPlanRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/activities/$activityId/split-plan',
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(raceSplitPlanQueries(context.user.id, params).activity),
+  component: RaceSplitPlanRoute,
+  errorComponent: routeErrorComponent('This Race Split Plan could not be loaded'),
+});
+
 export const heatmapRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/heatmap',
@@ -232,6 +260,15 @@ export const invitesRoute = createRoute({
   errorComponent: routeErrorComponent('Your invites could not be loaded'),
 });
 
+export const settingsRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/settings',
+  loader: ({ context }) =>
+    context.queryClient.ensureQueryData(settingsQueries(context.user.id).thresholds),
+  component: SettingsRoute,
+  errorComponent: routeErrorComponent('Your settings could not be loaded'),
+});
+
 export function createAppRouter(context: RouterContext, history?: RouterHistory) {
   const routeTree = rootRoute.addChildren([
     loginRoute,
@@ -247,8 +284,10 @@ export function createAppRouter(context: RouterContext, history?: RouterHistory)
       activitiesAddActivityRoute,
       activityDetailRoute,
       activityEditRoute,
+      activitySplitPlanRoute,
       heatmapRoute,
       invitesRoute,
+      settingsRoute,
     ]),
   ]);
 

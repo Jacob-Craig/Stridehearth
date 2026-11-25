@@ -14,6 +14,7 @@ export interface FakeChart {
   readonly setCursorTime: ReturnType<typeof vi.fn>;
   readonly setHighlight: ReturnType<typeof vi.fn>;
   readonly setTheme: ReturnType<typeof vi.fn>;
+  readonly setOverlayVisible: ReturnType<typeof vi.fn>;
   readonly destroy: ReturnType<typeof vi.fn>;
 }
 
@@ -49,6 +50,7 @@ export const fakeUplotChartModule = {
       setCursorTime: vi.fn(),
       setHighlight: vi.fn(),
       setTheme: vi.fn(),
+      setOverlayVisible: vi.fn(),
       destroy: vi.fn(),
     };
     rendered.charts.push(chart);
