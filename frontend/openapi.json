@@ -662,7 +662,7 @@
           "schema" : {
             "type" : "string",
             "default" : "20",
-            "example" : 20
+            "example" : "20"
           }
         } ],
         "responses" : {
@@ -2129,7 +2129,7 @@
         "type" : "object",
         "properties" : {
           "timeZone" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "example" : "Europe/London"
           }
         },
@@ -2146,7 +2146,7 @@
             "type" : "string"
           },
           "fieldErrors" : {
-            "type" : "object",
+            "type" : [ "object", "null" ],
             "additionalProperties" : {
               "type" : "string"
             }
@@ -2157,7 +2157,7 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "type" : "integer",
+            "type" : [ "integer", "null" ],
             "format" : "int64"
           },
           "username" : {
@@ -2167,10 +2167,10 @@
             "type" : "string"
           },
           "firstName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "lastName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "administrator" : {
             "type" : "boolean"
@@ -2184,12 +2184,12 @@
         "type" : "object",
         "properties" : {
           "title" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "maxLength" : 255,
             "minLength" : 1
           },
           "sport" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "enum" : [ "RUN", "WALK", "HIKE", "RIDE", "SWIM", "WORKOUT" ]
           },
           "startedAt" : {
@@ -2200,23 +2200,23 @@
             "type" : [ "number", "null" ],
             "format" : "double",
             "description" : "Distance in kilometers",
-            "minimum" : 0
+            "exclusiveMinimum" : 0
           },
           "timeTakenSeconds" : {
             "type" : [ "integer", "null" ],
             "format" : "int32",
-            "minimum" : 0
+            "exclusiveMinimum" : 0
           },
           "averagePaceKmh" : {
             "type" : [ "number", "null" ],
             "format" : "double",
             "description" : "Average speed in km/h",
-            "minimum" : 0
+            "exclusiveMinimum" : 0
           },
           "averageHeartRate" : {
             "type" : [ "integer", "null" ],
             "format" : "int32",
-            "minimum" : 0
+            "exclusiveMinimum" : 0
           },
           "calories" : {
             "type" : [ "integer", "null" ],
@@ -2302,24 +2302,26 @@
         "type" : "object",
         "properties" : {
           "email" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
+            "format" : "email",
             "minLength" : 1
           },
           "password" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "minLength" : 1
           },
           "username" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "minLength" : 1
           },
           "firstName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "lastName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           }
-        }
+        },
+        "required" : [ "email", "password", "username" ]
       },
       "LoginRequestDTO" : {
         "type" : "object",
@@ -2336,14 +2338,18 @@
         "type" : "object",
         "properties" : {
           "kind" : {
-            "$ref" : "#/components/schemas/ThresholdKind"
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/ThresholdKind"
+            }, {
+              "type" : "null"
+            } ]
           },
           "effectiveDate" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "format" : "date"
           },
           "value" : {
-            "type" : "number",
+            "type" : [ "number", "null" ],
             "format" : "double"
           }
         },
@@ -2378,39 +2384,39 @@
         "type" : "object",
         "properties" : {
           "title" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "maxLength" : 255,
             "minLength" : 1
           },
           "sport" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "enum" : [ "RUN", "WALK", "HIKE", "RIDE", "SWIM", "WORKOUT" ]
           },
           "startedAt" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "format" : "date-time"
           },
           "distance" : {
-            "type" : "number",
+            "type" : [ "number", "null" ],
             "format" : "double",
             "description" : "Distance in kilometers",
-            "minimum" : 0
+            "exclusiveMinimum" : 0
           },
           "timeTakenSeconds" : {
-            "type" : "integer",
+            "type" : [ "integer", "null" ],
             "format" : "int32",
-            "minimum" : 0
+            "exclusiveMinimum" : 0
           },
           "averagePaceKmh" : {
             "type" : [ "number", "null" ],
             "format" : "double",
             "description" : "Average speed in km/h",
-            "minimum" : 0
+            "exclusiveMinimum" : 0
           },
           "averageHeartRate" : {
             "type" : [ "integer", "null" ],
             "format" : "int32",
-            "minimum" : 0
+            "exclusiveMinimum" : 0
           },
           "calories" : {
             "type" : [ "integer", "null" ],
@@ -3015,12 +3021,18 @@
         "type" : "object",
         "properties" : {
           "details" : {
-            "type" : [ "object", "null" ],
-            "$ref" : "#/components/schemas/DetailsUpgradeDTO"
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/DetailsUpgradeDTO"
+            }, {
+              "type" : "null"
+            } ]
           },
           "laps" : {
-            "type" : [ "object", "null" ],
-            "$ref" : "#/components/schemas/LapsUpgradeDTO"
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/LapsUpgradeDTO"
+            }, {
+              "type" : "null"
+            } ]
           },
           "kind" : {
             "type" : "string",
@@ -3033,7 +3045,7 @@
         "type" : "object",
         "properties" : {
           "activityIds" : {
-            "type" : "array",
+            "type" : [ "array", "null" ],
             "items" : {
               "type" : "integer",
               "format" : "int64"
@@ -3075,7 +3087,7 @@
         "type" : "object",
         "properties" : {
           "activityIds" : {
-            "type" : "array",
+            "type" : [ "array", "null" ],
             "items" : {
               "type" : "integer",
               "format" : "int64"
@@ -3152,8 +3164,11 @@
         "type" : "object",
         "properties" : {
           "bounds" : {
-            "type" : [ "object", "null" ],
-            "$ref" : "#/components/schemas/GeoBoundsDTO"
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/GeoBoundsDTO"
+            }, {
+              "type" : "null"
+            } ]
           }
         },
         "required" : [ "bounds" ]
@@ -3239,8 +3254,11 @@
             "format" : "double"
           },
           "personalRecord" : {
-            "type" : [ "object", "null" ],
-            "$ref" : "#/components/schemas/PersonalRecordDTO"
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/PersonalRecordDTO"
+            }, {
+              "type" : "null"
+            } ]
           }
         },
         "required" : [ "benchmarkDistance", "benchmarkName", "distanceMeters", "personalRecord" ]
@@ -3300,9 +3318,12 @@
             "description" : "Between 0.8 and 1.2; 1.0 without a calibrating race"
           },
           "correctionSource" : {
-            "type" : [ "object", "null" ],
-            "$ref" : "#/components/schemas/CorrectionSourceDTO",
-            "description" : "The Best Effort the Correction Factor came from; null when it is 1.0 for want of one"
+            "description" : "The Best Effort the Correction Factor came from; null when it is 1.0 for want of one",
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/CorrectionSourceDTO"
+            }, {
+              "type" : "null"
+            } ]
           }
         },
         "required" : [ "correctionFactor", "correctionSource", "day", "effectiveVo2max" ]
@@ -3330,9 +3351,12 @@
         "type" : "object",
         "properties" : {
           "current" : {
-            "type" : [ "object", "null" ],
-            "$ref" : "#/components/schemas/Vo2maxCurrentDTO",
-            "description" : "Effective VO2max on the athlete's today; null before their first VO2max Estimate"
+            "description" : "Effective VO2max on the athlete's today; null before their first VO2max Estimate",
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/Vo2maxCurrentDTO"
+            }, {
+              "type" : "null"
+            } ]
           },
           "days" : {
             "type" : "array",
@@ -3599,9 +3623,12 @@
         "type" : "object",
         "properties" : {
           "current" : {
-            "type" : [ "object", "null" ],
-            "$ref" : "#/components/schemas/RacePrognosisCurrentDTO",
-            "description" : "The prognosis on the athlete's today; null when they have no Effective VO2max today"
+            "description" : "The prognosis on the athlete's today; null when they have no Effective VO2max today",
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/RacePrognosisCurrentDTO"
+            }, {
+              "type" : "null"
+            } ]
           },
           "days" : {
             "type" : "array",
@@ -3778,12 +3805,18 @@
             "format" : "int32"
           },
           "recent" : {
-            "type" : [ "object", "null" ],
-            "$ref" : "#/components/schemas/PeakEffortDTO"
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/PeakEffortDTO"
+            }, {
+              "type" : "null"
+            } ]
           },
           "allTime" : {
-            "type" : [ "object", "null" ],
-            "$ref" : "#/components/schemas/PeakEffortDTO"
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/PeakEffortDTO"
+            }, {
+              "type" : "null"
+            } ]
           }
         },
         "required" : [ "allTime", "benchmarkDuration", "durationSeconds", "recent" ]
@@ -3869,9 +3902,12 @@
         "type" : "object",
         "properties" : {
           "current" : {
-            "type" : [ "object", "null" ],
-            "$ref" : "#/components/schemas/MarathonShapeCurrentDTO",
-            "description" : "Marathon Shape on the athlete's today; null when they have no Effective VO2max today"
+            "description" : "Marathon Shape on the athlete's today; null when they have no Effective VO2max today",
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/MarathonShapeCurrentDTO"
+            }, {
+              "type" : "null"
+            } ]
           },
           "days" : {
             "type" : "array",
@@ -3952,8 +3988,11 @@
             "$ref" : "#/components/schemas/CriticalSpeedFitDTO"
           },
           "power" : {
-            "type" : [ "object", "null" ],
-            "$ref" : "#/components/schemas/CriticalSpeedFitDTO"
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/CriticalSpeedFitDTO"
+            }, {
+              "type" : "null"
+            } ]
           }
         },
         "required" : [ "asOf", "pace", "power", "windowDays" ]
@@ -4006,9 +4045,12 @@
         "type" : "object",
         "properties" : {
           "current" : {
-            "type" : [ "object", "null" ],
-            "$ref" : "#/components/schemas/AcclimationCurrentDTO",
-            "description" : "Acclimation on the athlete's today; null before their first exposed day"
+            "description" : "Acclimation on the athlete's today; null before their first exposed day",
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/AcclimationCurrentDTO"
+            }, {
+              "type" : "null"
+            } ]
           },
           "days" : {
             "type" : "array",
@@ -4191,19 +4233,28 @@
             }
           },
           "runMetrics" : {
-            "type" : [ "object", "null" ],
-            "$ref" : "#/components/schemas/RunMetricsDTO",
-            "description" : "Derived Run metrics; null for any sport but Run and for a Run whose derived data is not computed yet"
+            "description" : "Derived Run metrics; null for any sport but Run and for a Run whose derived data is not computed yet",
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/RunMetricsDTO"
+            }, {
+              "type" : "null"
+            } ]
           },
           "trainingLoad" : {
-            "type" : [ "object", "null" ],
-            "$ref" : "#/components/schemas/TrainingLoadDTO",
-            "description" : "Training Load and the method that computed it; null when it is unavailable or not computed yet"
+            "description" : "Training Load and the method that computed it; null when it is unavailable or not computed yet",
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/TrainingLoadDTO"
+            }, {
+              "type" : "null"
+            } ]
           },
           "trainingLoadUnavailableReason" : {
-            "type" : [ "string", "null" ],
-            "$ref" : "#/components/schemas/TrainingLoadUnavailableReason",
-            "description" : "Why the Activity has no Training Load; null when it has one or it is not computed yet"
+            "description" : "Why the Activity has no Training Load; null when it has one or it is not computed yet",
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/TrainingLoadUnavailableReason"
+            }, {
+              "type" : "null"
+            } ]
           },
           "minStaminaPct" : {
             "type" : [ "number", "null" ],
@@ -4211,9 +4262,12 @@
             "description" : "The lowest Stamina the Run reaches, in percent; null when it has no Stamina stream"
           },
           "conditions" : {
-            "type" : [ "object", "null" ],
-            "$ref" : "#/components/schemas/ActivityConditionsDTO",
-            "description" : "The temperature, altitude and acclimation the Activity was done in; null until its derived data is computed"
+            "description" : "The temperature, altitude and acclimation the Activity was done in; null until its derived data is computed",
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/ActivityConditionsDTO"
+            }, {
+              "type" : "null"
+            } ]
           }
         },
         "required" : [ "averageHeartRate", "averagePaceKmh", "bestEfforts", "calories", "conditions", "distance", "hasProtectedMetrics", "history", "id", "laps", "minStaminaPct", "ownerUsername", "runMetrics", "source", "sport", "startedAt", "timeTakenSeconds", "title", "trainingLoad", "trainingLoadUnavailableReason" ]
@@ -4329,8 +4383,11 @@
             "description" : "Aerobic Decoupling in percent; positive when heart rate rose relative to pace"
           },
           "decouplingUnavailableReason" : {
-            "type" : [ "string", "null" ],
-            "$ref" : "#/components/schemas/DecouplingUnavailableReason"
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/DecouplingUnavailableReason"
+            }, {
+              "type" : "null"
+            } ]
           },
           "vo2maxEstimateRaw" : {
             "type" : [ "number", "null" ],
@@ -4343,9 +4400,12 @@
             "description" : "VO2max Estimate in ml/kg/min times the Correction Factor of the Run's day"
           },
           "vo2maxUnavailableReason" : {
-            "type" : [ "string", "null" ],
-            "$ref" : "#/components/schemas/Vo2maxUnavailableReason",
-            "description" : "Why the Run has no VO2max Estimate; null when it has one or it has not been computed"
+            "description" : "Why the Run has no VO2max Estimate; null when it has one or it has not been computed",
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/Vo2maxUnavailableReason"
+            }, {
+              "type" : "null"
+            } ]
           }
         },
         "required" : [ "aerobicDecouplingPercent", "decouplingUnavailableReason", "efficiencyFactor", "movingSeconds", "ngpMetersPerSecond", "vo2maxEstimate", "vo2maxEstimateRaw", "vo2maxUnavailableReason" ]
@@ -4382,14 +4442,16 @@
             "type" : [ "array", "null" ],
             "description" : "Grade-Adjusted Pace as a speed in metres per second; null for sports without it. An element is null where cleaned speed is missing",
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "staminaPct" : {
             "type" : [ "array", "null" ],
             "description" : "Stamina: the D′ balance as a percentage of D′ (0-100, one decimal), against the Critical Speed model in effect on the Run's date; null unless the Activity is a Run with Grade-Adjusted Pace and that model exists",
             "items" : {
-              "type" : "number"
+              "type" : "number",
+              "format" : "double"
             }
           }
         },
@@ -4445,9 +4507,12 @@
             "enum" : [ "RUN", "WALK", "HIKE", "RIDE", "SWIM", "WORKOUT" ]
           },
           "route" : {
-            "type" : [ "object", "null" ],
-            "$ref" : "#/components/schemas/GeoJsonLineStringDTO",
-            "description" : "Every recorded GPS fix in order, or null when fewer than two were recorded"
+            "description" : "Every recorded GPS fix in order, or null when fewer than two were recorded",
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/GeoJsonLineStringDTO"
+            }, {
+              "type" : "null"
+            } ]
           },
           "bestEfforts" : {
             "type" : "array",
@@ -4480,445 +4545,519 @@
           "routeIndex" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "heartRate" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "power" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "cadence" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "altitude" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "speed" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "distance" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "verticalOscillation" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "stanceTime" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "stanceTimePercent" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "stanceTimeBalance" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "stepLength" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "verticalRatio" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "enhancedSpeed" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "enhancedAltitude" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "enhancedRespirationRate" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "respirationRate" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "temperature" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "coreTemperature" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "fractionalCadence" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "calories" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "currentStress" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "batterySoc" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "gpsAccuracy" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "verticalSpeed" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "grade" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "resistance" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "timeFromCourse" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "cycleLength" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "cycles" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "totalCycles" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int64"
             }
           },
           "accumulatedPower" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int64"
             }
           },
           "leftRightBalance" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "leftTorqueEffectiveness" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "rightTorqueEffectiveness" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "leftPedalSmoothness" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "rightPedalSmoothness" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "combinedPedalSmoothness" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "time128" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "zone" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "ballSpeed" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "cadence256" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "deviceIndex" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "leftPco" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "rightPco" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "motorPower" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "cycleLength16" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "strokeType" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "absolutePressure" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int64"
             }
           },
           "depth" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "nextStopDepth" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "nextStopTime" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "timeToSurface" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "ndlTime" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "cnsLoad" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "n2Load" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "airTimeRemaining" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "pressureSac" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "volumeSac" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "rmv" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "ascentRate" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "po2" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "grit" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "flow" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "ebikeTravelRange" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "ebikeBatteryLevel" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "ebikeAssistMode" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "ebikeAssistLevelPercent" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "totalHemoglobinConc" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "totalHemoglobinConcMin" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "totalHemoglobinConcMax" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "saturatedHemoglobinPercent" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "saturatedHemoglobinPercentMin" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "saturatedHemoglobinPercentMax" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           }
         },
