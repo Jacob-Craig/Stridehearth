@@ -4,8 +4,25 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { backfillBestEfforts, batchDelete, batchUpdate, cancelImportBatch, createActivity, createInvite, deleteActivity, getActivity, getActivityTelemetry, getDashboard, getHeatmapRenderer, getHeatmapRevision, getHeatmapStartingView, getHeatmapTile, getHeatmapYears, getImportBatch, getImportHistory, inviteStatus, listActivities, listPendingInvites, login, logout, me, type Options, redeemInvite, register, registrationStatus, revokeInvite, submitImportBatch, updateActivity, uploadActivityFile } from '../sdk.gen';
-import type { BackfillBestEffortsData, BackfillBestEffortsError, BackfillBestEffortsResponse, BatchDeleteData, BatchDeleteError, BatchDeleteResponse, BatchUpdateData, BatchUpdateError, BatchUpdateResponse, CancelImportBatchData, CancelImportBatchError, CancelImportBatchResponse, CreateActivityData, CreateActivityError, CreateActivityResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, DeleteActivityData, DeleteActivityError, DeleteActivityResponse, GetActivityData, GetActivityError, GetActivityResponse, GetActivityTelemetryData, GetActivityTelemetryError, GetActivityTelemetryResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetHeatmapRendererData, GetHeatmapRendererError, GetHeatmapRendererResponse, GetHeatmapRevisionData, GetHeatmapRevisionError, GetHeatmapRevisionResponse, GetHeatmapStartingViewData, GetHeatmapStartingViewError, GetHeatmapStartingViewResponse, GetHeatmapTileData, GetHeatmapTileError, GetHeatmapTileResponse, GetHeatmapYearsData, GetHeatmapYearsError, GetHeatmapYearsResponse, GetImportBatchData, GetImportBatchError, GetImportBatchResponse, GetImportHistoryData, GetImportHistoryError, GetImportHistoryResponse, InviteStatusData, InviteStatusError, InviteStatusResponse, ListActivitiesData, ListActivitiesError, ListActivitiesResponse, ListPendingInvitesData, ListPendingInvitesError, ListPendingInvitesResponse, LoginData, LoginError, LoginResponse, LogoutData, MeData, MeError, MeResponse, RedeemInviteData, RedeemInviteError, RedeemInviteResponse, RegisterData, RegisterError, RegisterResponse, RegistrationStatusData, RegistrationStatusResponse, RevokeInviteData, RevokeInviteError, RevokeInviteResponse, SubmitImportBatchData, SubmitImportBatchError, SubmitImportBatchResponse, UpdateActivityData, UpdateActivityError, UpdateActivityResponse, UploadActivityFileData, UploadActivityFileError, UploadActivityFileResponse } from '../types.gen';
+import { acceptThresholdProposal, backfillBestEfforts, batchDelete, batchUpdate, cancelImportBatch, createActivity, createInvite, deleteActivity, deleteAthleteThreshold, dismissThresholdProposal, getAcclimation, getActivity, getActivityTelemetry, getAthleteThresholds, getCriticalSpeed, getDashboard, getHeatmapRenderer, getHeatmapRevision, getHeatmapStartingView, getHeatmapTile, getHeatmapYears, getImportBatch, getImportHistory, getMarathonShape, getPeakEfforts, getPerformanceManagementChart, getPersonalRecordProgression, getRacePrognosis, getRaceSplitPlan, getVo2Max, inviteStatus, listActivities, listPendingInvites, login, logout, me, type Options, recordAthleteThreshold, redeemInvite, register, registrationStatus, revokeInvite, setAthleteTimeZone, submitImportBatch, updateActivity, uploadActivityFile } from '../sdk.gen';
+import type { AcceptThresholdProposalData, AcceptThresholdProposalError, AcceptThresholdProposalResponse, BackfillBestEffortsData, BackfillBestEffortsError, BackfillBestEffortsResponse, BatchDeleteData, BatchDeleteError, BatchDeleteResponse, BatchUpdateData, BatchUpdateError, BatchUpdateResponse, CancelImportBatchData, CancelImportBatchError, CancelImportBatchResponse, CreateActivityData, CreateActivityError, CreateActivityResponse, CreateInviteData, CreateInviteError, CreateInviteResponse, DeleteActivityData, DeleteActivityError, DeleteActivityResponse, DeleteAthleteThresholdData, DeleteAthleteThresholdError, DeleteAthleteThresholdResponse, DismissThresholdProposalData, DismissThresholdProposalError, DismissThresholdProposalResponse, GetAcclimationData, GetAcclimationError, GetAcclimationResponse, GetActivityData, GetActivityError, GetActivityResponse, GetActivityTelemetryData, GetActivityTelemetryError, GetActivityTelemetryResponse, GetAthleteThresholdsData, GetAthleteThresholdsError, GetAthleteThresholdsResponse, GetCriticalSpeedData, GetCriticalSpeedError, GetCriticalSpeedResponse, GetDashboardData, GetDashboardError, GetDashboardResponse, GetHeatmapRendererData, GetHeatmapRendererError, GetHeatmapRendererResponse, GetHeatmapRevisionData, GetHeatmapRevisionError, GetHeatmapRevisionResponse, GetHeatmapStartingViewData, GetHeatmapStartingViewError, GetHeatmapStartingViewResponse, GetHeatmapTileData, GetHeatmapTileError, GetHeatmapTileResponse, GetHeatmapYearsData, GetHeatmapYearsError, GetHeatmapYearsResponse, GetImportBatchData, GetImportBatchError, GetImportBatchResponse, GetImportHistoryData, GetImportHistoryError, GetImportHistoryResponse, GetMarathonShapeData, GetMarathonShapeError, GetMarathonShapeResponse, GetPeakEffortsData, GetPeakEffortsError, GetPeakEffortsResponse, GetPerformanceManagementChartData, GetPerformanceManagementChartError, GetPerformanceManagementChartResponse, GetPersonalRecordProgressionData, GetPersonalRecordProgressionError, GetPersonalRecordProgressionResponse, GetRacePrognosisData, GetRacePrognosisError, GetRacePrognosisResponse, GetRaceSplitPlanData, GetRaceSplitPlanError, GetRaceSplitPlanResponse, GetVo2MaxData, GetVo2MaxError, GetVo2MaxResponse, InviteStatusData, InviteStatusError, InviteStatusResponse, ListActivitiesData, ListActivitiesError, ListActivitiesResponse, ListPendingInvitesData, ListPendingInvitesError, ListPendingInvitesResponse, LoginData, LoginError, LoginResponse, LogoutData, MeData, MeError, MeResponse, RecordAthleteThresholdData, RecordAthleteThresholdError, RecordAthleteThresholdResponse, RedeemInviteData, RedeemInviteError, RedeemInviteResponse, RegisterData, RegisterError, RegisterResponse, RegistrationStatusData, RegistrationStatusResponse, RevokeInviteData, RevokeInviteError, RevokeInviteResponse, SetAthleteTimeZoneData, SetAthleteTimeZoneError, SetAthleteTimeZoneResponse, SubmitImportBatchData, SubmitImportBatchError, SubmitImportBatchResponse, UpdateActivityData, UpdateActivityError, UpdateActivityResponse, UploadActivityFileData, UploadActivityFileError, UploadActivityFileResponse } from '../types.gen';
+
+/**
+ * Sets the IANA time zone the athlete's local dates are counted in
+ */
+export const setAthleteTimeZoneMutation = (options?: Partial<Options<SetAthleteTimeZoneData>>): UseMutationOptions<SetAthleteTimeZoneResponse, SetAthleteTimeZoneError, Options<SetAthleteTimeZoneData>> => {
+    const mutationOptions: UseMutationOptions<SetAthleteTimeZoneResponse, SetAthleteTimeZoneError, Options<SetAthleteTimeZoneData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await setAthleteTimeZone({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
 
 export const deleteActivityMutation = (options?: Partial<Options<DeleteActivityData>>): UseMutationOptions<DeleteActivityResponse, DeleteActivityError, Options<DeleteActivityData>> => {
     const mutationOptions: UseMutationOptions<DeleteActivityResponse, DeleteActivityError, Options<DeleteActivityData>> = {
@@ -158,6 +175,75 @@ export const redeemInviteMutation = (options?: Partial<Options<RedeemInviteData>
     const mutationOptions: UseMutationOptions<RedeemInviteResponse, RedeemInviteError, Options<RedeemInviteData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await redeemInvite({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getAthleteThresholdsQueryKey = (options?: Options<GetAthleteThresholdsData>) => createQueryKey('getAthleteThresholds', options);
+
+/**
+ * The athlete's Threshold history, today's values, Zones and proposals
+ */
+export const getAthleteThresholdsOptions = (options?: Options<GetAthleteThresholdsData>) => queryOptions<GetAthleteThresholdsResponse, GetAthleteThresholdsError, GetAthleteThresholdsResponse, ReturnType<typeof getAthleteThresholdsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getAthleteThresholds({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getAthleteThresholdsQueryKey(options)
+});
+
+/**
+ * Records a Threshold from a date, replacing a value already recorded for that kind and date
+ */
+export const recordAthleteThresholdMutation = (options?: Partial<Options<RecordAthleteThresholdData>>): UseMutationOptions<RecordAthleteThresholdResponse, RecordAthleteThresholdError, Options<RecordAthleteThresholdData>> => {
+    const mutationOptions: UseMutationOptions<RecordAthleteThresholdResponse, RecordAthleteThresholdError, Options<RecordAthleteThresholdData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await recordAthleteThreshold({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Dismisses a Threshold Proposal without applying it
+ */
+export const dismissThresholdProposalMutation = (options?: Partial<Options<DismissThresholdProposalData>>): UseMutationOptions<DismissThresholdProposalResponse, DismissThresholdProposalError, Options<DismissThresholdProposalData>> => {
+    const mutationOptions: UseMutationOptions<DismissThresholdProposalResponse, DismissThresholdProposalError, Options<DismissThresholdProposalData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await dismissThresholdProposal({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Applies a Threshold Proposal as a Threshold entry
+ */
+export const acceptThresholdProposalMutation = (options?: Partial<Options<AcceptThresholdProposalData>>): UseMutationOptions<AcceptThresholdProposalResponse, AcceptThresholdProposalError, Options<AcceptThresholdProposalData>> => {
+    const mutationOptions: UseMutationOptions<AcceptThresholdProposalResponse, AcceptThresholdProposalError, Options<AcceptThresholdProposalData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await acceptThresholdProposal({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -489,6 +575,150 @@ export const inviteStatusOptions = (options: Options<InviteStatusData>) => query
     queryKey: inviteStatusQueryKey(options)
 });
 
+export const getVo2MaxQueryKey = (options?: Options<GetVo2MaxData>) => createQueryKey('getVo2Max', options);
+
+/**
+ * The athlete's daily Effective VO2max, continued to today, and their Runs' VO2max Estimates
+ */
+export const getVo2MaxOptions = (options?: Options<GetVo2MaxData>) => queryOptions<GetVo2MaxResponse, GetVo2MaxError, GetVo2MaxResponse, ReturnType<typeof getVo2MaxQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getVo2Max({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getVo2MaxQueryKey(options)
+});
+
+export const getRacePrognosisQueryKey = (options?: Options<GetRacePrognosisData>) => createQueryKey('getRacePrognosis', options);
+
+/**
+ * The athlete's predicted 5K, 10K, Half and Marathon times today, and on each day
+ */
+export const getRacePrognosisOptions = (options?: Options<GetRacePrognosisData>) => queryOptions<GetRacePrognosisResponse, GetRacePrognosisError, GetRacePrognosisResponse, ReturnType<typeof getRacePrognosisQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getRacePrognosis({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getRacePrognosisQueryKey(options)
+});
+
+export const getPerformanceManagementChartQueryKey = (options?: Options<GetPerformanceManagementChartData>) => createQueryKey('getPerformanceManagementChart', options);
+
+/**
+ * The athlete's daily Fitness, Fatigue, Form, ACWR, Monotony and Strain, extended to today
+ */
+export const getPerformanceManagementChartOptions = (options?: Options<GetPerformanceManagementChartData>) => queryOptions<GetPerformanceManagementChartResponse, GetPerformanceManagementChartError, GetPerformanceManagementChartResponse, ReturnType<typeof getPerformanceManagementChartQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPerformanceManagementChart({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPerformanceManagementChartQueryKey(options)
+});
+
+export const getPersonalRecordProgressionQueryKey = (options?: Options<GetPersonalRecordProgressionData>) => createQueryKey('getPersonalRecordProgression', options);
+
+/**
+ * Every running Personal Record the athlete has set, per Benchmark Distance, oldest first
+ */
+export const getPersonalRecordProgressionOptions = (options?: Options<GetPersonalRecordProgressionData>) => queryOptions<GetPersonalRecordProgressionResponse, GetPersonalRecordProgressionError, GetPersonalRecordProgressionResponse, ReturnType<typeof getPersonalRecordProgressionQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPersonalRecordProgression({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPersonalRecordProgressionQueryKey(options)
+});
+
+export const getPeakEffortsQueryKey = (options?: Options<GetPeakEffortsData>) => createQueryKey('getPeakEfforts', options);
+
+/**
+ * The athlete's best Peak Effort per Benchmark Duration, over the last 90 days and all-time
+ */
+export const getPeakEffortsOptions = (options?: Options<GetPeakEffortsData>) => queryOptions<GetPeakEffortsResponse, GetPeakEffortsError, GetPeakEffortsResponse, ReturnType<typeof getPeakEffortsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPeakEfforts({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPeakEffortsQueryKey(options)
+});
+
+export const getMarathonShapeQueryKey = (options?: Options<GetMarathonShapeData>) => createQueryKey('getMarathonShape', options);
+
+/**
+ * The athlete's daily Marathon Shape, continued to today
+ */
+export const getMarathonShapeOptions = (options?: Options<GetMarathonShapeData>) => queryOptions<GetMarathonShapeResponse, GetMarathonShapeError, GetMarathonShapeResponse, ReturnType<typeof getMarathonShapeQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getMarathonShape({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getMarathonShapeQueryKey(options)
+});
+
+export const getCriticalSpeedQueryKey = (options?: Options<GetCriticalSpeedData>) => createQueryKey('getCriticalSpeed', options);
+
+/**
+ * The athlete's Critical Speed / D′ (and Critical Power / W′) model from their last 90 days of Peak Efforts
+ */
+export const getCriticalSpeedOptions = (options?: Options<GetCriticalSpeedData>) => queryOptions<GetCriticalSpeedResponse, GetCriticalSpeedError, GetCriticalSpeedResponse, ReturnType<typeof getCriticalSpeedQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getCriticalSpeed({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getCriticalSpeedQueryKey(options)
+});
+
+export const getAcclimationQueryKey = (options?: Options<GetAcclimationData>) => createQueryKey('getAcclimation', options);
+
+/**
+ * The athlete's daily Heat and Altitude Acclimation, decayed to today
+ */
+export const getAcclimationOptions = (options?: Options<GetAcclimationData>) => queryOptions<GetAcclimationResponse, GetAcclimationError, GetAcclimationResponse, ReturnType<typeof getAcclimationQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getAcclimation({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getAcclimationQueryKey(options)
+});
+
 export const getActivityTelemetryQueryKey = (options: Options<GetActivityTelemetryData>) => createQueryKey('getActivityTelemetry', options);
 
 /**
@@ -505,6 +735,24 @@ export const getActivityTelemetryOptions = (options: Options<GetActivityTelemetr
         return data;
     },
     queryKey: getActivityTelemetryQueryKey(options)
+});
+
+export const getRaceSplitPlanQueryKey = (options: Options<GetRaceSplitPlanData>) => createQueryKey('getRaceSplitPlan', options);
+
+/**
+ * Target times per km or mile over an Activity's route that hold Grade-Adjusted effort even and sum to a Goal Time
+ */
+export const getRaceSplitPlanOptions = (options: Options<GetRaceSplitPlanData>) => queryOptions<GetRaceSplitPlanResponse, GetRaceSplitPlanError, GetRaceSplitPlanResponse, ReturnType<typeof getRaceSplitPlanQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getRaceSplitPlan({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getRaceSplitPlanQueryKey(options)
 });
 
 export const getImportHistoryQueryKey = (options?: Options<GetImportHistoryData>) => createQueryKey('getImportHistory', options);
@@ -541,6 +789,23 @@ export const revokeInviteMutation = (options?: Partial<Options<RevokeInviteData>
     const mutationOptions: UseMutationOptions<RevokeInviteResponse, RevokeInviteError, Options<RevokeInviteData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await revokeInvite({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Deletes one of the athlete's Threshold entries
+ */
+export const deleteAthleteThresholdMutation = (options?: Partial<Options<DeleteAthleteThresholdData>>): UseMutationOptions<DeleteAthleteThresholdResponse, DeleteAthleteThresholdError, Options<DeleteAthleteThresholdData>> => {
+    const mutationOptions: UseMutationOptions<DeleteAthleteThresholdResponse, DeleteAthleteThresholdError, Options<DeleteAthleteThresholdData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteAthleteThreshold({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

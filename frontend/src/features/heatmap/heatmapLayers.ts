@@ -5,7 +5,7 @@
 import type { GeoBoundsDto, HeatmapRendererDto } from '../../api/generated/types.gen';
 import type { HeatmapFilterParams } from '../../api/heatmap';
 import type { MapPerspective } from '../basemap/mapPerspective';
-import { sharedImport } from '../telemetry/lazyRenderers';
+import { sharedImport } from '../charts/lazyCharts';
 
 /**
  * What picks a set of tile URLs: the athlete's heatmap revision, which lets the browser cache them for good,

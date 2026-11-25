@@ -47,6 +47,7 @@ class ActivityImportServiceTest {
     private val activityDetailsService: ActivityDetailsService = mock()
     private val activityHistory: ActivityHistory = mock()
     private val bestEffortRefresh: BestEffortRefresh = mock()
+    private val derivedDataRefresh: DerivedDataRefresh = mock()
     private val transactionTemplate: TransactionTemplate = mock()
 
     private val service =
@@ -57,6 +58,7 @@ class ActivityImportServiceTest {
             activityDetailsService = activityDetailsService,
             activityHistory = activityHistory,
             bestEffortRefresh = bestEffortRefresh,
+            derivedDataRefresh = derivedDataRefresh,
             transactionTemplate = transactionTemplate,
         )
 
@@ -199,6 +201,36 @@ class ActivityImportServiceTest {
     }
 
     @Test
+    fun `a file's already-imported Activities are all locked at once, after their Personal Record locks and before any offer`() {
+        whenever(userRepository.getReferenceById(42L)).thenReturn(owner)
+        // Session order differs from id order: the first session was deleted and imported again, so got a later id.
+        val reimported = alreadyImported(50L, "ext-first")
+        val original = alreadyImported(11L, "ext-second")
+
+        importing(parsedRun("ext-first"), parsedRun("ext-second"))
+
+        // One statement locks them in id order, as a derived-data recompute page does, so the two cannot deadlock.
+        val order = inOrder(bestEffortRefresh, activityDetailsService)
+        order.verify(bestEffortRefresh).lockBeforeChange(reimported)
+        order.verify(bestEffortRefresh).lockBeforeChange(original)
+        val locked = argumentCaptor<Collection<Long>>()
+        order.verify(activityDetailsService).lockActivities(locked.capture())
+        order.verify(activityDetailsService).offer(eq(reimported), anyOrNull(), any(), any())
+        order.verify(activityDetailsService).offer(eq(original), anyOrNull(), any(), any())
+        assertEquals(setOf(11L, 50L), locked.firstValue.toSet())
+    }
+
+    @Test
+    fun `a file of new Activities locks no existing Activity up front`() {
+        whenever(userRepository.getReferenceById(42L)).thenReturn(owner)
+        whenever(activityRepository.save(any<Activity>())).thenReturn(activity(101L, "ext-new"))
+
+        importing(parsedRun("ext-new"))
+
+        verify(activityDetailsService, never()).lockActivities(any())
+    }
+
+    @Test
     fun `an Unchanged offer for an already-imported Activity is a duplicate with no history and no refresh`() {
         whenever(userRepository.getReferenceById(42L)).thenReturn(owner)
         val existing = alreadyImported(99L, "dup-1")
@@ -209,6 +241,7 @@ class ActivityImportServiceTest {
         verify(activityRepository, never()).save(any())
         verify(activityHistory, never()).record(any(), any())
         verify(bestEffortRefresh, never()).refresh(any<Activity>(), anyOrNull())
+        verify(derivedDataRefresh, never()).refresh(any<Activity>(), anyOrNull(), anyOrNull(), anyOrNull())
     }
 
     @Test
@@ -279,8 +312,9 @@ class ActivityImportServiceTest {
     fun `losing the external-id race to a concurrent import retries once and classifies the file as Duplicate`() {
         whenever(userRepository.getReferenceById(42L)).thenReturn(owner)
         val concurrentlyImported = activity(400L, "ext-race")
+        // Not there for the first attempt's up-front lock or its own lookup; there once the concurrent import commits.
         whenever(activityRepository.findByUserIdAndSourceAndExternalId(42L, ActivitySource.FIT_UPLOAD, "ext-race"))
-            .thenReturn(null, concurrentlyImported)
+            .thenReturn(null, null, concurrentlyImported)
         whenever(activityRepository.save(any<Activity>())).thenThrow(
             DataIntegrityViolationException(
                 "could not execute statement",
@@ -369,17 +403,24 @@ class ActivityImportServiceTest {
 
         importing(parsedRun("fresh-be-1", qualifyingDetails))
 
-        verify(bestEffortRefresh).refresh(saved, qualifyingDetails)
+        val order = inOrder(bestEffortRefresh, derivedDataRefresh, activityHistory)
+        order.verify(bestEffortRefresh).refresh(saved, qualifyingDetails)
+        order.verify(derivedDataRefresh).refresh(saved, qualifyingDetails)
+        order.verify(activityHistory).record(any(), any())
     }
 
     @Test
-    fun `a new Activity without Activity Details is not refreshed`() {
+    fun `a new Activity without Activity Details gets no Best Efforts but still gets its derived-data row`() {
         whenever(userRepository.getReferenceById(42L)).thenReturn(owner)
-        whenever(activityRepository.save(any<Activity>())).thenReturn(activity(502L, "fresh-no-details"))
+        val saved = activity(502L, "fresh-no-details")
+        whenever(activityRepository.save(any<Activity>())).thenReturn(saved)
 
         importing(parsedRun("fresh-no-details"))
 
         verify(bestEffortRefresh, never()).refresh(any<Activity>(), anyOrNull())
+        val order = inOrder(derivedDataRefresh, activityHistory)
+        order.verify(derivedDataRefresh).refresh(saved, null)
+        order.verify(activityHistory).record(any(), any())
     }
 
     @Test
@@ -389,7 +430,10 @@ class ActivityImportServiceTest {
 
         importing(parsedRun("upgrade-be-1", qualifyingDetails))
 
-        verify(bestEffortRefresh).refresh(existing, qualifyingDetails)
+        val order = inOrder(bestEffortRefresh, derivedDataRefresh, activityHistory)
+        order.verify(bestEffortRefresh).refresh(existing, qualifyingDetails)
+        order.verify(derivedDataRefresh).refresh(existing, qualifyingDetails)
+        order.verify(activityHistory).record(any(), any())
     }
 
     @Test
@@ -402,6 +446,7 @@ class ActivityImportServiceTest {
         assertEquals(listOf(lapless), assertIs<ImportOutcome.Upgraded>(outcome).upgrades.map { it.activity })
         assertEquals(listOf(701L to ActivityChange.Upgraded(details = null, laps = LapsUpgrade.Backfilled(1))), recordedHistory())
         verify(bestEffortRefresh, never()).refresh(any<Activity>(), anyOrNull())
+        verify(derivedDataRefresh, never()).refresh(any<Activity>(), anyOrNull(), anyOrNull(), anyOrNull())
         verify(bestEffortRefresh, never()).refresh(any<Collection<Activity>>())
     }
 }

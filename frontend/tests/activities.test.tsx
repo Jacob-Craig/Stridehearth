@@ -12,7 +12,13 @@ import type {
 } from '../src/api/generated/types.gen';
 import { createAppRouter } from '../src/router';
 
-const runner: UserResponseDto = { id: 1, username: 'runner_bob', email: 'bob@example.com' };
+// An athlete whose time zone is already set, so the app sends no one-off time-zone request.
+const runner: UserResponseDto = {
+  id: 1,
+  username: 'runner_bob',
+  email: 'bob@example.com',
+  timeZone: 'Europe/London',
+};
 
 function activity(overrides: Partial<ActivitySummaryDto> = {}): ActivitySummaryDto {
   return {
@@ -33,7 +39,18 @@ function activity(overrides: Partial<ActivitySummaryDto> = {}): ActivitySummaryD
 
 /** The `GET /api/activities/{id}` body for an activity with no Laps, history or Best Efforts. */
 function detailOf(summary: ActivitySummaryDto): ActivityDetailDto {
-  return { ...summary, ownerUsername: 'runner_bob', laps: [], history: [], bestEfforts: [] };
+  return {
+    ...summary,
+    ownerUsername: 'runner_bob',
+    laps: [],
+    history: [],
+    bestEfforts: [],
+    runMetrics: null,
+    trainingLoad: null,
+    trainingLoadUnavailableReason: null,
+    minStaminaPct: null,
+    conditions: null,
+  };
 }
 
 /** `GET /api/activities/{id}/telemetry` for an activity without Activity Details. */

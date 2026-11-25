@@ -1,4 +1,7 @@
-import type { ActivityTelemetryStreamsDto } from '../../api/generated/types.gen';
+import type {
+  ActivityDerivedStreamsDto,
+  ActivityTelemetryStreamsDto,
+} from '../../api/generated/types.gen';
 import type { ColorScheme } from '../../lib/colorScheme';
 
 type SensorStreamKey = Exclude<keyof ActivityTelemetryStreamsDto, 't'>;
@@ -84,6 +87,20 @@ const SENSOR_CHARTS: readonly SensorChart[] = [
   },
 ];
 
+/** Where Speed sits in the display order; **Stamina** is charted directly after it. */
+const SPEED_POSITION = SENSOR_CHARTS.findIndex((chart) => chart.id === 'speed');
+
+/**
+ * A derived stream drawn over a chart's own series, in the same unit, which the athlete can toggle:
+ * **Grade-Adjusted Pace** over Speed.
+ */
+export interface ChartOverlay {
+  readonly label: string;
+  readonly color: Readonly<Record<ColorScheme, string>>;
+  /** Parallel to the elapsed-time stream `t`; `null` where the derived stream has no value. */
+  readonly values: readonly (number | null)[];
+}
+
 /** One sensor stream to chart against elapsed time, already converted to its display unit. */
 export interface ChartSeries {
   readonly id: string;
@@ -92,21 +109,83 @@ export interface ChartSeries {
   readonly color: Readonly<Record<ColorScheme, string>>;
   /** Parallel to the elapsed-time stream `t`; `null` where the sensor recorded nothing. */
   readonly values: readonly (number | null)[];
+  readonly overlay?: ChartOverlay;
+  /** A fixed `[min, max]` value axis, such as 0-100 for a percentage; auto-ranged when absent. */
+  readonly yRange?: readonly [number, number];
+}
+
+const GAP_COLOR: Readonly<Record<ColorScheme, string>> = { light: '#c026d3', dark: '#e879f9' };
+const STAMINA_COLOR: Readonly<Record<ColorScheme, string>> = { light: '#4f46e5', dark: '#818cf8' };
+
+const isRecorded = (
+  values: readonly (number | null)[] | null | undefined,
+  length: number,
+): values is readonly (number | null)[] =>
+  values?.length === length && values.some((reading) => reading != null);
+
+/**
+ * The **Grade-Adjusted Pace** overlay for the Speed chart, in km/h, or `null` when there is no GAP
+ * stream parallel to `t`. GAP only repeats speed without elevation, and without a GPS fix (the
+ * server takes the grade as 0 then), so it is offered only with both.
+ */
+function gapOverlay(
+  derived: ActivityDerivedStreamsDto | null | undefined,
+  length: number,
+  hasGrade: boolean,
+): ChartOverlay | null {
+  const gapSpeed = derived?.gapSpeed;
+  if (!hasGrade || !isRecorded(gapSpeed, length)) return null;
+  return {
+    label: 'GAP',
+    color: GAP_COLOR,
+    values: gapSpeed.map((value) => (value == null ? null : metersPerSecondToKmh(value))),
+  };
+}
+
+/**
+ * The **Stamina** chart (the D′ balance as a percentage of D′, on a fixed 0-100 % axis), or `null`
+ * when the Activity has no Stamina stream parallel to `t`: it is not a Run with Grade-Adjusted Pace,
+ * or there was no Critical Speed model on its date.
+ */
+function staminaSeries(
+  derived: ActivityDerivedStreamsDto | null | undefined,
+  length: number,
+): ChartSeries | null {
+  const staminaPct = derived?.staminaPct;
+  if (!isRecorded(staminaPct, length)) return null;
+  return {
+    id: 'stamina',
+    label: 'Stamina',
+    unit: '%',
+    color: STAMINA_COLOR,
+    values: staminaPct,
+    yRange: [0, 100],
+  };
 }
 
 /**
  * The sensor streams of the **Activity Details** worth charting: every one of the nine sensors with a
- * stream parallel to `t` that recorded at least one value, in display order.
+ * stream parallel to `t` that recorded at least one value, in display order. The Speed chart carries
+ * the **Grade-Adjusted Pace** overlay when `derived` has a GAP stream and both elevation and a GPS
+ * fix were recorded. **Stamina**, when `derived` has it, is charted directly after Speed.
  */
-export function selectChartSeries(streams: ActivityTelemetryStreamsDto): ChartSeries[] {
+export function selectChartSeries(
+  streams: ActivityTelemetryStreamsDto,
+  derived?: ActivityDerivedStreamsDto | null,
+): ChartSeries[] {
   const length = streams.t.length;
+  const hasGpsFix = streams.routeIndex?.some((vertex) => vertex != null) ?? false;
   const series: ChartSeries[] = [];
   for (const chart of SENSOR_CHARTS) {
     const recorded = chart.streams
       .map((key) => streams[key])
-      .find((values) => values?.length === length && values.some((reading) => reading != null));
+      .find((values) => isRecorded(values, length));
     if (!recorded) continue;
     const { transform } = chart;
+    const overlay =
+      chart.id === 'speed'
+        ? gapOverlay(derived, length, hasGpsFix && series.some((s) => s.id === 'elevation'))
+        : null;
     series.push({
       id: chart.id,
       label: chart.label,
@@ -115,7 +194,14 @@ export function selectChartSeries(streams: ActivityTelemetryStreamsDto): ChartSe
       values: transform
         ? recorded.map((value) => (value == null ? null : transform(value)))
         : recorded,
+      ...(overlay && { overlay }),
     });
+  }
+  const stamina = staminaSeries(derived, length);
+  if (stamina) {
+    const afterSpeed = SENSOR_CHARTS.slice(0, SPEED_POSITION + 1).map((chart) => chart.id);
+    const position = series.filter((s) => afterSpeed.includes(s.id)).length;
+    series.splice(position, 0, stamina);
   }
   return series;
 }

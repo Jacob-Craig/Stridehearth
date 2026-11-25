@@ -7,6 +7,7 @@ import org.springframework.jdbc.datasource.DataSourceUtils
 import org.springframework.stereotype.Repository
 import java.sql.Connection
 import java.sql.ResultSet
+import java.sql.Types
 import javax.sql.DataSource
 
 /**
@@ -71,6 +72,44 @@ class ActivityDetailsRepository(
             .orElse(null)
 
     /**
+     * Reads, exactly as stored, the series derived analytics need: `t`, `distance`, `routeIndex`, speed, heart
+     * rate, cadence and altitude (with their enhanced and fractional variants), which **Telemetry Cleaning** reads,
+     * power, and the device temperature the Activity's conditions read. Like [findStoredScanningSeries] the route is not read. A pure read: it never writes.
+     */
+    fun findStoredAnalyticsSeries(activityId: Long): FitTelemetry? =
+        jdbcClient
+            .sql(
+                """
+                SELECT t, distance, route_index, enhanced_speed, speed, heart_rate, cadence, fractional_cadence,
+                       altitude, enhanced_altitude, power, temperature
+                FROM activity_details WHERE activity_id = :activityId
+                """.trimIndent(),
+            ).param("activityId", activityId)
+            .query { rs, _ ->
+                val tArr = (rs.getArray("t")?.array as? Array<*>)?.map { (it as Number).toInt() }?.toIntArray() ?: IntArray(0)
+                FitTelemetry(
+                    t = tArr,
+                    lons = DoubleArray(0),
+                    lats = DoubleArray(0),
+                    routeIndex =
+                        (rs.getArray("route_index")?.array as? Array<*>)
+                            ?.map { (it as? Number)?.toInt() }
+                            ?.toTypedArray() ?: arrayOfNulls(tArr.size),
+                    distance = rs.getFloatArray("distance") ?: arrayOfNulls(tArr.size),
+                    enhancedSpeed = rs.getFloatArray("enhanced_speed") ?: emptyArray(),
+                    speed = rs.getFloatArray("speed") ?: emptyArray(),
+                    heartRate = rs.getShortArray("heart_rate") ?: emptyArray(),
+                    cadence = rs.getShortArray("cadence") ?: emptyArray(),
+                    fractionalCadence = rs.getFloatArray("fractional_cadence") ?: emptyArray(),
+                    altitude = rs.getFloatArray("altitude") ?: emptyArray(),
+                    enhancedAltitude = rs.getFloatArray("enhanced_altitude") ?: emptyArray(),
+                    power = rs.getShortArray("power") ?: emptyArray(),
+                    temperature = rs.getShortArray("temperature") ?: emptyArray(),
+                )
+            }.optional()
+            .orElse(null)
+
+    /**
      * Reads the stored route's points as `lons` to `lats`, in route order; both are empty when no route (or no
      * Activity Details) is stored. A pure read: it never writes.
      */
@@ -99,6 +138,22 @@ class ActivityDetailsRepository(
             .query(Long::class.javaObjectType)
             .single()
     }
+
+    /**
+     * Takes the same no-key-update lock as [lockActivity] on each of [activityIds]' rows, in ascending id order so
+     * that two callers locking overlapping sets wait rather than deadlock, and returns the ids that still exist (in
+     * that order): an Activity deleted meanwhile is skipped. Requires a transaction.
+     */
+    fun lockActivities(activityIds: Collection<Long>): List<Long> =
+        if (activityIds.isEmpty()) {
+            emptyList()
+        } else {
+            jdbcClient
+                .sql("SELECT id FROM activity WHERE id IN (:ids) ORDER BY id FOR NO KEY UPDATE")
+                .param("ids", activityIds.distinct())
+                .query { rs, _ -> rs.getLong("id") }
+                .list()
+        }
 
     /**
      * Reads what is stored for an Activity, as far as [ActivityDetailsService]'s rule needs it.
@@ -367,7 +422,8 @@ class ActivityDetailsRepository(
 
     /**
      * Retrieves telemetry as a JSON string in the nested telemetry contract:
-     * `{ activityId, sport, route: GeoJSON LineString | null, telemetry: { t, routeIndex, heartRate, ... } }`.
+     * `{ activityId, sport, route: GeoJSON LineString | null, bestEfforts, derivedStreams: { gapSpeed, staminaPct },
+     * telemetry: { t, routeIndex, heartRate, ... } }`.
      * Enforces user authorization by requiring a match on `activity.user_id = :userId`.
      *
      * The route is deliberately NOT simplified: `telemetry.routeIndex[i]` is an index into the recorded
@@ -378,12 +434,15 @@ class ActivityDetailsRepository(
      *
      * @param activityId the ID of the activity.
      * @param userId the ID of the authenticated user requesting the activity telemetry.
+     * @param staminaPct the Activity's **Stamina** stream, computed on read by the caller and emitted as
+     *   `derivedStreams.staminaPct`; null when it has none.
      * @return raw JSON string conforming to the telemetry response schema, or `null` if the activity
      *   does not exist, has no telemetry, or does not belong to [userId].
      */
     fun findTelemetryJson(
         activityId: Long,
         userId: Long,
+        staminaPct: FloatArray? = null,
     ): String? {
         val sql =
             """
@@ -410,6 +469,11 @@ class ActivityDetailsRepository(
                         WHERE abe.activity_id = a.id
                     ),
                     '[]'::jsonb
+                ),
+                -- Derived streams are emitted only while parallel to t: a stale row never misaligns the charts.
+                'derivedStreams', jsonb_build_object(
+                    'gapSpeed', CASE WHEN cardinality(m.gap_speed) = cardinality(d.t) THEN m.gap_speed END,
+                    'staminaPct', CAST(:staminaPct AS real[])
                 ),
                 'telemetry', (
                 jsonb_build_object(
@@ -499,6 +563,7 @@ class ActivityDetailsRepository(
             )::text
             FROM activity_details d
             JOIN activity a ON a.id = d.activity_id
+            LEFT JOIN activity_derived_metrics m ON m.activity_id = a.id
             WHERE a.id = :activityId AND a.user_id = :userId
             """.trimIndent()
 
@@ -506,6 +571,8 @@ class ActivityDetailsRepository(
             .sql(sql)
             .param("activityId", activityId)
             .param("userId", userId)
+            // One text literal cast to real[]: a named array parameter would expand into a list of parameters.
+            .param("staminaPct", staminaPct?.joinToString(",", "{", "}"), Types.VARCHAR)
             .query(String::class.java)
             .optional()
             .orElse(null)
@@ -515,6 +582,12 @@ class ActivityDetailsRepository(
     private fun ResultSet.getFloatArray(column: String): Array<Float?>? =
         (getArray(column)?.array as? Array<*>)
             ?.map { (it as? Number)?.toFloat() }
+            ?.toTypedArray()
+
+    /** Decodes a nullable `smallint[]` column, keeping null samples; `null` when the column itself is null. */
+    private fun ResultSet.getShortArray(column: String): Array<Short?>? =
+        (getArray(column)?.array as? Array<*>)
+            ?.map { (it as? Number)?.toShort() }
             ?.toTypedArray()
 
     /** Creates a PostgreSQL SQL array for primitive integer values. */

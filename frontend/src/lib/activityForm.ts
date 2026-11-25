@@ -94,12 +94,12 @@ const title = z
 
 const startedAt = z.string().transform((raw, ctx) => {
   if (raw.trim() === '') {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Start time is required' });
+    ctx.addIssue({ code: 'custom', message: 'Start time is required' });
     return z.NEVER;
   }
   const date = new Date(raw);
   if (Number.isNaN(date.getTime())) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Enter a valid start time' });
+    ctx.addIssue({ code: 'custom', message: 'Enter a valid start time' });
     return z.NEVER;
   }
   return date.toISOString();
@@ -108,7 +108,7 @@ const startedAt = z.string().transform((raw, ctx) => {
 const duration = z.string().transform((raw, ctx) => {
   const seconds = parseDuration(raw);
   if (seconds === null) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Enter a duration as mm:ss or h:mm:ss' });
+    ctx.addIssue({ code: 'custom', message: 'Enter a duration as mm:ss or h:mm:ss' });
     return z.NEVER;
   }
   return seconds;
@@ -119,7 +119,7 @@ function requiredNumber(isValid: (value: number) => boolean, message: string) {
     const text = raw.trim();
     const value = Number(text);
     if (text === '' || !Number.isFinite(value) || !isValid(value)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+      ctx.addIssue({ code: 'custom', message });
       return z.NEVER;
     }
     return value;
@@ -132,7 +132,7 @@ function optionalNumber(isValid: (value: number) => boolean, message: string) {
     if (raw.trim() === '') return null;
     const result = parse.safeParse(raw);
     if (!result.success) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+      ctx.addIssue({ code: 'custom', message });
       return z.NEVER;
     }
     return result.data;
@@ -142,6 +142,16 @@ function optionalNumber(isValid: (value: number) => boolean, message: string) {
 const positive = (value: number) => value > 0;
 const positiveInteger = (value: number) => Number.isInteger(value) && value > 0;
 const nonNegativeInteger = (value: number) => Number.isInteger(value) && value >= 0;
+
+/**
+ * Types a generated (server-derived) schema as parsing a request into itself. Zod types each
+ * nullable request field as `T | null | undefined`, but under `exactOptionalPropertyTypes` the
+ * generated request types allow only `T | null`. Parsing never adds an `undefined` the input did not
+ * have, and the form schemas give every field a value or `null`, so the result fits the request type.
+ */
+function contract<Request>(schema: z.ZodType): z.ZodType<Request, Request> {
+  return schema as unknown as z.ZodType<Request, Request>;
+}
 
 const createFormSchema = z
   .object({
@@ -160,11 +170,11 @@ const createFormSchema = z
       timeTakenSeconds,
     }),
   )
-  .pipe(zActivityCreateRequestDto);
+  .pipe(contract<ActivityCreateRequestDto>(zActivityCreateRequestDto));
 
 const metadataFormSchema = z
   .object({ title, sport: zActivityUpdateRequestDto.shape.sport })
-  .pipe(zActivityUpdateRequestDto);
+  .pipe(contract<ActivityUpdateRequestDto>(zActivityUpdateRequestDto));
 
 /** The form edits the API's `timeTakenSeconds` as `duration`; every other field shares its API name. */
 const formFieldOf = (apiField: string): string =>
@@ -189,7 +199,7 @@ function toFieldErrors(error: z.ZodError): ActivityFormErrors {
   return errors;
 }
 
-function convert<T>(schema: z.ZodType<T, z.ZodTypeDef, unknown>, values: ActivityFormValues) {
+function convert<T>(schema: z.ZodType<T, unknown>, values: ActivityFormValues) {
   const result = schema.safeParse(values);
   return result.success
     ? ({ kind: 'VALID', data: result.data } as const)

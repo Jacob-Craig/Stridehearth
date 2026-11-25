@@ -5,12 +5,14 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   ActivityBestEffortDto,
+  ActivityConditionsDto,
   ActivityDetailDto,
   ActivityHistoryEntryDto,
   ActivityLapDto,
   ActivitySummaryDto,
   ActivityTelemetryResponseDto,
   ActivityTelemetryStreamsDto,
+  RunMetricsDto,
   UserResponseDto,
 } from '../src/api/generated/types.gen';
 import { zActivityTelemetryStreamsDto } from '../src/api/generated/zod.gen';
@@ -89,6 +91,11 @@ function detail(overrides: Partial<ActivityDetailDto> = {}): ActivityDetailDto {
     laps: [],
     history: [],
     bestEfforts: [],
+    runMetrics: null,
+    trainingLoad: null,
+    trainingLoadUnavailableReason: null,
+    minStaminaPct: null,
+    conditions: null,
     ...overrides,
   };
 }
@@ -112,6 +119,7 @@ function telemetry(): ActivityTelemetryResponseDto {
       ],
     },
     bestEfforts: [],
+    derivedStreams: { gapSpeed: null, staminaPct: null },
     telemetry: {
       ...unrecorded,
       t: [0, 1, 2],
@@ -253,6 +261,8 @@ describe('/activities/$activityId loading', () => {
 
   it('preloads the Activity and its Activity Details when its Personal Record link is focused on the Dashboard', async () => {
     const requests = stubActivity(detail(), () => json(telemetry()), {
+      'GET /api/athlete/pmc': () => json({ timeZone: 'UTC', firstDay: null, days: [] }),
+      'GET /api/athlete/personal-record-progression': () => json({ progressions: [] }),
       'GET /api/dashboard': () =>
         json({
           personalRecordSlots: [
@@ -327,6 +337,396 @@ describe('/activities/$activityId summary', () => {
     expect(screen.queryByRole('region', { name: /route map and sensor charts/i })).toBeNull();
   });
 
+  describe('Run metrics', () => {
+    const runMetrics = (overrides: Partial<RunMetricsDto> = {}): RunMetricsDto => ({
+      movingSeconds: 3540,
+      ngpMetersPerSecond: 10 / 3,
+      efficiencyFactor: 1.2,
+      aerobicDecouplingPercent: 4.9,
+      decouplingUnavailableReason: null,
+      vo2maxEstimateRaw: null,
+      vo2maxEstimate: null,
+      vo2maxUnavailableReason: null,
+      ...overrides,
+    });
+
+    async function summaryTile(metrics: RunMetricsDto, label: string): Promise<HTMLElement> {
+      stubActivity(detail({ runMetrics: metrics }));
+      renderApp('/activities/42');
+      const list = await screen.findByRole('list', { name: /summary metrics/i });
+      return within(list).getByText(label).closest('li') as HTMLElement;
+    }
+
+    it('shows NGP as a pace and the Efficiency Factor to two decimals', async () => {
+      stubActivity(detail({ runMetrics: runMetrics() }));
+      renderApp('/activities/42');
+
+      const list = await screen.findByRole('list', { name: /summary metrics/i });
+      const metric = (label: string) => within(list).getByText(label).closest('li') as HTMLElement;
+      // 10/3 m/s = 12 km/h = 5:00 /km.
+      expect(metric('NGP')).toHaveTextContent('05:00 /km');
+      expect(metric('Efficiency Factor')).toHaveTextContent('1.20');
+    });
+
+    it('shows a green Coupled badge below 5 percent', async () => {
+      const tile = await summaryTile(
+        runMetrics({ aerobicDecouplingPercent: 4.9 }),
+        'Aerobic Decoupling',
+      );
+
+      const badge = within(tile).getByText('Coupled');
+      expect(tile).toHaveTextContent('4.9%');
+      expect(badge.closest('[data-status]')).toHaveAttribute('data-status', 'coupled');
+      expect(badge.closest('[data-status]')?.className).toMatch(/emerald/);
+    });
+
+    it('shows an amber Drifting badge at 5 percent', async () => {
+      const tile = await summaryTile(
+        runMetrics({ aerobicDecouplingPercent: 5 }),
+        'Aerobic Decoupling',
+      );
+
+      const badge = within(tile).getByText('Drifting');
+      expect(tile).toHaveTextContent('5.0%');
+      expect(badge.closest('[data-status]')).toHaveAttribute('data-status', 'drifting');
+      expect(badge.closest('[data-status]')?.className).toMatch(/amber/);
+    });
+
+    it('classifies the percentage it displays, so 4.96 shows 5.0% and Drifting', async () => {
+      const tile = await summaryTile(
+        runMetrics({ aerobicDecouplingPercent: 4.96 }),
+        'Aerobic Decoupling',
+      );
+
+      expect(tile).toHaveTextContent('5.0%');
+      const badge = within(tile).getByText('Drifting');
+      expect(badge.closest('[data-status]')).toHaveAttribute('data-status', 'drifting');
+    });
+
+    it('keeps 4.94, displayed as 4.9%, Coupled', async () => {
+      const tile = await summaryTile(
+        runMetrics({ aerobicDecouplingPercent: 4.94 }),
+        'Aerobic Decoupling',
+      );
+
+      expect(tile).toHaveTextContent('4.9%');
+      expect(within(tile).getByText('Coupled')).toBeInTheDocument();
+    });
+
+    it('treats negative decoupling as coupled', async () => {
+      const tile = await summaryTile(
+        runMetrics({ aerobicDecouplingPercent: -2 }),
+        'Aerobic Decoupling',
+      );
+
+      expect(tile).toHaveTextContent('-2.0%');
+      expect(within(tile).getByText('Coupled')).toBeInTheDocument();
+    });
+
+    it.each([
+      ['NO_HEART_RATE', 'No heart rate'],
+      ['HEART_RATE_GAP_IN_HALF', 'Heart rate missing in one half'],
+      ['TOO_SHORT', 'Needs 30 min of running'],
+      ['NOT_STEADY', 'Pace too variable'],
+      ['NO_PACE_DATA', 'No pace data'],
+    ] as const)('explains why decoupling is unavailable: %s', async (reason, copy) => {
+      const tile = await summaryTile(
+        runMetrics({ aerobicDecouplingPercent: null, decouplingUnavailableReason: reason }),
+        'Aerobic Decoupling',
+      );
+
+      expect(tile).toHaveTextContent('—');
+      expect(tile).toHaveTextContent(copy);
+      expect(within(tile).queryByText(/Coupled|Drifting/)).toBeNull();
+    });
+
+    it('shows dashes for NGP and EF a Run could not compute', async () => {
+      stubActivity(
+        detail({
+          runMetrics: runMetrics({
+            ngpMetersPerSecond: null,
+            efficiencyFactor: null,
+            aerobicDecouplingPercent: null,
+            decouplingUnavailableReason: 'NO_PACE_DATA',
+          }),
+        }),
+      );
+      renderApp('/activities/42');
+
+      const list = await screen.findByRole('list', { name: /summary metrics/i });
+      expect(within(list).getByText('NGP').closest('li')).toHaveTextContent('—');
+      expect(within(list).getByText('Efficiency Factor').closest('li')).toHaveTextContent('—');
+    });
+
+    it('shows the VO2max Estimate after Aerobic Decoupling to one decimal, with the uncorrected value in a tooltip', async () => {
+      const tile = await summaryTile(
+        runMetrics({ vo2maxEstimateRaw: 50.34, vo2maxEstimate: 52.06 }),
+        'VO2max',
+      );
+
+      expect(tile.previousElementSibling).toHaveTextContent('Aerobic Decoupling');
+      expect(tile).toHaveTextContent('52.1');
+      expect(within(tile).getByText('52.1')).toHaveAttribute(
+        'title',
+        'Before the Correction Factor: 50.3 ml/kg/min',
+      );
+    });
+
+    it('shows the uncorrected estimate, labelled, while the Correction Factor is not yet known', async () => {
+      const tile = await summaryTile(runMetrics({ vo2maxEstimateRaw: 50.34 }), 'VO2max');
+
+      expect(tile).toHaveTextContent('50.3');
+      expect(tile).toHaveTextContent('Uncorrected');
+    });
+
+    it.each([
+      ['NO_PACE_DATA', 'No pace data'],
+      ['NO_HEART_RATE', 'No heart rate'],
+      ['TOO_SHORT', 'Needs 20 min of running'],
+      ['TOO_HILLY', 'Too hilly'],
+      ['NOT_STEADY', 'Pace too variable'],
+      ['INTENSITY_TOO_LOW', 'Too easy to estimate'],
+      ['TOO_FEW_SEGMENTS', 'Too little steady running'],
+      ['OUT_OF_RANGE', 'Outside the plausible range'],
+    ] as const)('explains why there is no VO2max Estimate: %s', async (reason, copy) => {
+      const tile = await summaryTile(runMetrics({ vo2maxUnavailableReason: reason }), 'VO2max');
+
+      expect(tile).toHaveTextContent('—');
+      expect(tile).toHaveTextContent(copy);
+      expect(within(tile).queryByRole('link')).toBeNull();
+    });
+
+    it('links a missing heart-rate Threshold to the settings page', async () => {
+      const tile = await summaryTile(
+        runMetrics({ vo2maxUnavailableReason: 'NO_HEART_RATE_THRESHOLDS' }),
+        'VO2max',
+      );
+
+      expect(
+        within(tile).getByRole('link', { name: 'Set your Max and Resting HR' }),
+      ).toHaveAttribute('href', '/settings');
+    });
+
+    it('shows a dash alone before the estimate is computed', async () => {
+      const tile = await summaryTile(runMetrics(), 'VO2max');
+
+      expect(tile).toHaveTextContent(/^VO2max—$/);
+    });
+
+    it('adds no Run metric tiles without Run metrics', async () => {
+      stubActivity(detail({ runMetrics: null }));
+      renderApp('/activities/42');
+
+      const list = await screen.findByRole('list', { name: /summary metrics/i });
+      expect(within(list).getAllByRole('listitem')).toHaveLength(5);
+      expect(within(list).queryByText('NGP')).toBeNull();
+      expect(within(list).queryByText('Efficiency Factor')).toBeNull();
+      expect(within(list).queryByText('Aerobic Decoupling')).toBeNull();
+      expect(within(list).queryByText('VO2max')).toBeNull();
+    });
+  });
+
+  describe('Training Load', () => {
+    async function trainingLoadTile(overrides: Partial<ActivityDetailDto>): Promise<HTMLElement> {
+      stubActivity(detail(overrides));
+      renderApp('/activities/42');
+      const list = await screen.findByRole('list', { name: /summary metrics/i });
+      return within(list).getByText('Training Load').closest('li') as HTMLElement;
+    }
+
+    it.each([
+      ['RTSS', 87.4, '87 · rTSS'],
+      ['RSS', 112.5, '113 · RSS'],
+      ['HRSS', 63.34, '63 · HRSS'],
+    ] as const)(
+      'shows a %s load rounded to an integer with its method',
+      async (method, value, shown) => {
+        const tile = await trainingLoadTile({ trainingLoad: { value, method } });
+
+        expect(tile).toHaveTextContent(shown);
+      },
+    );
+
+    it.each([
+      ['NO_ACTIVITY_DETAILS', 'No Activity Details recorded'],
+      ['NO_USABLE_STREAM', 'No usable heart rate or power'],
+    ] as const)('explains why there is no Training Load: %s', async (reason, copy) => {
+      const tile = await trainingLoadTile({ trainingLoadUnavailableReason: reason });
+
+      expect(tile).toHaveTextContent('No Training Load');
+      expect(tile).toHaveTextContent(copy);
+      expect(within(tile).queryByRole('link')).toBeNull();
+    });
+
+    it.each(['RIDE', 'SWIM', 'WORKOUT'] as const)(
+      'does not blame power for a %s, whose power never counts',
+      async (sport) => {
+        const tile = await trainingLoadTile({
+          sport,
+          trainingLoadUnavailableReason: 'NO_USABLE_STREAM',
+        });
+
+        expect(tile).toHaveTextContent('No usable heart rate');
+        expect(tile).not.toHaveTextContent(/power/i);
+      },
+    );
+
+    it.each(['WALK', 'HIKE'] as const)('names heart rate or power for a %s', async (sport) => {
+      const tile = await trainingLoadTile({
+        sport,
+        trainingLoadUnavailableReason: 'NO_USABLE_STREAM',
+      });
+
+      expect(tile).toHaveTextContent('No usable heart rate or power');
+    });
+
+    it('links to the settings page when heart-rate Thresholds contradict each other', async () => {
+      const tile = await trainingLoadTile({
+        trainingLoadUnavailableReason: 'INCONSISTENT_THRESHOLDS',
+      });
+
+      expect(tile).toHaveTextContent('No Training Load');
+      expect(
+        within(tile).getByRole('link', {
+          name: /max and threshold heart rate must be above resting/i,
+        }),
+      ).toHaveAttribute('href', '/settings');
+      expect(tile).not.toHaveTextContent(/set your thresholds/i);
+    });
+
+    it('links to the settings page when Thresholds are missing', async () => {
+      const tile = await trainingLoadTile({ trainingLoadUnavailableReason: 'NO_THRESHOLDS' });
+
+      expect(tile).toHaveTextContent('No Training Load');
+      expect(within(tile).getByRole('link', { name: /set your thresholds/i })).toHaveAttribute(
+        'href',
+        '/settings',
+      );
+    });
+
+    it('adds no tile while the Training Load is not computed yet', async () => {
+      stubActivity(detail({ trainingLoad: null, trainingLoadUnavailableReason: null }));
+      renderApp('/activities/42');
+
+      const list = await screen.findByRole('list', { name: /summary metrics/i });
+      expect(within(list).queryByText('Training Load')).toBeNull();
+    });
+  });
+
+  describe('Min Stamina', () => {
+    it('shows the lowest Stamina the Run reached as a whole percentage, after the other tiles', async () => {
+      stubActivity(detail({ minStaminaPct: 24.6 }));
+      renderApp('/activities/42');
+
+      const list = await screen.findByRole('list', { name: /summary metrics/i });
+      const tiles = within(list).getAllByRole('listitem');
+      expect(tiles).toHaveLength(6);
+      expect(tiles.at(-1)).toHaveTextContent('Min Stamina');
+      expect(tiles.at(-1)).toHaveTextContent('25%');
+    });
+
+    it('adds no tile when the Run has no Stamina stream', async () => {
+      stubActivity(detail({ minStaminaPct: null }));
+      renderApp('/activities/42');
+
+      const list = await screen.findByRole('list', { name: /summary metrics/i });
+      expect(within(list).queryByText('Min Stamina')).toBeNull();
+    });
+  });
+
+  describe('Conditions', () => {
+    const conditions: ActivityConditionsDto = {
+      deviceTemperatureC: 24,
+      ambientTemperatureC: 18,
+      wristHeatCorrectionC: 6,
+      meanAltitudeM: 312.4,
+      heatAcclimationPct: 50,
+      altitudeAcclimationPct: 7.142857142857143,
+    };
+
+    async function conditionsList(): Promise<HTMLElement> {
+      return screen.findByRole('list', { name: /conditions/i });
+    }
+
+    it('shows the Ambient Temperature with the watch reading and wrist correction, the Mean Altitude and acclimation', async () => {
+      stubActivity(detail({ conditions }));
+      renderApp('/activities/42');
+
+      const tiles = within(await conditionsList()).getAllByRole('listitem');
+      expect(tiles.map((tile) => tile.textContent)).toEqual([
+        'Temperature≈18 °Cwatch 24 °C, −6 °C wrist correction',
+        'Avg Altitude312 m',
+        'Heat Acclimation50%',
+        'Altitude Acclimation7%',
+      ]);
+    });
+
+    it('rounds temperatures to whole degrees and never shows a negative zero', async () => {
+      stubActivity(
+        detail({
+          conditions: { ...conditions, deviceTemperatureC: 5.6, ambientTemperatureC: -0.4 },
+        }),
+      );
+      renderApp('/activities/42');
+
+      const temperature = within(await conditionsList()).getAllByRole('listitem')[0];
+      expect(temperature).toHaveTextContent('≈0 °C');
+      expect(temperature).toHaveTextContent('watch 6 °C, −6 °C wrist correction');
+    });
+
+    it('shows no acclimation tile at 0 percent or before the first exposed day', async () => {
+      stubActivity(
+        detail({
+          conditions: { ...conditions, heatAcclimationPct: 0, altitudeAcclimationPct: null },
+        }),
+      );
+      renderApp('/activities/42');
+
+      const list = await conditionsList();
+      expect(within(list).getAllByRole('listitem')).toHaveLength(2);
+      expect(within(list).queryByText(/acclimation/i)).toBeNull();
+    });
+
+    it('shows no temperature tile without a temperature, and no altitude tile without one', async () => {
+      stubActivity(
+        detail({
+          conditions: {
+            ...conditions,
+            deviceTemperatureC: null,
+            ambientTemperatureC: null,
+            meanAltitudeM: null,
+          },
+        }),
+      );
+      renderApp('/activities/42');
+
+      const list = await conditionsList();
+      expect(within(list).queryByText('Temperature')).toBeNull();
+      expect(within(list).queryByText('Avg Altitude')).toBeNull();
+      expect(within(list).getAllByRole('listitem')).toHaveLength(2);
+    });
+
+    const unknown: ActivityConditionsDto = {
+      deviceTemperatureC: null,
+      ambientTemperatureC: null,
+      wristHeatCorrectionC: 6,
+      meanAltitudeM: null,
+      heatAcclimationPct: null,
+      altitudeAcclimationPct: 0,
+    };
+
+    it.each([
+      ['nothing is known', unknown],
+      ['the conditions are not computed yet', null],
+    ])('renders no Conditions group when %s', async (_, value) => {
+      stubActivity(detail({ conditions: value }));
+      renderApp('/activities/42');
+
+      await screen.findByRole('list', { name: /summary metrics/i });
+      expect(screen.queryByRole('list', { name: /conditions/i })).toBeNull();
+    });
+  });
+
   it('links to the edit screen', async () => {
     stubActivity(detail());
     renderApp('/activities/42');
@@ -335,6 +735,30 @@ describe('/activities/$activityId summary', () => {
       'href',
       '/activities/42/edit',
     );
+  });
+
+  it('links a Run with a route to its Race Split Plan', async () => {
+    stubActivity(detail(), () => json(telemetry()));
+    renderApp('/activities/42');
+
+    expect(await screen.findByRole('link', { name: 'Split plan' })).toHaveAttribute(
+      'href',
+      '/activities/42/split-plan',
+    );
+  });
+
+  it('offers no Race Split Plan for a Ride or for an Activity without a route', async () => {
+    stubActivity(detail({ sport: 'RIDE' }), () => json({ ...telemetry(), sport: 'RIDE' }));
+    renderApp('/activities/42');
+    await screen.findByRole('link', { name: /edit/i });
+    expect(screen.queryByRole('link', { name: 'Split plan' })).toBeNull();
+  });
+
+  it('offers no Race Split Plan for a manual Run without Activity Details', async () => {
+    stubActivity(detail({ source: 'MANUAL' }));
+    renderApp('/activities/42');
+    await screen.findByRole('link', { name: /edit/i });
+    expect(screen.queryByRole('link', { name: 'Split plan' })).toBeNull();
   });
 
   it('deletes the Activity after confirmation and returns to the Activity list', async () => {

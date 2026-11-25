@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController
 @ApiErrorResponseDoc(responseCode = "401", description = "Unauthenticated")
 class ActivityTelemetryController(
     private val activityDetailsRepository: ActivityDetailsRepository,
+    private val staminaService: StaminaService,
 ) {
     /**
      * Returns `200 OK` with the telemetry JSON for an activity owned by [currentUser].
@@ -49,8 +50,10 @@ class ActivityTelemetryController(
         @PathVariable id: Long,
         @AuthenticationPrincipal currentUser: AppUserDetails,
     ): ResponseEntity<String> {
+        // Both reads are scoped by the athlete: a foreign Activity has no Stamina and no telemetry, so it is a 404.
+        val stamina = staminaService.stamina(id, currentUser.id)
         val json =
-            activityDetailsRepository.findTelemetryJson(id, currentUser.id)
+            activityDetailsRepository.findTelemetryJson(id, currentUser.id, stamina?.stream)
                 ?: throw activityDetailsNotFound(id)
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(json)
     }

@@ -1,5 +1,17 @@
 import { Link } from '@tanstack/react-router';
-import type { PersonalRecordDto, PersonalRecordSlotDto } from '../api/generated/types.gen';
+import type {
+  CriticalSpeedResponseDto,
+  PeakEffortsResponseDto,
+  PersonalRecordDto,
+  PersonalRecordSlotDto,
+} from '../api/generated/types.gen';
+import { PaceDurationCurve, type QueryState } from '../features/pace-duration/PaceDurationCurve';
+import { PmcPanel, type PmcQueryState } from '../features/pmc/PmcPanel';
+import {
+  PersonalRecordProgression,
+  type ProgressionState,
+} from '../features/pr-progression/PersonalRecordProgression';
+import { RacePrognosisCard } from '../features/race-prognosis/RacePrognosisCard';
 import {
   averageSpeedKmh,
   formatDate,
@@ -9,10 +21,23 @@ import {
 } from '../lib/format';
 
 interface DashboardProps {
+  /** The athlete whose Race Prognosis card queries its own race-day conditions. */
+  userId: number | undefined;
   personalRecordSlots: readonly PersonalRecordSlotDto[];
+  pmc: PmcQueryState;
+  progression: ProgressionState;
+  peakEfforts: QueryState<PeakEffortsResponseDto>;
+  criticalSpeed: QueryState<CriticalSpeedResponseDto>;
 }
 
-export function Dashboard({ personalRecordSlots }: DashboardProps) {
+export function Dashboard({
+  userId,
+  personalRecordSlots,
+  pmc,
+  progression,
+  peakEfforts,
+  criticalSpeed,
+}: DashboardProps) {
   return (
     <div className="space-y-8">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
@@ -58,17 +83,20 @@ export function Dashboard({ personalRecordSlots }: DashboardProps) {
             <PersonalRecordCard key={slot.benchmarkDistance} slot={slot} />
           ))}
         </div>
+        <PersonalRecordProgression progression={progression} />
       </section>
 
-      <section aria-label="Training summaries and performance trends">
+      <PmcPanel pmc={pmc} />
+
+      <PaceDurationCurve peakEfforts={peakEfforts} criticalSpeed={criticalSpeed} />
+
+      <RacePrognosisCard userId={userId} />
+
+      <section aria-label="Training summaries">
         <div className="grid gap-4 md:grid-cols-2">
           <PlaceholderCard
             title="Weekly Activity Summary (Coming Soon)"
             description="Aggregate weekly distance, duration, and elevation gain across your activities will appear here."
-          />
-          <PlaceholderCard
-            title="Performance Trends (Coming Soon)"
-            description="Interactive training volume and pace progression charts will appear here."
           />
         </div>
       </section>

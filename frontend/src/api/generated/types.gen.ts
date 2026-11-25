@@ -5,6 +5,28 @@ export type ClientOptions = {
     baseUrl: 'http://localhost' | (string & {});
 };
 
+export type AthleteTimeZoneRequestDto = {
+    timeZone: string;
+};
+
+export type ApiErrorResponse = {
+    kind?: 'VALIDATION_FAILED' | 'DUPLICATE_RESOURCE' | 'INVALID_ACTIVITY_FILE' | 'RESOURCE_NOT_FOUND' | 'BAD_REQUEST' | 'UNAUTHORIZED' | 'REGISTRATION_CLOSED' | 'TOO_MANY_ATTEMPTS' | 'INVITE_UNUSABLE' | 'ADMINISTRATOR_ONLY' | 'CONCURRENT_CHANGE';
+    message?: string;
+    fieldErrors?: {
+        [key: string]: string;
+    };
+};
+
+export type UserResponseDto = {
+    id?: number;
+    username?: string;
+    email?: string;
+    firstName?: string;
+    lastName?: string;
+    administrator?: boolean;
+    timeZone?: string | null;
+};
+
 export type ActivityUpdateRequestDto = {
     title: string;
     sport: 'RUN' | 'WALK' | 'HIKE' | 'RIDE' | 'SWIM' | 'WORKOUT';
@@ -20,14 +42,6 @@ export type ActivityUpdateRequestDto = {
     averagePaceKmh?: number | null;
     averageHeartRate?: number | null;
     calories?: number | null;
-};
-
-export type ApiErrorResponse = {
-    kind?: 'VALIDATION_FAILED' | 'DUPLICATE_RESOURCE' | 'INVALID_ACTIVITY_FILE' | 'RESOURCE_NOT_FOUND' | 'BAD_REQUEST' | 'UNAUTHORIZED' | 'REGISTRATION_CLOSED' | 'TOO_MANY_ATTEMPTS' | 'INVITE_UNUSABLE' | 'ADMINISTRATOR_ONLY' | 'CONCURRENT_CHANGE';
-    message?: string;
-    fieldErrors?: {
-        [key: string]: string;
-    };
 };
 
 export type ActivitySummaryDto = {
@@ -68,18 +82,24 @@ export type UserFormDto = {
     lastName?: string;
 };
 
-export type UserResponseDto = {
-    id?: number;
-    username?: string;
-    email?: string;
-    firstName?: string;
-    lastName?: string;
-    administrator?: boolean;
-};
-
 export type LoginRequestDto = {
     username?: string;
     password?: string;
+};
+
+export type ThresholdEntryRequestDto = {
+    kind: ThresholdKind;
+    effectiveDate: string;
+    value: number;
+};
+
+export type ThresholdKind = 'MAX_HR' | 'RESTING_HR' | 'LTHR' | 'THRESHOLD_PACE' | 'CRITICAL_POWER';
+
+export type ThresholdEntryDto = {
+    id: number;
+    kind: ThresholdKind;
+    effectiveDate: string;
+    value: number;
 };
 
 export type ActivityCreateRequestDto = {
@@ -235,8 +255,8 @@ export type ImportBatchSummaryDto = {
 };
 
 export type LapsUpgradeDto = (BackfilledLapsDto | ReplacedLapsDto) & {
-    count?: number;
     kind?: string;
+    count?: number;
 };
 
 export type LegacyChangeDto = {
@@ -376,6 +396,372 @@ export type PendingInviteDto = {
     expiresAt: string;
 };
 
+export type CorrectionSourceDto = {
+    activityId: number;
+    benchmarkDistance: 'FOUR_HUNDRED_METERS' | 'ONE_KILOMETER' | 'ONE_MILE' | 'FIVE_KILOMETERS' | 'TEN_KILOMETERS' | 'HALF_MARATHON';
+    vdot: number;
+};
+
+export type Vo2MaxCurrentDto = {
+    day: string;
+    /**
+     * Null when no Run of the last 30 days has a VO2max Estimate
+     */
+    effectiveVo2max: number | null;
+    /**
+     * Between 0.8 and 1.2; 1.0 without a calibrating race
+     */
+    correctionFactor: number;
+    /**
+     * The Best Effort the Correction Factor came from; null when it is 1.0 for want of one
+     */
+    correctionSource: CorrectionSourceDto | null;
+};
+
+export type Vo2MaxDayDto = {
+    day: string;
+    /**
+     * Null when no Run of the 30 days ending that day has a VO2max Estimate
+     */
+    effectiveVo2max: number | null;
+    correctionFactor: number;
+};
+
+export type Vo2MaxResponseDto = {
+    /**
+     * Effective VO2max on the athlete's today; null before their first VO2max Estimate
+     */
+    current: Vo2MaxCurrentDto | null;
+    /**
+     * Every day in range, never before the first VO2max Estimate nor after today; empty before it
+     */
+    days: Array<Vo2MaxDayDto>;
+    /**
+     * The Runs in range with a VO2max Estimate, oldest first
+     */
+    runs: Array<Vo2MaxRunDto>;
+};
+
+export type Vo2MaxRunDto = {
+    activityId: number;
+    /**
+     * The Run's day in the athlete's time zone
+     */
+    day: string;
+    vo2maxEstimate: number;
+};
+
+export type AthleteThresholdsResponseDto = {
+    /**
+     * Every entry, newest effective date first
+     */
+    entries: Array<ThresholdEntryDto>;
+    /**
+     * The values in force today, in the athlete's time zone
+     */
+    current: CurrentThresholdsDto;
+    /**
+     * Null without an LTHR
+     */
+    heartRateZones: Array<HeartRateZoneDto> | null;
+    /**
+     * Null without a threshold pace
+     */
+    paceZones: Array<PaceZoneDto> | null;
+    proposals: Array<ThresholdProposalDto>;
+};
+
+export type CurrentThresholdsDto = {
+    maxHr: number | null;
+    restingHr: number | null;
+    lthr: number | null;
+    thresholdSpeedMps: number | null;
+    criticalPowerWatts: number | null;
+};
+
+export type HeartRateZoneDto = {
+    zone: number;
+    lowerBpm: number | null;
+    upperBpm: number | null;
+    /**
+     * Seiler's three-zone grouping: 1, 1, 2, 2, 3
+     */
+    seilerZone: number;
+};
+
+export type PaceZoneDto = {
+    zone: number;
+    lowerSpeedMps: number | null;
+    upperSpeedMps: number | null;
+    /**
+     * Seiler's three-zone grouping: 1, 1, 2, 2, 3
+     */
+    seilerZone: number;
+};
+
+export type ThresholdProposalDto = {
+    id: number;
+    kind: ThresholdKind;
+    value: number;
+    effectiveDate: string;
+    /**
+     * The feature that proposed it
+     */
+    source: string;
+};
+
+export type RaceDistance = 'FIVE_K' | 'TEN_K' | 'HALF_MARATHON' | 'MARATHON';
+
+export type RacePredictionDto = {
+    distance: RaceDistance;
+    /**
+     * The race distance, in m
+     */
+    meters: number;
+    /**
+     * The time Daniels' VDOT tables give, in s
+     */
+    vdotSeconds: number;
+    /**
+     * The predicted finish time, in s
+     */
+    predictedSeconds: number;
+    /**
+     * The endurance penalty of Marathon Shape, at least 1
+     */
+    enduranceFactor: number;
+    /**
+     * The Course Derating of the race-day conditions, at least 1
+     */
+    courseFactor: number;
+};
+
+export type RacePrognosisCurrentDto = {
+    day: string;
+    /**
+     * Effective VO2max, in ml/kg/min
+     */
+    effectiveVo2max: number;
+    /**
+     * Marathon Shape, 0 to 100
+     */
+    marathonShapePct: number;
+    /**
+     * One per race distance, shortest first
+     */
+    predictions: Array<RacePredictionDto>;
+};
+
+export type RacePrognosisDayDto = {
+    day: string;
+    fiveKSeconds: number;
+    tenKSeconds: number;
+    halfSeconds: number;
+    marathonSeconds: number;
+};
+
+export type RacePrognosisResponseDto = {
+    /**
+     * The prognosis on the athlete's today; null when they have no Effective VO2max today
+     */
+    current: RacePrognosisCurrentDto | null;
+    /**
+     * Every day in range with an Effective VO2max, ascending, never after today; without Course Derating
+     */
+    days: Array<RacePrognosisDayDto>;
+};
+
+export type PmcDayDto = {
+    date: string;
+    /**
+     * The day's summed Training Load; 0 without Activities
+     */
+    trainingLoad: number;
+    activityCount: number;
+    /**
+     * Activities without a Training Load, which count as 0
+     */
+    unscoredActivityCount: number;
+    /**
+     * Fitness (CTL)
+     */
+    ctl: number;
+    /**
+     * Fatigue (ATL)
+     */
+    atl: number;
+    /**
+     * Form (TSB): yesterday's Fitness minus yesterday's Fatigue
+     */
+    tsb: number;
+    /**
+     * Uncoupled Acute:Chronic Workload Ratio; null for the first 34 days or without chronic load
+     */
+    acwr: number | null;
+    /**
+     * Foster's Monotony; null for the first 6 days or a week of equal loads
+     */
+    monotony: number | null;
+    /**
+     * Foster's Strain; null with Monotony
+     */
+    strain: number | null;
+};
+
+export type PmcResponseDto = {
+    /**
+     * The IANA time zone the days are counted in
+     */
+    timeZone: string;
+    /**
+     * The athlete's first day with a scored Activity; null without one
+     */
+    firstDay: string | null;
+    /**
+     * Every day in range, never before firstDay; empty without a scored Activity
+     */
+    days: Array<PmcDayDto>;
+};
+
+export type BenchmarkProgressionDto = {
+    benchmarkDistance: 'FOUR_HUNDRED_METERS' | 'ONE_KILOMETER' | 'ONE_MILE' | 'FIVE_KILOMETERS' | 'TEN_KILOMETERS' | 'HALF_MARATHON';
+    benchmarkName: string;
+    distanceMeters: number;
+    records: Array<PersonalRecordStepDto>;
+};
+
+export type PersonalRecordProgressionResponseDto = {
+    progressions: Array<BenchmarkProgressionDto>;
+};
+
+export type PersonalRecordStepDto = {
+    activityId: number;
+    activityTitle: string;
+    activityStartedAt: string;
+    elapsedTimeSeconds: number;
+};
+
+export type PeakEffortDto = {
+    value: number;
+    activityId: number;
+    activityTitle: string;
+    activityStartedAt: string;
+};
+
+export type PeakEffortSlotDto = {
+    benchmarkDuration: 'FIVE_SECONDS' | 'FIFTEEN_SECONDS' | 'THIRTY_SECONDS' | 'ONE_MINUTE' | 'TWO_MINUTES' | 'THREE_MINUTES' | 'FIVE_MINUTES' | 'TEN_MINUTES' | 'TWENTY_MINUTES' | 'THIRTY_MINUTES' | 'SIXTY_MINUTES';
+    durationSeconds: number;
+    recent: PeakEffortDto | null;
+    allTime: PeakEffortDto | null;
+};
+
+export type PeakEffortsResponseDto = {
+    windowDays: number;
+    pace: Array<PeakEffortSlotDto>;
+    power: Array<PeakEffortSlotDto>;
+};
+
+export type MarathonShapeCurrentDto = {
+    day: string;
+    /**
+     * Marathon Shape, 0 to 100
+     */
+    pct: number;
+    /**
+     * Volume Score, 0 to 1
+     */
+    volumeScore: number;
+    /**
+     * Long-Run Score, 0 to 1
+     */
+    longRunScore: number;
+    /**
+     * Run distance per week over the last 26 weeks, in km
+     */
+    weeklyKm: number;
+    /**
+     * The weekly distance targeted, in km
+     */
+    targetWeeklyKm: number;
+    /**
+     * The long run targeted, in km
+     */
+    targetLongRunKm: number;
+};
+
+export type MarathonShapeDayDto = {
+    day: string;
+    /**
+     * Null when the day has no Effective VO2max
+     */
+    pct: number | null;
+};
+
+export type MarathonShapeResponseDto = {
+    /**
+     * Marathon Shape on the athlete's today; null when they have no Effective VO2max today
+     */
+    current: MarathonShapeCurrentDto | null;
+    /**
+     * Every day in range, never before the first VO2max Estimate nor after today; empty before it
+     */
+    days: Array<MarathonShapeDayDto>;
+};
+
+export type CriticalSpeedFitDto = {
+    status: 'MODEL' | 'INSUFFICIENT_POINTS' | 'POOR_FIT' | 'NON_PHYSICAL';
+    criticalValue: number | null;
+    reserveCapacity: number | null;
+    pointCount: number;
+    points: Array<CriticalSpeedPointDto>;
+    rSquared: number | null;
+};
+
+export type CriticalSpeedPointDto = {
+    benchmarkDuration: 'FIVE_SECONDS' | 'FIFTEEN_SECONDS' | 'THIRTY_SECONDS' | 'ONE_MINUTE' | 'TWO_MINUTES' | 'THREE_MINUTES' | 'FIVE_MINUTES' | 'TEN_MINUTES' | 'TWENTY_MINUTES' | 'THIRTY_MINUTES' | 'SIXTY_MINUTES';
+    durationSeconds: number;
+    value: number;
+    activityId: number;
+};
+
+export type CriticalSpeedResponseDto = {
+    asOf: string;
+    windowDays: number;
+    pace: CriticalSpeedFitDto;
+    power: CriticalSpeedFitDto | null;
+};
+
+export type AcclimationCurrentDto = {
+    day: string;
+    heatPct: number;
+    altitudePct: number;
+};
+
+export type AcclimationDayDto = {
+    day: string;
+    heatPct: number;
+    altitudePct: number;
+    /**
+     * Whether an Activity of at least 20 minutes that day was above 22 °C Ambient Temperature
+     */
+    heatExposed: boolean;
+    /**
+     * Whether an Activity of at least 20 minutes that day was above 800 m Mean Altitude
+     */
+    altitudeExposed: boolean;
+};
+
+export type AcclimationResponseDto = {
+    /**
+     * Acclimation on the athlete's today; null before their first exposed day
+     */
+    current: AcclimationCurrentDto | null;
+    /**
+     * Every day in range, never before the first exposed day nor after today; empty before it
+     */
+    days: Array<AcclimationDayDto>;
+};
+
 export type PagedResponseDtoActivitySummaryDto = {
     items: Array<ActivitySummaryDto>;
     page: number;
@@ -393,6 +779,33 @@ export type ActivityBestEffortDto = {
     distanceMeters: number;
     elapsedTimeSeconds: number;
     window: EffortWindowDto;
+};
+
+export type ActivityConditionsDto = {
+    /**
+     * The median temperature the device recorded, in °C
+     */
+    deviceTemperatureC: number | null;
+    /**
+     * Ambient Temperature in °C: the device temperature less the Wrist-Heat Correction
+     */
+    ambientTemperatureC: number | null;
+    /**
+     * The Wrist-Heat Correction subtracted, in °C
+     */
+    wristHeatCorrectionC: number;
+    /**
+     * Mean Altitude in metres: the mean of the cleaned altitude
+     */
+    meanAltitudeM: number | null;
+    /**
+     * Heat Acclimation (0-100 %) at the end of the Activity's day; null before the athlete's first exposed day
+     */
+    heatAcclimationPct: number | null;
+    /**
+     * Altitude Acclimation (0-100 %) at the end of the Activity's day; null before the athlete's first exposed day
+     */
+    altitudeAcclimationPct: number | null;
 };
 
 export type ActivityDetailDto = {
@@ -429,6 +842,26 @@ export type ActivityDetailDto = {
      * Best Efforts, shortest Benchmark Distance first
      */
     bestEfforts: Array<ActivityBestEffortDto>;
+    /**
+     * Derived Run metrics; null for any sport but Run and for a Run whose derived data is not computed yet
+     */
+    runMetrics: RunMetricsDto | null;
+    /**
+     * Training Load and the method that computed it; null when it is unavailable or not computed yet
+     */
+    trainingLoad: TrainingLoadDto | null;
+    /**
+     * Why the Activity has no Training Load; null when it has one or it is not computed yet
+     */
+    trainingLoadUnavailableReason: TrainingLoadUnavailableReason | null;
+    /**
+     * The lowest Stamina the Run reaches, in percent; null when it has no Stamina stream
+     */
+    minStaminaPct: number | null;
+    /**
+     * The temperature, altitude and acclimation the Activity was done in; null until its derived data is computed
+     */
+    conditions: ActivityConditionsDto | null;
 };
 
 export type ActivityHistoryEntryDto = {
@@ -453,6 +886,8 @@ export type ActivityLapDto = {
     elevationGainMeters: number | null;
 };
 
+export type DecouplingUnavailableReason = 'NO_PACE_DATA' | 'NO_HEART_RATE' | 'TOO_SHORT' | 'HEART_RATE_GAP_IN_HALF' | 'NOT_STEADY';
+
 export type EffortWindowDto = {
     startIndex: number;
     endIndex: number;
@@ -460,6 +895,60 @@ export type EffortWindowDto = {
     endTimeSeconds: number;
     startDistanceMeters: number;
     endDistanceMeters: number;
+};
+
+export type RunMetricsDto = {
+    /**
+     * Moving Time in seconds
+     */
+    movingSeconds: number;
+    /**
+     * Normalized Graded Pace in meters per second
+     */
+    ngpMetersPerSecond: number | null;
+    /**
+     * Efficiency Factor: Normalized Graded Pace in meters per minute per beat per minute of heart rate
+     */
+    efficiencyFactor: number | null;
+    /**
+     * Aerobic Decoupling in percent; positive when heart rate rose relative to pace
+     */
+    aerobicDecouplingPercent: number | null;
+    decouplingUnavailableReason: DecouplingUnavailableReason | null;
+    /**
+     * VO2max Estimate in ml/kg/min before the Correction Factor
+     */
+    vo2maxEstimateRaw: number | null;
+    /**
+     * VO2max Estimate in ml/kg/min times the Correction Factor of the Run's day
+     */
+    vo2maxEstimate: number | null;
+    /**
+     * Why the Run has no VO2max Estimate; null when it has one or it has not been computed
+     */
+    vo2maxUnavailableReason: Vo2MaxUnavailableReason | null;
+};
+
+export type TrainingLoadDto = {
+    value: number;
+    method: TrainingLoadMethod;
+};
+
+export type TrainingLoadMethod = 'RSS' | 'RTSS' | 'HRSS';
+
+export type TrainingLoadUnavailableReason = 'NO_ACTIVITY_DETAILS' | 'NO_THRESHOLDS' | 'INCONSISTENT_THRESHOLDS' | 'NO_USABLE_STREAM';
+
+export type Vo2MaxUnavailableReason = 'NO_PACE_DATA' | 'NO_HEART_RATE_THRESHOLDS' | 'NO_HEART_RATE' | 'TOO_SHORT' | 'TOO_HILLY' | 'NOT_STEADY' | 'INTENSITY_TOO_LOW' | 'TOO_FEW_SEGMENTS' | 'OUT_OF_RANGE';
+
+export type ActivityDerivedStreamsDto = {
+    /**
+     * Grade-Adjusted Pace as a speed in metres per second; null for sports without it. An element is null where cleaned speed is missing
+     */
+    gapSpeed: Array<number | null> | null;
+    /**
+     * Stamina: the D′ balance as a percentage of D′ (0-100, one decimal), against the Critical Speed model in effect on the Run's date; null unless the Activity is a Run with Grade-Adjusted Pace and that model exists
+     */
+    staminaPct: Array<number> | null;
 };
 
 export type ActivityTelemetryBestEffortDto = {
@@ -484,6 +973,10 @@ export type ActivityTelemetryResponseDto = {
      * Best Efforts, shortest Benchmark Distance first
      */
     bestEfforts: Array<ActivityTelemetryBestEffortDto>;
+    /**
+     * Streams derived from the Activity Details, parallel to telemetry.t
+     */
+    derivedStreams: ActivityDerivedStreamsDto;
     telemetry: ActivityTelemetryStreamsDto;
 };
 
@@ -575,6 +1068,118 @@ export type GeoJsonLineStringDto = {
      */
     coordinates: Array<Array<number>>;
 };
+
+export type ProfilePointDto = {
+    /**
+     * From the start, in m
+     */
+    distanceM: number;
+    /**
+     * Cleaned altitude, in m
+     */
+    altitudeM: number;
+};
+
+export type RaceSplitDto = {
+    /**
+     * 1 for the first Split
+     */
+    index: number;
+    /**
+     * From the start, in m
+     */
+    startM: number;
+    /**
+     * From the start, in m
+     */
+    endM: number;
+    /**
+     * In m
+     */
+    distanceM: number;
+    /**
+     * The Split's target time, in s
+     */
+    targetSeconds: number;
+    /**
+     * The target pace, in s per km or mile
+     */
+    paceSecondsPerUnit: number;
+    /**
+     * The target time at the Split's end, in s
+     */
+    cumulativeSeconds: number;
+    /**
+     * In m; null without altitude
+     */
+    elevationGainM: number | null;
+    /**
+     * In m; null without altitude
+     */
+    elevationLossM: number | null;
+    /**
+     * Net rise over the Split's length, in percent; null without altitude
+     */
+    avgGradePct: number | null;
+};
+
+export type RaceSplitPlanResponseDto = {
+    activityId: number;
+    /**
+     * The course's cleaned distance, in m
+     */
+    courseDistanceM: number;
+    /**
+     * The Goal Time the splits sum to, in s
+     */
+    goalSeconds: number;
+    unit: 'KM' | 'MILE';
+    /**
+     * The Split Bias: how much longer, in percent, the second half takes than the first on even ground
+     */
+    biasPct: number;
+    /**
+     * The course's total climb from its cleaned altitude, in m; null without altitude
+     */
+    elevationGainM: number | null;
+    /**
+     * One per km or mile from the start; the last may be partial
+     */
+    splits: Array<RaceSplitDto>;
+    /**
+     * The course's elevation profile, at most 500 points; empty without altitude
+     */
+    profile: Array<ProfilePointDto>;
+};
+
+export type SetAthleteTimeZoneData = {
+    body: AthleteTimeZoneRequestDto;
+    path?: never;
+    query?: never;
+    url: '/api/athlete/time-zone';
+};
+
+export type SetAthleteTimeZoneErrors = {
+    /**
+     * Unknown timezone
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type SetAthleteTimeZoneError = SetAthleteTimeZoneErrors[keyof SetAthleteTimeZoneErrors];
+
+export type SetAthleteTimeZoneResponses = {
+    /**
+     * The athlete's profile with the zone
+     */
+    200: UserResponseDto;
+};
+
+export type SetAthleteTimeZoneResponse = SetAthleteTimeZoneResponses[keyof SetAthleteTimeZoneResponses];
 
 export type DeleteActivityData = {
     body?: never;
@@ -833,6 +1438,122 @@ export type RedeemInviteResponses = {
 };
 
 export type RedeemInviteResponse = RedeemInviteResponses[keyof RedeemInviteResponses];
+
+export type GetAthleteThresholdsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/athlete/thresholds';
+};
+
+export type GetAthleteThresholdsErrors = {
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type GetAthleteThresholdsError = GetAthleteThresholdsErrors[keyof GetAthleteThresholdsErrors];
+
+export type GetAthleteThresholdsResponses = {
+    /**
+     * The athlete's Thresholds
+     */
+    200: AthleteThresholdsResponseDto;
+};
+
+export type GetAthleteThresholdsResponse = GetAthleteThresholdsResponses[keyof GetAthleteThresholdsResponses];
+
+export type RecordAthleteThresholdData = {
+    body: ThresholdEntryRequestDto;
+    path?: never;
+    query?: never;
+    url: '/api/athlete/thresholds';
+};
+
+export type RecordAthleteThresholdErrors = {
+    /**
+     * Unknown kind, value out of range, or a date after tomorrow
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type RecordAthleteThresholdError = RecordAthleteThresholdErrors[keyof RecordAthleteThresholdErrors];
+
+export type RecordAthleteThresholdResponses = {
+    /**
+     * The stored entry
+     */
+    200: ThresholdEntryDto;
+};
+
+export type RecordAthleteThresholdResponse = RecordAthleteThresholdResponses[keyof RecordAthleteThresholdResponses];
+
+export type DismissThresholdProposalData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/athlete/thresholds/proposals/{id}/dismiss';
+};
+
+export type DismissThresholdProposalErrors = {
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+    /**
+     * No such pending proposal of the athlete's
+     */
+    404: ApiErrorResponse;
+};
+
+export type DismissThresholdProposalError = DismissThresholdProposalErrors[keyof DismissThresholdProposalErrors];
+
+export type DismissThresholdProposalResponses = {
+    /**
+     * Dismissed
+     */
+    204: void;
+};
+
+export type DismissThresholdProposalResponse = DismissThresholdProposalResponses[keyof DismissThresholdProposalResponses];
+
+export type AcceptThresholdProposalData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/athlete/thresholds/proposals/{id}/accept';
+};
+
+export type AcceptThresholdProposalErrors = {
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+    /**
+     * No such pending proposal of the athlete's
+     */
+    404: ApiErrorResponse;
+};
+
+export type AcceptThresholdProposalError = AcceptThresholdProposalErrors[keyof AcceptThresholdProposalErrors];
+
+export type AcceptThresholdProposalResponses = {
+    /**
+     * The entry the proposal became
+     */
+    200: ThresholdEntryDto;
+};
+
+export type AcceptThresholdProposalResponse = AcceptThresholdProposalResponses[keyof AcceptThresholdProposalResponses];
 
 export type ListActivitiesData = {
     body?: never;
@@ -1354,6 +2075,279 @@ export type InviteStatusResponses = {
 
 export type InviteStatusResponse = InviteStatusResponses[keyof InviteStatusResponses];
 
+export type GetVo2MaxData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * First day (YYYY-MM-DD); defaults to, and never precedes, the first VO2max Estimate
+         */
+        from?: string;
+        /**
+         * Last day (YYYY-MM-DD); defaults to, and is capped at, today in the athlete's time zone
+         */
+        to?: string;
+    };
+    url: '/api/athlete/vo2max';
+};
+
+export type GetVo2MaxErrors = {
+    /**
+     * A malformed date, or from after to
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type GetVo2MaxError = GetVo2MaxErrors[keyof GetVo2MaxErrors];
+
+export type GetVo2MaxResponses = {
+    /**
+     * Today's Effective VO2max, one entry per day, and the Runs in range
+     */
+    200: Vo2MaxResponseDto;
+};
+
+export type GetVo2MaxResponse = GetVo2MaxResponses[keyof GetVo2MaxResponses];
+
+export type GetRacePrognosisData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * First day (YYYY-MM-DD); defaults to, and never precedes, the first VO2max Estimate
+         */
+        from?: string;
+        /**
+         * Last day (YYYY-MM-DD); defaults to, and is capped at, today in the athlete's time zone
+         */
+        to?: string;
+        /**
+         * Race-day Ambient Temperature in °C, from -30 to 50; derates today's predictions only
+         */
+        temperatureC?: number;
+        /**
+         * The course's total climb in m, from 0 to 5000; derates today's predictions only
+         */
+        elevationGainM?: number;
+    };
+    url: '/api/athlete/race-prognosis';
+};
+
+export type GetRacePrognosisErrors = {
+    /**
+     * A malformed date or number, from after to, or race-day conditions out of range
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type GetRacePrognosisError = GetRacePrognosisErrors[keyof GetRacePrognosisErrors];
+
+export type GetRacePrognosisResponses = {
+    /**
+     * Today's predictions, derated for any race-day conditions, and one entry per day with an Effective VO2max
+     */
+    200: RacePrognosisResponseDto;
+};
+
+export type GetRacePrognosisResponse = GetRacePrognosisResponses[keyof GetRacePrognosisResponses];
+
+export type GetPerformanceManagementChartData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * First day (YYYY-MM-DD); defaults to, and never precedes, the first scored day
+         */
+        from?: string;
+        /**
+         * Last day (YYYY-MM-DD); defaults to, and is capped at, today in the athlete's time zone
+         */
+        to?: string;
+    };
+    url: '/api/athlete/pmc';
+};
+
+export type GetPerformanceManagementChartErrors = {
+    /**
+     * A malformed date, or from after to
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type GetPerformanceManagementChartError = GetPerformanceManagementChartErrors[keyof GetPerformanceManagementChartErrors];
+
+export type GetPerformanceManagementChartResponses = {
+    /**
+     * The chart, one entry per day
+     */
+    200: PmcResponseDto;
+};
+
+export type GetPerformanceManagementChartResponse = GetPerformanceManagementChartResponses[keyof GetPerformanceManagementChartResponses];
+
+export type GetPersonalRecordProgressionData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/athlete/personal-record-progression';
+};
+
+export type GetPersonalRecordProgressionErrors = {
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type GetPersonalRecordProgressionError = GetPersonalRecordProgressionErrors[keyof GetPersonalRecordProgressionErrors];
+
+export type GetPersonalRecordProgressionResponses = {
+    /**
+     * The authenticated athlete's running Personal Record Progression
+     */
+    200: PersonalRecordProgressionResponseDto;
+};
+
+export type GetPersonalRecordProgressionResponse = GetPersonalRecordProgressionResponses[keyof GetPersonalRecordProgressionResponses];
+
+export type GetPeakEffortsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/athlete/peak-efforts';
+};
+
+export type GetPeakEffortsErrors = {
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type GetPeakEffortsError = GetPeakEffortsErrors[keyof GetPeakEffortsErrors];
+
+export type GetPeakEffortsResponses = {
+    /**
+     * The authenticated athlete's best running Peak Efforts
+     */
+    200: PeakEffortsResponseDto;
+};
+
+export type GetPeakEffortsResponse = GetPeakEffortsResponses[keyof GetPeakEffortsResponses];
+
+export type GetMarathonShapeData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * First day (YYYY-MM-DD); defaults to, and never precedes, the first VO2max Estimate
+         */
+        from?: string;
+        /**
+         * Last day (YYYY-MM-DD); defaults to, and is capped at, today in the athlete's time zone
+         */
+        to?: string;
+    };
+    url: '/api/athlete/marathon-shape';
+};
+
+export type GetMarathonShapeErrors = {
+    /**
+     * A malformed date, or from after to
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type GetMarathonShapeError = GetMarathonShapeErrors[keyof GetMarathonShapeErrors];
+
+export type GetMarathonShapeResponses = {
+    /**
+     * Today's Marathon Shape with its parts and targets, and one entry per day
+     */
+    200: MarathonShapeResponseDto;
+};
+
+export type GetMarathonShapeResponse = GetMarathonShapeResponses[keyof GetMarathonShapeResponses];
+
+export type GetCriticalSpeedData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/athlete/critical-speed';
+};
+
+export type GetCriticalSpeedErrors = {
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type GetCriticalSpeedError = GetCriticalSpeedErrors[keyof GetCriticalSpeedErrors];
+
+export type GetCriticalSpeedResponses = {
+    /**
+     * The authenticated athlete's models, or why there is none
+     */
+    200: CriticalSpeedResponseDto;
+};
+
+export type GetCriticalSpeedResponse = GetCriticalSpeedResponses[keyof GetCriticalSpeedResponses];
+
+export type GetAcclimationData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * First day (YYYY-MM-DD); defaults to, and never precedes, the first exposed day
+         */
+        from?: string;
+        /**
+         * Last day (YYYY-MM-DD); defaults to, and is capped at, today in the athlete's time zone
+         */
+        to?: string;
+    };
+    url: '/api/athlete/acclimation';
+};
+
+export type GetAcclimationErrors = {
+    /**
+     * A malformed date, or from after to
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type GetAcclimationError = GetAcclimationErrors[keyof GetAcclimationErrors];
+
+export type GetAcclimationResponses = {
+    /**
+     * Today's acclimation and one entry per day
+     */
+    200: AcclimationResponseDto;
+};
+
+export type GetAcclimationResponse = GetAcclimationResponses[keyof GetAcclimationResponses];
+
 export type GetActivityTelemetryData = {
     body?: never;
     path: {
@@ -1384,6 +2378,54 @@ export type GetActivityTelemetryResponses = {
 };
 
 export type GetActivityTelemetryResponse = GetActivityTelemetryResponses[keyof GetActivityTelemetryResponses];
+
+export type GetRaceSplitPlanData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query: {
+        /**
+         * The Goal Time, in s, from 60 to 86400
+         */
+        goalSeconds: number;
+        /**
+         * The length each Split covers
+         */
+        unit?: 'KM' | 'MILE';
+        /**
+         * The Split Bias, in percent from -5 to 5: positive makes the second half slower
+         */
+        biasPct?: number;
+    };
+    url: '/api/activities/{id}/race-split-plan';
+};
+
+export type GetRaceSplitPlanErrors = {
+    /**
+     * Not a Run, Walk or Hike with a GPS route, or a Goal Time, unit or Split Bias out of range
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+    /**
+     * No such Activity for this athlete
+     */
+    404: ApiErrorResponse;
+};
+
+export type GetRaceSplitPlanError = GetRaceSplitPlanErrors[keyof GetRaceSplitPlanErrors];
+
+export type GetRaceSplitPlanResponses = {
+    /**
+     * The Race Split Plan
+     */
+    200: RaceSplitPlanResponseDto;
+};
+
+export type GetRaceSplitPlanResponse = GetRaceSplitPlanResponses[keyof GetRaceSplitPlanResponses];
 
 export type GetImportHistoryData = {
     body?: never;
@@ -1471,3 +2513,34 @@ export type RevokeInviteResponses = {
 };
 
 export type RevokeInviteResponse = RevokeInviteResponses[keyof RevokeInviteResponses];
+
+export type DeleteAthleteThresholdData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/athlete/thresholds/{id}';
+};
+
+export type DeleteAthleteThresholdErrors = {
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+    /**
+     * No such entry of the athlete's
+     */
+    404: ApiErrorResponse;
+};
+
+export type DeleteAthleteThresholdError = DeleteAthleteThresholdErrors[keyof DeleteAthleteThresholdErrors];
+
+export type DeleteAthleteThresholdResponses = {
+    /**
+     * Deleted
+     */
+    204: void;
+};
+
+export type DeleteAthleteThresholdResponse = DeleteAthleteThresholdResponses[keyof DeleteAthleteThresholdResponses];

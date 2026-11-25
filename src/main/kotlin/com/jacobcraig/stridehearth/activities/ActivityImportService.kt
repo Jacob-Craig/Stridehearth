@@ -28,6 +28,7 @@ class ActivityImportService(
     private val activityDetailsService: ActivityDetailsService,
     private val activityHistory: ActivityHistory,
     private val bestEffortRefresh: BestEffortRefresh,
+    private val derivedDataRefresh: DerivedDataRefresh,
     private val transactionTemplate: TransactionTemplate,
 ) {
     /**
@@ -82,23 +83,37 @@ class ActivityImportService(
         val duplicateActivities = mutableListOf<Activity>()
         val upgradedActivities = mutableListOf<ActivityUpgrade>()
 
+        // Each offer below locks its Activity's row. Lock every already-imported one now, in one statement and in id
+        // order as a derived-data recompute page does (ADR-0014): offered in session order, a file whose sessions'
+        // ids are out of order could deadlock with a page. The lookups below find the same rows already locked.
+        val alreadyImported =
+            parsedActivities.mapNotNull { parsed ->
+                parsed.externalId?.let { findAfterPersonalRecordLock(userId, source, it)?.id }
+            }
+        if (alreadyImported.isNotEmpty()) activityDetailsService.lockActivities(alreadyImported)
+
         for (parsed in parsedActivities) {
             val existing = parsed.externalId?.let { findAfterPersonalRecordLock(userId, source, it) }
             val activity = existing ?: activityRepository.save(parsed.toActivity(owner, source))
             val change = activityDetailsService.offer(activity, parsed.telemetry, parsed.laps, parsed.parserVersion)
-            // Best Efforts are refreshed only from Activity Details this offer wrote: a new Activity without
-            // any can hold none, and a laps-only Backfill or a duplicate leaves them as they are.
+            // Best Efforts are refreshed only from Activity Details this offer wrote: a new Activity without any can
+            // hold none, and a laps-only Backfill or a duplicate leaves them as they are. Every new Activity gets its
+            // derived-data row, details or not (ADR-0014).
             val writtenDetails = parsed.telemetry.takeIf { change.detailsWritten }
 
             if (existing == null) {
                 writtenDetails?.let { bestEffortRefresh.refresh(activity, it) }
+                derivedDataRefresh.refresh(activity, writtenDetails)
                 activityHistory.record(activity, ActivityChange.Created.of(source, change))
                 savedActivities.add(activity)
             } else {
                 when (change) {
                     ActivityDetailsChange.Unchanged -> duplicateActivities.add(existing)
                     is ActivityDetailsChange.Changed -> {
-                        writtenDetails?.let { bestEffortRefresh.refresh(existing, it) }
+                        writtenDetails?.let {
+                            bestEffortRefresh.refresh(existing, it)
+                            derivedDataRefresh.refresh(existing, it)
+                        }
                         activityHistory.record(existing, ActivityChange.Upgraded.of(change))
                         upgradedActivities.add(ActivityUpgrade(existing, change))
                     }

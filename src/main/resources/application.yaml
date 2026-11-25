@@ -21,6 +21,10 @@ spring:
       # but prevents it from trying to auto-create tables, which conflicts with Flyway.
       ddl-auto: validate
     show-sql: false
+    properties:
+      # Flush a transaction's updates in primary-key order, so a batch edit takes its Activities' row locks in the
+      # same order as the derived-data recompute worker and cannot deadlock with it (ADR-0014).
+      hibernate.order_updates: true
 
 # Actuator exposes only the health endpoint, without details, for the container image's HEALTHCHECK (ADR-0009).
 # It reports DOWN while PostgreSQL or Redis is unreachable.
@@ -40,6 +44,14 @@ springdoc:
     enabled: false
 
 stridehearth:
+  # Derived Activity data (Grade-Adjusted Pace) missing or computed by an older algorithm version is recomputed in
+  # the background (ADR-0014): every recompute-interval-ms, at most recompute-pages-per-run pages of 50 Activities.
+  analytics:
+    recompute:
+      scheduled: true
+    recompute-interval-ms: 15000
+    recompute-initial-delay-ms: 15000
+    recompute-pages-per-run: 10
   storage:
     temp-dir: ./temp-batches
   import:

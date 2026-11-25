@@ -1,4 +1,5 @@
 import { Outlet, getRouteApi, useNavigate } from '@tanstack/react-router';
+import { useInitialiseTimeZone } from '../api/athlete';
 import { AppShell } from './AppShell';
 
 const rootApi = getRouteApi('__root__');
@@ -8,6 +9,7 @@ export function AuthenticatedLayout() {
   const { auth } = rootApi.useRouteContext();
   const { user } = authenticatedApi.useRouteContext();
   const navigate = useNavigate();
+  useInitialiseTimeZone(user);
 
   const handleLogout = async () => {
     if (auth.logout) {

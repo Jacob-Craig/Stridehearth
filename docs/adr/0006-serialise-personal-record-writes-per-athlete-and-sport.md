@@ -1,6 +1,6 @@
 # 0006. Serialise Personal Record Writes per Athlete and Sport
 
-Status: accepted. Supersedes the "Concurrent Ingestion" claim in ADR-0003 that atomic `INSERT ... ON CONFLICT` alone removes lost updates.
+Status: accepted. Supersedes the "Concurrent Ingestion" claim in ADR-0003 that atomic `INSERT ... ON CONFLICT` alone removes lost updates. Lock order refined by [ADR-0016](0016-athlete-rollups-run-before-commit-under-a-per-athlete-lock-taken-last.md), which places these locks first in a global lock order.
 
 Every Personal Record write takes a PostgreSQL transaction-scoped advisory lock (`pg_advisory_xact_lock`) for each athlete and sport it may change, before any Best Effort or Personal Record write of its own, and holds it until commit. ADR-0003's atomic `ON CONFLICT` writes are safe for two incremental "upsert if faster" updates, but not for a full recalibration: it picks its winners from a READ COMMITTED statement snapshot that cannot see a concurrent import's uncommitted faster Best Effort, waits on that import's row lock, then overwrites the committed faster Personal Record with its slower winner (issue #74). Holding one lock per athlete and sport makes the second writer wait until the first commits, so its next statement sees the committed Best Efforts.
 
