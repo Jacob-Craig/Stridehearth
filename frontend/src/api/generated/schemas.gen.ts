@@ -4432,3 +4432,164 @@ export const GeoJsonLineStringDTOSchema = {
         'type'
     ]
 } as const;
+
+export const ProfilePointDTOSchema = {
+    type: 'object',
+    properties: {
+        distanceM: {
+            type: 'number',
+            format: 'double',
+            description: 'From the start, in m'
+        },
+        altitudeM: {
+            type: 'number',
+            format: 'double',
+            description: 'Cleaned altitude, in m'
+        }
+    },
+    required: [
+        'altitudeM',
+        'distanceM'
+    ]
+} as const;
+
+export const RaceSplitDTOSchema = {
+    type: 'object',
+    properties: {
+        index: {
+            type: 'integer',
+            format: 'int32',
+            description: '1 for the first Split'
+        },
+        startM: {
+            type: 'number',
+            format: 'double',
+            description: 'From the start, in m'
+        },
+        endM: {
+            type: 'number',
+            format: 'double',
+            description: 'From the start, in m'
+        },
+        distanceM: {
+            type: 'number',
+            format: 'double',
+            description: 'In m'
+        },
+        targetSeconds: {
+            type: 'number',
+            format: 'double',
+            description: 'The Split\'s target time, in s'
+        },
+        paceSecondsPerUnit: {
+            type: 'number',
+            format: 'double',
+            description: 'The target pace, in s per km or mile'
+        },
+        cumulativeSeconds: {
+            type: 'number',
+            format: 'double',
+            description: 'The target time at the Split\'s end, in s'
+        },
+        elevationGainM: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'In m; null without altitude'
+        },
+        elevationLossM: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'In m; null without altitude'
+        },
+        avgGradePct: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Net rise over the Split\'s length, in percent; null without altitude'
+        }
+    },
+    required: [
+        'avgGradePct',
+        'cumulativeSeconds',
+        'distanceM',
+        'elevationGainM',
+        'elevationLossM',
+        'endM',
+        'index',
+        'paceSecondsPerUnit',
+        'startM',
+        'targetSeconds'
+    ]
+} as const;
+
+export const RaceSplitPlanResponseDTOSchema = {
+    type: 'object',
+    properties: {
+        activityId: {
+            type: 'integer',
+            format: 'int64'
+        },
+        courseDistanceM: {
+            type: 'number',
+            format: 'double',
+            description: 'The course\'s cleaned distance, in m'
+        },
+        goalSeconds: {
+            type: 'number',
+            format: 'double',
+            description: 'The Goal Time the splits sum to, in s'
+        },
+        unit: {
+            type: 'string',
+            enum: [
+                'KM',
+                'MILE'
+            ]
+        },
+        biasPct: {
+            type: 'number',
+            format: 'double',
+            description: 'The Split Bias: how much longer, in percent, the second half takes than the first on even ground'
+        },
+        elevationGainM: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'The course\'s total climb from its cleaned altitude, in m; null without altitude'
+        },
+        splits: {
+            type: 'array',
+            description: 'One per km or mile from the start; the last may be partial',
+            items: {
+                $ref: '#/components/schemas/RaceSplitDTO'
+            }
+        },
+        profile: {
+            type: 'array',
+            description: 'The course\'s elevation profile, at most 500 points; empty without altitude',
+            items: {
+                $ref: '#/components/schemas/ProfilePointDTO'
+            }
+        }
+    },
+    required: [
+        'activityId',
+        'biasPct',
+        'courseDistanceM',
+        'elevationGainM',
+        'goalSeconds',
+        'profile',
+        'splits',
+        'unit'
+    ]
+} as const;

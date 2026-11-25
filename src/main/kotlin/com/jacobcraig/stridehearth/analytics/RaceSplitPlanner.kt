@@ -237,3 +237,11 @@ object RaceSplitPlanner {
         }
     }
 }
+
+/** The length a **Race Split Plan**'s splits are cut at. */
+enum class SplitUnit(
+    val meters: Double,
+) {
+    KM(RaceSplitPlanner.KM_METERS),
+    MILE(RaceSplitPlanner.MILE_METERS),
+}

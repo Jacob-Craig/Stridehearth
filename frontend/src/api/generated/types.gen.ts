@@ -1069,6 +1069,89 @@ export type GeoJsonLineStringDto = {
     coordinates: Array<Array<number>>;
 };
 
+export type ProfilePointDto = {
+    /**
+     * From the start, in m
+     */
+    distanceM: number;
+    /**
+     * Cleaned altitude, in m
+     */
+    altitudeM: number;
+};
+
+export type RaceSplitDto = {
+    /**
+     * 1 for the first Split
+     */
+    index: number;
+    /**
+     * From the start, in m
+     */
+    startM: number;
+    /**
+     * From the start, in m
+     */
+    endM: number;
+    /**
+     * In m
+     */
+    distanceM: number;
+    /**
+     * The Split's target time, in s
+     */
+    targetSeconds: number;
+    /**
+     * The target pace, in s per km or mile
+     */
+    paceSecondsPerUnit: number;
+    /**
+     * The target time at the Split's end, in s
+     */
+    cumulativeSeconds: number;
+    /**
+     * In m; null without altitude
+     */
+    elevationGainM: number | null;
+    /**
+     * In m; null without altitude
+     */
+    elevationLossM: number | null;
+    /**
+     * Net rise over the Split's length, in percent; null without altitude
+     */
+    avgGradePct: number | null;
+};
+
+export type RaceSplitPlanResponseDto = {
+    activityId: number;
+    /**
+     * The course's cleaned distance, in m
+     */
+    courseDistanceM: number;
+    /**
+     * The Goal Time the splits sum to, in s
+     */
+    goalSeconds: number;
+    unit: 'KM' | 'MILE';
+    /**
+     * The Split Bias: how much longer, in percent, the second half takes than the first on even ground
+     */
+    biasPct: number;
+    /**
+     * The course's total climb from its cleaned altitude, in m; null without altitude
+     */
+    elevationGainM: number | null;
+    /**
+     * One per km or mile from the start; the last may be partial
+     */
+    splits: Array<RaceSplitDto>;
+    /**
+     * The course's elevation profile, at most 500 points; empty without altitude
+     */
+    profile: Array<ProfilePointDto>;
+};
+
 export type SetAthleteTimeZoneData = {
     body: AthleteTimeZoneRequestDto;
     path?: never;
@@ -2295,6 +2378,54 @@ export type GetActivityTelemetryResponses = {
 };
 
 export type GetActivityTelemetryResponse = GetActivityTelemetryResponses[keyof GetActivityTelemetryResponses];
+
+export type GetRaceSplitPlanData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query: {
+        /**
+         * The Goal Time, in s, from 60 to 86400
+         */
+        goalSeconds: number;
+        /**
+         * The length each Split covers
+         */
+        unit?: 'KM' | 'MILE';
+        /**
+         * The Split Bias, in percent from -5 to 5: positive makes the second half slower
+         */
+        biasPct?: number;
+    };
+    url: '/api/activities/{id}/race-split-plan';
+};
+
+export type GetRaceSplitPlanErrors = {
+    /**
+     * Not a Run, Walk or Hike with a GPS route, or a Goal Time, unit or Split Bias out of range
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+    /**
+     * No such Activity for this athlete
+     */
+    404: ApiErrorResponse;
+};
+
+export type GetRaceSplitPlanError = GetRaceSplitPlanErrors[keyof GetRaceSplitPlanErrors];
+
+export type GetRaceSplitPlanResponses = {
+    /**
+     * The Race Split Plan
+     */
+    200: RaceSplitPlanResponseDto;
+};
+
+export type GetRaceSplitPlanResponse = GetRaceSplitPlanResponses[keyof GetRaceSplitPlanResponses];
 
 export type GetImportHistoryData = {
     body?: never;

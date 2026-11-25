@@ -1003,6 +1003,35 @@ export const zActivityTelemetryResponseDto = z.object({
     telemetry: zActivityTelemetryStreamsDto
 });
 
+export const zProfilePointDto = z.object({
+    distanceM: z.number(),
+    altitudeM: z.number()
+});
+
+export const zRaceSplitDto = z.object({
+    index: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    startM: z.number(),
+    endM: z.number(),
+    distanceM: z.number(),
+    targetSeconds: z.number(),
+    paceSecondsPerUnit: z.number(),
+    cumulativeSeconds: z.number(),
+    elevationGainM: z.number().nullable(),
+    elevationLossM: z.number().nullable(),
+    avgGradePct: z.number().nullable()
+});
+
+export const zRaceSplitPlanResponseDto = z.object({
+    activityId: z.coerce.bigint().min(BigInt('-9223372036854775808'), { message: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { message: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    courseDistanceM: z.number(),
+    goalSeconds: z.number(),
+    unit: z.enum(['KM', 'MILE']),
+    biasPct: z.number(),
+    elevationGainM: z.number().nullable(),
+    splits: z.array(zRaceSplitDto),
+    profile: z.array(zProfilePointDto)
+});
+
 export const zSetAthleteTimeZoneBody = zAthleteTimeZoneRequestDto;
 
 /**
@@ -1344,6 +1373,21 @@ export const zGetActivityTelemetryPath = z.object({
  * The Activity Details
  */
 export const zGetActivityTelemetryResponse = zActivityTelemetryResponseDto;
+
+export const zGetRaceSplitPlanPath = z.object({
+    id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { message: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { message: 'Invalid value: Expected int64 to be <= 9223372036854775807' })
+});
+
+export const zGetRaceSplitPlanQuery = z.object({
+    goalSeconds: z.number().gte(60).lte(86400),
+    unit: z.enum(['KM', 'MILE']).optional(),
+    biasPct: z.number().gte(-5).lte(5).optional()
+});
+
+/**
+ * The Race Split Plan
+ */
+export const zGetRaceSplitPlanResponse = zRaceSplitPlanResponseDto;
 
 /**
  * The athlete's Import Batches, newest first

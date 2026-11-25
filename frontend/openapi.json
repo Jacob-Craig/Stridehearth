@@ -1876,6 +1876,93 @@
         }
       }
     },
+    "/api/activities/{id}/race-split-plan" : {
+      "get" : {
+        "tags" : [ "race-split-plan-controller" ],
+        "summary" : "Target times per km or mile over an Activity's route that hold Grade-Adjusted effort even and sum to a Goal Time",
+        "operationId" : "getRaceSplitPlan",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "goalSeconds",
+          "in" : "query",
+          "description" : "The Goal Time, in s, from 60 to 86400",
+          "required" : true,
+          "schema" : {
+            "type" : "number",
+            "maximum" : 86400,
+            "minimum" : 60
+          }
+        }, {
+          "name" : "unit",
+          "in" : "query",
+          "description" : "The length each Split covers",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "KM", "MILE" ]
+          }
+        }, {
+          "name" : "biasPct",
+          "in" : "query",
+          "description" : "The Split Bias, in percent from -5 to 5: positive makes the second half slower",
+          "required" : false,
+          "schema" : {
+            "type" : "number",
+            "maximum" : 5,
+            "minimum" : -5
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The Race Split Plan",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RaceSplitPlanResponseDTO"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such Activity for this athlete",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Not a Run, Walk or Hike with a GPS route, or a Goal Time, unit or Split Bias out of range",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/activities/import/history" : {
       "get" : {
         "tags" : [ "import-batch-api-controller" ],
@@ -4857,6 +4944,126 @@
           }
         },
         "required" : [ "coordinates", "type" ]
+      },
+      "ProfilePointDTO" : {
+        "type" : "object",
+        "properties" : {
+          "distanceM" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "From the start, in m"
+          },
+          "altitudeM" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "Cleaned altitude, in m"
+          }
+        },
+        "required" : [ "altitudeM", "distanceM" ]
+      },
+      "RaceSplitDTO" : {
+        "type" : "object",
+        "properties" : {
+          "index" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "1 for the first Split"
+          },
+          "startM" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "From the start, in m"
+          },
+          "endM" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "From the start, in m"
+          },
+          "distanceM" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "In m"
+          },
+          "targetSeconds" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The Split's target time, in s"
+          },
+          "paceSecondsPerUnit" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The target pace, in s per km or mile"
+          },
+          "cumulativeSeconds" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The target time at the Split's end, in s"
+          },
+          "elevationGainM" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "In m; null without altitude"
+          },
+          "elevationLossM" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "In m; null without altitude"
+          },
+          "avgGradePct" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Net rise over the Split's length, in percent; null without altitude"
+          }
+        },
+        "required" : [ "avgGradePct", "cumulativeSeconds", "distanceM", "elevationGainM", "elevationLossM", "endM", "index", "paceSecondsPerUnit", "startM", "targetSeconds" ]
+      },
+      "RaceSplitPlanResponseDTO" : {
+        "type" : "object",
+        "properties" : {
+          "activityId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "courseDistanceM" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The course's cleaned distance, in m"
+          },
+          "goalSeconds" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The Goal Time the splits sum to, in s"
+          },
+          "unit" : {
+            "type" : "string",
+            "enum" : [ "KM", "MILE" ]
+          },
+          "biasPct" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The Split Bias: how much longer, in percent, the second half takes than the first on even ground"
+          },
+          "elevationGainM" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "The course's total climb from its cleaned altitude, in m; null without altitude"
+          },
+          "splits" : {
+            "type" : "array",
+            "description" : "One per km or mile from the start; the last may be partial",
+            "items" : {
+              "$ref" : "#/components/schemas/RaceSplitDTO"
+            }
+          },
+          "profile" : {
+            "type" : "array",
+            "description" : "The course's elevation profile, at most 500 points; empty without altitude",
+            "items" : {
+              "$ref" : "#/components/schemas/ProfilePointDTO"
+            }
+          }
+        },
+        "required" : [ "activityId", "biasPct", "courseDistanceM", "elevationGainM", "goalSeconds", "profile", "splits", "unit" ]
       }
     }
   }
