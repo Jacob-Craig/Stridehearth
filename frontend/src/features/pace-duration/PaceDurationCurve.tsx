@@ -14,15 +14,15 @@ import { loadPaceDurationChart } from '../charts/lazyCharts';
 import { type MountedRenderer, useLazyRenderer } from '../telemetry/useLazyRenderer';
 import type { PaceDurationChartHandle } from './paceDurationChart';
 import {
-  PDC_PALETTE,
-  PDC_PLOT_HEIGHT_PX,
-  type PdcMode,
-  type PeakCurves,
   alignedPdcData,
   durationTickLabel,
   formatModelLegend,
   formatPdcValue,
   modelCurve,
+  PDC_PALETTE,
+  PDC_PLOT_HEIGHT_PX,
+  type PdcMode,
+  type PeakCurves,
   peakCurves,
 } from './paceDurationSeries';
 

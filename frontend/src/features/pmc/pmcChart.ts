@@ -9,7 +9,7 @@ import 'uplot/dist/uPlot.min.css';
 import type { PmcDayDto } from '../../api/generated/types.gen';
 import type { ColorScheme } from '../../lib/colorScheme';
 import { AXIS_PALETTE } from '../charts/chartTheme';
-import { SECONDS_PER_DAY, calendarDate, dayStartSeconds } from '../charts/dateAxis';
+import { calendarDate, dayStartSeconds, SECONDS_PER_DAY } from '../charts/dateAxis';
 import { ACWR_CORRIDOR, FORM_ZONES } from './formZones';
 import { PMC_PALETTE, PMC_PANE_HEIGHT_PX } from './pmcPalette';
 import { type PmcRange, visibleWindow } from './pmcRange';

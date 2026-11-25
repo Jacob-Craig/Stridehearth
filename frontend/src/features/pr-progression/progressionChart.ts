@@ -12,8 +12,8 @@ import { AXIS_PALETTE } from '../charts/chartTheme';
 import {
   PROGRESSION_PLOT_HEIGHT_PX,
   PROGRESSION_X_TICK_SPACE_PX,
-  type StepPoints,
   progressionTickLabels,
+  type StepPoints,
 } from './progressionSeries';
 
 /** The blue of the record figures on the Personal Record cards. */

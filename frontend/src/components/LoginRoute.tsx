@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link, getRouteApi, useNavigate } from '@tanstack/react-router';
+import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { registrationStatusQueryOptions } from '../api/auth';
 import type { UserResponseDto } from '../api/generated/types.gen';
 import { LoginForm } from './LoginForm';

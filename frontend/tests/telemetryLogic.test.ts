@@ -5,8 +5,8 @@ import { createDownsamplerClient } from '../src/features/telemetry/downsamplerCl
 import { handleDownsampleRequest } from '../src/features/telemetry/downsamplerProtocol';
 import { LTTB_SAMPLE_THRESHOLD, lttb, needsDownsampling } from '../src/features/telemetry/lttb';
 import {
-  type LngLat,
   effortRouteCoordinates,
+  type LngLat,
   parseRoute,
   routeCoordinateAtTime,
   sampleIndexAtTime,

@@ -1,8 +1,8 @@
 import {
-  RouterProvider,
   createMemoryHistory,
   createRootRoute,
   createRouter,
+  RouterProvider,
 } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useState } from 'react';
@@ -19,6 +19,7 @@ vi.mock('../src/features/pmc/pmcChart', () =>
 /** Renders the panel inside a router, since its empty state links to the settings page. */
 function renderPanel(pmc: PmcResponseDto | undefined, { isError = false } = {}) {
   let replace: (next: PmcResponseDto) => void = () => {};
+  // biome-ignore lint/correctness/noComponentHookFactories: a per-render test harness that exposes its state setter
   function Panel() {
     const [data, setData] = useState(pmc);
     replace = setData;

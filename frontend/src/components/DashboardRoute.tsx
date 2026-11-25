@@ -1,5 +1,5 @@
-import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import type { UseQueryResult } from '@tanstack/react-query';
+import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { getRouteApi } from '@tanstack/react-router';
 import { match } from 'ts-pattern';
 import { dashboardQueryOptions } from '../api/dashboard';

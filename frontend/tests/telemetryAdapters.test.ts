@@ -6,8 +6,8 @@ import {
 import type { LngLat } from '../src/features/telemetry/sampleLookup';
 import { createTelemetryScrubber } from '../src/features/telemetry/scrubberBus';
 import {
-  type TelemetryChartOptions,
   createTelemetryChart,
+  type TelemetryChartOptions,
 } from '../src/features/telemetry/uplotChart';
 import * as fakeMaplibre from './support/fakeMaplibre';
 

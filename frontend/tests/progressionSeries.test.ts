@@ -4,8 +4,8 @@ import type {
   PersonalRecordStepDto,
 } from '../src/api/generated/types.gen';
 import {
-  PROGRESSION_X_TICK_SPACE_PX,
   defaultBenchmark,
+  PROGRESSION_X_TICK_SPACE_PX,
   progressionSteps,
   progressionTickLabels,
 } from '../src/features/pr-progression/progressionSeries';

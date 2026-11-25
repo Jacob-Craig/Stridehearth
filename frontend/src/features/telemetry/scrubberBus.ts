@@ -1,4 +1,4 @@
-import { type FrameClock, animationFrameClock, coalescePerFrame } from './frameCoalescer';
+import { animationFrameClock, coalescePerFrame, type FrameClock } from './frameCoalescer';
 import { type LngLat, type RouteTimeline, routeCoordinateAtTime } from './sampleLookup';
 
 /** A chart whose crosshair the bus moves imperatively, without re-rendering React. */

@@ -8,11 +8,11 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import type { ColorScheme } from '../../lib/colorScheme';
 import {
+  isTilted,
   type MapPerspective,
   PERSPECTIVE_CAMERAS,
   PERSPECTIVE_DURATION_MS,
   type PerspectiveCamera,
-  isTilted,
 } from './mapPerspective';
 
 // Bundled explicitly, since MapLibre's own worker lookup does not survive Vite's dependency bundling.

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createDownsamplerClient } from './downsamplerClient';
-import { LTTB_TARGET_POINTS, type XySeries, needsDownsampling } from './lttb';
+import { LTTB_TARGET_POINTS, needsDownsampling, type XySeries } from './lttb';
 import type { ChartSeries } from './sensorStreams';
 
 /** The points to plot for each charted series, in order. */
