@@ -278,6 +278,18 @@ _Avoid_: Calibration factor, adjustment
 An athlete's VO2max on one of their days: the mean of the VO2max Estimates of their Runs on the 30 days ending that day, weighted by Moving Time, times that day's Correction Factor. Absent when none of those Runs has an estimate. Derived and rebuilt from the earliest affected day, never edited.
 _Avoid_: VO2max score, fitness level, current VO2max
 
+**Marathon Shape**:
+How ready an athlete's training is for a marathon on one of their days, 0-100%: two thirds Volume Score and one third Long-Run Score, both measured against targets set by that day's Effective VO2max (after Runalyze). Absent without an Effective VO2max. Derived and rebuilt from the earliest affected day, never edited.
+_Avoid_: Endurance score, marathon readiness
+
+**Volume Score**:
+The volume part of Marathon Shape, 0-1: the recorded distance of the athlete's Runs (manual ones included) over the 26 weeks ending that day, per week (over the weeks since their first Run when that is shorter, but never fewer than 4), against a weekly target of Effective VO2max^1.135 km. Capped at 1.
+_Avoid_: Mileage score
+
+**Long-Run Score**:
+The long-run part of Marathon Shape, 0-1: each Run of at least 13 km on the 70 days ending that day scores ((distance − 13 km) / (target long run − 13 km))², at most 2, counting less the older it is (1 − age/70); the target long run is 12·ln(Effective VO2max / 4) − 6 km, at least 15 km. The sum against 5.5, what one target long run a week for 10 weeks scores, capped at 1.
+_Avoid_: Long-run index
+
 **Dashboard**:
 The athlete's primary landing view summarizing Personal Records, aggregate training volume, and performance trends across recorded Activities.
 _Avoid_: Statistics page, homepage, stats hub
