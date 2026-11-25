@@ -130,6 +130,8 @@ export const dashboardRoute = createRoute({
       // So is the Pace-Duration Curve, whose section shows its own error.
       context.queryClient.prefetchQuery(queries.peakEfforts),
       context.queryClient.prefetchQuery(queries.criticalSpeed),
+      // So is today's Race Prognosis, whose card shows its own error and queries race-day conditions itself.
+      context.queryClient.prefetchQuery(queries.racePrognosis),
     ]);
   },
   component: DashboardRoute,

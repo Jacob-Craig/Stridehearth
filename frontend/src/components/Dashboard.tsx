@@ -11,6 +11,7 @@ import {
   PersonalRecordProgression,
   type ProgressionState,
 } from '../features/pr-progression/PersonalRecordProgression';
+import { RacePrognosisCard } from '../features/race-prognosis/RacePrognosisCard';
 import {
   averageSpeedKmh,
   formatDate,
@@ -20,6 +21,8 @@ import {
 } from '../lib/format';
 
 interface DashboardProps {
+  /** The athlete whose Race Prognosis card queries its own race-day conditions. */
+  userId: number | undefined;
   personalRecordSlots: readonly PersonalRecordSlotDto[];
   pmc: PmcQueryState;
   progression: ProgressionState;
@@ -28,6 +31,7 @@ interface DashboardProps {
 }
 
 export function Dashboard({
+  userId,
   personalRecordSlots,
   pmc,
   progression,
@@ -85,6 +89,8 @@ export function Dashboard({
       <PmcPanel pmc={pmc} />
 
       <PaceDurationCurve peakEfforts={peakEfforts} criticalSpeed={criticalSpeed} />
+
+      <RacePrognosisCard userId={userId} />
 
       <section aria-label="Training summaries">
         <div className="grid gap-4 md:grid-cols-2">

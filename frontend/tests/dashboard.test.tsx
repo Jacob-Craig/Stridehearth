@@ -10,6 +10,7 @@ import type {
   PersonalRecordSlotDto,
   PersonalRecordStepDto,
   PmcResponseDto,
+  RacePrognosisResponseDto,
   UserResponseDto,
 } from '../src/api/generated/types.gen';
 import { createAppRouter } from '../src/router';
@@ -79,6 +80,9 @@ const CRITICAL_SPEED_URL = '/api/athlete/critical-speed';
 
 // An athlete with no Peak Efforts and so no Critical Speed model: the Pace-Duration Curve's empty state.
 const NO_PEAK_EFFORTS = { windowDays: 90, pace: [], power: [] };
+const RACE_PROGNOSIS_URL = '/api/athlete/race-prognosis';
+const NO_RACE_PROGNOSIS: RacePrognosisResponseDto = { current: null, days: [] };
+
 const NO_CRITICAL_SPEED = {
   asOf: '2026-11-24',
   windowDays: 90,
@@ -104,7 +108,7 @@ const runner: UserResponseDto = {
 type Stubbed<T> = T | { status: number };
 
 /**
- * Serves the Dashboard, the Personal Record Progression and the PMC (and an empty Pace-Duration Curve): each call to a URL takes the next
+ * Serves the Dashboard, the Personal Record Progression and the PMC (and an empty Pace-Duration Curve and Race Prognosis): each call to a URL takes the next
  * of its responses, repeating the last.
  */
 function stubDashboardApi(
@@ -120,6 +124,7 @@ function stubDashboardApi(
     [PMC_URL]: pmc,
     [PEAK_EFFORTS_URL]: [NO_PEAK_EFFORTS],
     [CRITICAL_SPEED_URL]: [NO_CRITICAL_SPEED],
+    [RACE_PROGNOSIS_URL]: [NO_RACE_PROGNOSIS],
   };
   const served = new Map<string, number>();
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
@@ -307,7 +312,9 @@ describe('Dashboard', () => {
     expect(chart.setRange.mock.calls).toEqual([['1y'], ['all'], ['90d']]);
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(callsTo(fetchMock, PMC_URL)).toBe(1);
-    expect(fetchMock).toHaveBeenCalledTimes(5);
+    // Each Dashboard query once: the Dashboard, progression, PMC, peak efforts, Critical Speed and Race Prognosis.
+    expect(callsTo(fetchMock, RACE_PROGNOSIS_URL)).toBe(1);
+    expect(fetchMock).toHaveBeenCalledTimes(6);
     expect(renderedPmcCharts.charts).toHaveLength(1);
     expect(chart.destroy).not.toHaveBeenCalled();
   });
