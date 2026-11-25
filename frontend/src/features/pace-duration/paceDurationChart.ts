@@ -75,6 +75,8 @@ export function createPaceDurationChart(
         {
           ...axis,
           splits: () => [...PDC_TICKS_SECONDS],
+          // Keep every Benchmark Duration: uPlot's default log10 filter would blank all but its 1-2-5 ticks.
+          filter: (_u: uPlot, splits: number[]) => splits,
           values: (_u, ticks) => ticks.map(durationTickLabel),
         },
         {

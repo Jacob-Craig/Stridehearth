@@ -14,7 +14,11 @@ const fakeUplot = vi.hoisted(() => {
   const instances: FakeUplot[] = [];
   interface FakeOptions {
     scales: { x: { distr: number; log: number; time: boolean; range: () => number[] } };
-    axes: Array<{ splits?: () => number[]; values: (u: FakeUplot, ticks: number[]) => string[] }>;
+    axes: Array<{
+      splits?: () => number[];
+      filter?: (u: FakeUplot, splits: number[]) => (number | null)[];
+      values: (u: FakeUplot, ticks: number[]) => string[];
+    }>;
     series: Array<{ label?: string; stroke?: () => string; dash?: number[] }>;
   }
   const lo = Math.log10(5);
@@ -100,6 +104,14 @@ describe('Pace-Duration Curve uPlot adapter', () => {
       [null, null],
     ]);
     expect(plot.opts.series.slice(1).map((s) => s.label)).toEqual(['90 days', 'All-Time', 'Model']);
+  });
+
+  it('labels every Benchmark Duration tick, not only the 1-2-5 ticks of a log axis', () => {
+    // uPlot's default log10 filter blanks ticks such as 5 s, 30 s or 10 min to null, which the label
+    // formatter would print as "nulls".
+    const { plot } = chart();
+
+    expect(plot.opts.axes[0]!.filter?.(plot, [...PDC_TICKS_SECONDS])).toEqual(PDC_TICKS_SECONDS);
   });
 
   it('labels the y axis as pace in pace mode and watts in power mode', () => {
