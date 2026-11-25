@@ -737,6 +737,30 @@ describe('/activities/$activityId summary', () => {
     );
   });
 
+  it('links a Run with a route to its Race Split Plan', async () => {
+    stubActivity(detail(), () => json(telemetry()));
+    renderApp('/activities/42');
+
+    expect(await screen.findByRole('link', { name: 'Split plan' })).toHaveAttribute(
+      'href',
+      '/activities/42/split-plan',
+    );
+  });
+
+  it('offers no Race Split Plan for a Ride or for an Activity without a route', async () => {
+    stubActivity(detail({ sport: 'RIDE' }), () => json({ ...telemetry(), sport: 'RIDE' }));
+    renderApp('/activities/42');
+    await screen.findByRole('link', { name: /edit/i });
+    expect(screen.queryByRole('link', { name: 'Split plan' })).toBeNull();
+  });
+
+  it('offers no Race Split Plan for a manual Run without Activity Details', async () => {
+    stubActivity(detail({ source: 'MANUAL' }));
+    renderApp('/activities/42');
+    await screen.findByRole('link', { name: /edit/i });
+    expect(screen.queryByRole('link', { name: 'Split plan' })).toBeNull();
+  });
+
   it('deletes the Activity after confirmation and returns to the Activity list', async () => {
     const requests = stubActivity(detail(), notFound, {
       'DELETE /api/activities/42': () => new Response(null, { status: 204 }),

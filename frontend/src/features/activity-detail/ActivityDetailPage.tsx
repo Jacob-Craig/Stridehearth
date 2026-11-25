@@ -29,6 +29,17 @@ import { TrainingLoadValue } from './TrainingLoadValue';
 import { Vo2maxValue } from './Vo2maxValue';
 import { SECONDARY_BUTTON_CLASS } from './styles';
 
+/** The sports whose route can be planned at even Grade-Adjusted effort, as the API allows. */
+const SPLIT_PLAN_SPORTS: ReadonlySet<ActivityDetailDto['sport']> = new Set(['RUN', 'WALK', 'HIKE']);
+
+/** A **Race Split Plan** needs a Run, Walk or Hike with a recorded route. */
+function hasSplitPlan(
+  activity: ActivityDetailDto,
+  telemetry: ActivityTelemetryResponseDto | null,
+): boolean {
+  return SPLIT_PLAN_SPORTS.has(activity.sport) && telemetry?.route != null;
+}
+
 /** A single device Lap is the whole Activity again, so Laps are only listed from two upwards. */
 const MIN_LAPS_SHOWN = 2;
 
@@ -71,6 +82,15 @@ export function ActivityDetailPage({ userId, activity, telemetry }: ActivityDeta
         </div>
         <div className="flex flex-wrap gap-2 text-sm font-medium">
           <ActivityHistoryDialog history={activity.history} />
+          {hasSplitPlan(activity, telemetry) && (
+            <Link
+              to="/activities/$activityId/split-plan"
+              params={{ activityId: String(activity.id) }}
+              className={SECONDARY_BUTTON_CLASS}
+            >
+              Split plan
+            </Link>
+          )}
           <Link
             to="/activities/$activityId/edit"
             params={{ activityId: String(activity.id) }}
