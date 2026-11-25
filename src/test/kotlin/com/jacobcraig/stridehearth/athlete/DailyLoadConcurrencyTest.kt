@@ -34,12 +34,13 @@ import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
  * The daily rollup under concurrent writers for one athlete (#36, ADR-0016): concurrent imports, including a file
  * holding a Ride and a Run against a concurrent Run import, and a concurrent delete, never deadlock, and leave the
- * same Daily Loads and chart as the same changes made one after another.
+ * same Daily Loads and chart, and the same Critical Speed models (#39), as the same changes made one after another.
  */
 @SpringBootTest
 @Import(TestcontainersConfiguration::class)
@@ -66,7 +67,16 @@ class DailyLoadConcurrencyTest {
     private lateinit var athleteTimeZone: AthleteTimeZone
 
     @Autowired
+    private lateinit var criticalSpeedRollup: CriticalSpeedRollup
+
+    @Autowired
+    private lateinit var criticalSpeedModels: CriticalSpeedModelRepository
+
+    @Autowired
     private lateinit var stateRepository: AthleteAnalyticsStateRepository
+
+    @Autowired
+    private lateinit var thresholdProposals: ThresholdProposals
 
     @Autowired
     private lateinit var userRepository: UserRepository
@@ -156,6 +166,15 @@ class DailyLoadConcurrencyTest {
             snapshot(owner).also { status.setRollbackOnly() }
         }!!
 
+    /** [owner]'s stored Critical Speed models (#39), and what a from-scratch refit stores, rolled back. */
+    private fun criticalSpeed(owner: User) = criticalSpeedModels.findAll(owner.id!!)
+
+    private fun criticalSpeedRebuilt(owner: User) =
+        transactionTemplate.execute { status ->
+            criticalSpeedRollup.refit(owner.id!!, changedAt = null)
+            criticalSpeed(owner).also { status.setRollbackOnly() }
+        }!!
+
     @Test
     fun `a concurrent Import Batch and delete give the same result as a sequential one`() {
         listOf(concurrent, sequential).forEach { activityImportService.importParsed(listOf(deleted), it.id!!) }
@@ -188,6 +207,10 @@ class DailyLoadConcurrencyTest {
         assertEquals(LocalDate.parse("2026-04-27"), result.second.last().day)
         assertEquals(26, result.second.size, "one chart row per day")
         assertEquals(3, result.first.single { it.day == LocalDate.parse("2026-04-10") }.activityCount)
+        val models = criticalSpeed(concurrent)
+        assertEquals(criticalSpeed(sequential), models, "Critical Speed models (#39)")
+        assertEquals(criticalSpeedRebuilt(concurrent), models)
+        assertEquals(7, models.size, "one model per day with a Run")
     }
 
     @Test
@@ -256,5 +279,36 @@ class DailyLoadConcurrencyTest {
         manual.get(30, TimeUnit.SECONDS)
         assertEquals(listOf(LocalDate.parse("2026-07-11")), snapshot(concurrent).first.map { it.day }, "23:30Z is the 11th in London")
         assertEquals(ROLLUP_VERSION, stateRepository.findRollupVersion(concurrent.id!!))
+    }
+
+    @Test
+    fun `accepting a proposal while a writer holding the scoring lock rewrites it never deadlocks`() {
+        // The acceptor must take the exclusive scoring lock before it touches the proposal row (ADR-0016): the writer,
+        // which holds the shared side, then upserts the row, commits, and lets the acceptor through.
+        val userId = concurrent.id!!
+        val date = LocalDate.parse("2026-04-01")
+        val source = CriticalSpeedRollup.PROPOSAL_SOURCE
+        val proposal = assertNotNull(thresholdProposals.propose(userId, ThresholdKind.THRESHOLD_PACE, 4.0, date, source))
+        val holding = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val writerPid = java.util.concurrent.CompletableFuture<Int>()
+        val writer =
+            pool.submit {
+                transactionTemplate.execute {
+                    writerPid.complete(locks.currentBackendPid())
+                    stateRepository.lockScoringInputs(userId)
+                    holding.countDown()
+                    check(release.await(30, TimeUnit.SECONDS))
+                    thresholdProposals.propose(userId, ThresholdKind.THRESHOLD_PACE, 4.6, date, source)
+                }
+            }
+        assertTrue(holding.await(30, TimeUnit.SECONDS))
+
+        val accept = pool.submit<ThresholdEntry> { thresholdProposals.accept(userId, proposal.id) }
+        locks.awaitAdvisoryLockWaiter(excluding = setOf(writerPid.get()), ended = { accept.isDone })
+
+        release.countDown()
+        writer.get(30, TimeUnit.SECONDS)
+        assertEquals(4.0, accept.get(30, TimeUnit.SECONDS).value, 1e-9)
     }
 }

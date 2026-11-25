@@ -93,8 +93,11 @@ object SampleRunGenerator {
         ): Boolean = lat in south..north && lon in west..east
     }
 
-    /** The synthetic sample run, as the bytes of a FIT activity file. */
-    fun sampleRun(): ByteArray {
+    /**
+     * The synthetic sample run, as the bytes of a FIT activity file. With [temperatureC], every record also carries
+     * that device temperature; without it (the committed fixture) no record has one.
+     */
+    fun sampleRun(temperatureC: Int? = null): ByteArray {
         val samples = samples()
         val end = samples.last()
         val endTime = START.plusSeconds(end.elapsedSeconds.toLong())
@@ -123,6 +126,7 @@ object SampleRunGenerator {
                     enhancedAltitude = sample.altitude.toFloat()
                     heartRate = sample.heartRate.toShort()
                     power = sample.power
+                    if (temperatureC != null) temperature = temperatureC.toByte()
                 },
             )
         }

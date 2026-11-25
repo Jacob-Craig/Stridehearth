@@ -15,16 +15,30 @@ import {
   formatOptional,
   formatPacePerKm,
   formatSport,
+  formatStaminaPercent,
 } from '../../lib/format';
 import type { BenchmarkDistance } from '../../types/domain';
 import { parseApiError } from '../../utils/error';
 import { ActivityHistoryDialog } from './ActivityHistoryDialog';
 import { ActivityVisualization } from './ActivityVisualization';
 import { BestEffortsTable } from './BestEffortsTable';
+import { ConditionsMetrics } from './ConditionsMetrics';
 import { DecouplingBadge } from './DecouplingBadge';
 import { LapsTable } from './LapsTable';
 import { TrainingLoadValue } from './TrainingLoadValue';
+import { Vo2maxValue } from './Vo2maxValue';
 import { SECONDARY_BUTTON_CLASS } from './styles';
+
+/** The sports whose route can be planned at even Grade-Adjusted effort, as the API allows. */
+const SPLIT_PLAN_SPORTS: ReadonlySet<ActivityDetailDto['sport']> = new Set(['RUN', 'WALK', 'HIKE']);
+
+/** A **Race Split Plan** needs a Run, Walk or Hike with a recorded route. */
+function hasSplitPlan(
+  activity: ActivityDetailDto,
+  telemetry: ActivityTelemetryResponseDto | null,
+): boolean {
+  return SPLIT_PLAN_SPORTS.has(activity.sport) && telemetry?.route != null;
+}
 
 /** A single device Lap is the whole Activity again, so Laps are only listed from two upwards. */
 const MIN_LAPS_SHOWN = 2;
@@ -68,6 +82,15 @@ export function ActivityDetailPage({ userId, activity, telemetry }: ActivityDeta
         </div>
         <div className="flex flex-wrap gap-2 text-sm font-medium">
           <ActivityHistoryDialog history={activity.history} />
+          {hasSplitPlan(activity, telemetry) && (
+            <Link
+              to="/activities/$activityId/split-plan"
+              params={{ activityId: String(activity.id) }}
+              className={SECONDARY_BUTTON_CLASS}
+            >
+              Split plan
+            </Link>
+          )}
           <Link
             to="/activities/$activityId/edit"
             params={{ activityId: String(activity.id) }}
@@ -89,6 +112,8 @@ export function ActivityDetailPage({ userId, activity, telemetry }: ActivityDeta
       </header>
 
       <SummaryMetrics activity={activity} />
+
+      <ConditionsMetrics conditions={activity.conditions} />
 
       {telemetry && <ActivityVisualization telemetry={telemetry} selectedEffort={selectedEffort} />}
 
@@ -126,11 +151,12 @@ export function ActivityDetailPage({ userId, activity, telemetry }: ActivityDeta
 
 /**
  * The summary tiles, five per row on wide screens: the recorded metrics, then a Run's derived
- * metrics (NGP, Efficiency Factor, Aerobic Decoupling) when it has them, then the Training Load
- * once it has been computed (a value, or the reason there is none).
+ * metrics (NGP, Efficiency Factor, Aerobic Decoupling, VO2max Estimate) when it has them, then the Training Load
+ * once it has been computed (a value, or the reason there is none), then the lowest **Stamina** a
+ * Run reached when it has a Stamina stream.
  */
 function SummaryMetrics({ activity }: { activity: ActivityDetailDto }) {
-  const { runMetrics, trainingLoad, trainingLoadUnavailableReason } = activity;
+  const { runMetrics, trainingLoad, trainingLoadUnavailableReason, minStaminaPct } = activity;
   const metrics: ReadonlyArray<readonly [label: string, value: ReactNode]> = [
     ['Distance', formatDistanceKm(activity.distance)],
     ['Duration', formatDuration(activity.timeTakenSeconds)],
@@ -142,12 +168,16 @@ function SummaryMetrics({ activity }: { activity: ActivityDetailDto }) {
           ['NGP', formatNgpPerKm(runMetrics.ngpMetersPerSecond)],
           ['Efficiency Factor', formatEfficiencyFactor(runMetrics.efficiencyFactor)],
           ['Aerobic Decoupling', <DecouplingBadge key="decoupling" runMetrics={runMetrics} />],
+          ['VO2max', <Vo2maxValue key="vo2max" runMetrics={runMetrics} />],
         ] as const)
       : []),
     ...(trainingLoad || trainingLoadUnavailableReason
       ? ([
           ['Training Load', <TrainingLoadValue key="training-load" activity={activity} />],
         ] as const)
+      : []),
+    ...(minStaminaPct != null
+      ? ([['Min Stamina', formatStaminaPercent(minStaminaPct)]] as const)
       : []),
   ];
   return (

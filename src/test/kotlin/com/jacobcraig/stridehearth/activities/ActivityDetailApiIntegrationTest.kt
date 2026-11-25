@@ -380,6 +380,94 @@ class ActivityDetailApiIntegrationTest {
             .andExpect(jsonPath("$.runMetrics").doesNotExist())
     }
 
+    /** Stores [activity]'s conditions as the derived-data refresh would. */
+    private fun saveConditions(
+        activity: Activity,
+        device: Double? = 27.0,
+        ambient: Double? = 21.0,
+        altitude: Double? = 312.5,
+    ) = jdbcTemplate.update(
+        """
+        INSERT INTO activity_derived_metrics (activity_id, algorithm_version, device_temperature_c, ambient_temperature_c,
+            mean_altitude_m)
+        VALUES (?, ?, ?, ?, ?)
+        """.trimIndent(),
+        activity.id,
+        DERIVED_DATA_VERSION,
+        device,
+        ambient,
+        altitude,
+    )
+
+    private fun saveAcclimation(
+        owner: User,
+        day: String,
+        heatPct: Double,
+        altitudePct: Double,
+    ) = jdbcTemplate.update(
+        "INSERT INTO athlete_acclimation_daily VALUES (?, ?::date, ?, ?, true, false)",
+        owner.id,
+        day,
+        heatPct,
+        altitudePct,
+    )
+
+    @Test
+    fun `GET api activities id returns the conditions and the acclimation on the Activity's local day`() {
+        val run = saveActivity(runner)
+        saveConditions(run)
+        saveAcclimation(runner, "2026-02-28", 99.0, 99.0)
+        saveAcclimation(runner, "2026-03-01", 50.0, 0.0)
+
+        mockMvc
+            .perform(get("/api/activities/{id}", run.id).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.conditions.deviceTemperatureC").value(27.0))
+            .andExpect(jsonPath("$.conditions.ambientTemperatureC").value(21.0))
+            .andExpect(jsonPath("$.conditions.wristHeatCorrectionC").value(6.0))
+            .andExpect(jsonPath("$.conditions.meanAltitudeM").value(312.5))
+            .andExpect(jsonPath("$.conditions.heatAcclimationPct").value(50.0))
+            .andExpect(jsonPath("$.conditions.altitudeAcclimationPct").value(0.0))
+    }
+
+    @Test
+    fun `GET api activities id has null values for conditions it could not compute, and no acclimation without a row`() {
+        val run = saveActivity(runner)
+        saveConditions(run, device = null, ambient = null, altitude = null)
+        // Another athlete's acclimation on the same day is never read.
+        saveAcclimation(otherRunner, "2026-03-01", 50.0, 50.0)
+
+        mockMvc
+            .perform(get("/api/activities/{id}", run.id).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.conditions.deviceTemperatureC").value(nullValue()))
+            .andExpect(jsonPath("$.conditions.ambientTemperatureC").value(nullValue()))
+            .andExpect(jsonPath("$.conditions.meanAltitudeM").value(nullValue()))
+            .andExpect(jsonPath("$.conditions.heatAcclimationPct").value(nullValue()))
+            .andExpect(jsonPath("$.conditions.altitudeAcclimationPct").value(nullValue()))
+    }
+
+    @Test
+    fun `GET api activities id has null conditions before its derived data is computed`() {
+        val run = saveActivity(runner)
+
+        mockMvc
+            .perform(get("/api/activities/{id}", run.id).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.conditions").value(nullValue()))
+    }
+
+    @Test
+    fun `GET api activities id never returns another athlete's conditions`() {
+        val notMine = saveActivity(otherRunner)
+        saveConditions(notMine)
+
+        mockMvc
+            .perform(get("/api/activities/{id}", notMine.id).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.conditions").doesNotExist())
+    }
+
     /** Stores a Training Load (or the reason there is none) for [activity] as the derived-data refresh would. */
     private fun saveTrainingLoad(
         activity: Activity,

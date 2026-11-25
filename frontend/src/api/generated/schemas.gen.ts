@@ -1655,6 +1655,157 @@ export const PendingInviteDTOSchema = {
     ]
 } as const;
 
+export const CorrectionSourceDTOSchema = {
+    type: 'object',
+    properties: {
+        activityId: {
+            type: 'integer',
+            format: 'int64'
+        },
+        benchmarkDistance: {
+            type: 'string',
+            enum: [
+                'FOUR_HUNDRED_METERS',
+                'ONE_KILOMETER',
+                'ONE_MILE',
+                'FIVE_KILOMETERS',
+                'TEN_KILOMETERS',
+                'HALF_MARATHON'
+            ]
+        },
+        vdot: {
+            type: 'number',
+            format: 'double'
+        }
+    },
+    required: [
+        'activityId',
+        'benchmarkDistance',
+        'vdot'
+    ]
+} as const;
+
+export const Vo2maxCurrentDTOSchema = {
+    type: 'object',
+    properties: {
+        day: {
+            type: 'string',
+            format: 'date'
+        },
+        effectiveVo2max: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Null when no Run of the last 30 days has a VO2max Estimate'
+        },
+        correctionFactor: {
+            type: 'number',
+            format: 'double',
+            description: 'Between 0.8 and 1.2; 1.0 without a calibrating race'
+        },
+        correctionSource: {
+            type: [
+                'object',
+                'null'
+            ],
+            $ref: '#/components/schemas/CorrectionSourceDTO',
+            description: 'The Best Effort the Correction Factor came from; null when it is 1.0 for want of one'
+        }
+    },
+    required: [
+        'correctionFactor',
+        'correctionSource',
+        'day',
+        'effectiveVo2max'
+    ]
+} as const;
+
+export const Vo2maxDayDTOSchema = {
+    type: 'object',
+    properties: {
+        day: {
+            type: 'string',
+            format: 'date'
+        },
+        effectiveVo2max: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Null when no Run of the 30 days ending that day has a VO2max Estimate'
+        },
+        correctionFactor: {
+            type: 'number',
+            format: 'double'
+        }
+    },
+    required: [
+        'correctionFactor',
+        'day',
+        'effectiveVo2max'
+    ]
+} as const;
+
+export const Vo2maxResponseDTOSchema = {
+    type: 'object',
+    properties: {
+        current: {
+            type: [
+                'object',
+                'null'
+            ],
+            $ref: '#/components/schemas/Vo2maxCurrentDTO',
+            description: 'Effective VO2max on the athlete\'s today; null before their first VO2max Estimate'
+        },
+        days: {
+            type: 'array',
+            description: 'Every day in range, never before the first VO2max Estimate nor after today; empty before it',
+            items: {
+                $ref: '#/components/schemas/Vo2maxDayDTO'
+            }
+        },
+        runs: {
+            type: 'array',
+            description: 'The Runs in range with a VO2max Estimate, oldest first',
+            items: {
+                $ref: '#/components/schemas/Vo2maxRunDTO'
+            }
+        }
+    },
+    required: [
+        'current',
+        'days',
+        'runs'
+    ]
+} as const;
+
+export const Vo2maxRunDTOSchema = {
+    type: 'object',
+    properties: {
+        activityId: {
+            type: 'integer',
+            format: 'int64'
+        },
+        day: {
+            type: 'string',
+            format: 'date',
+            description: 'The Run\'s day in the athlete\'s time zone'
+        },
+        vo2maxEstimate: {
+            type: 'number',
+            format: 'double'
+        }
+    },
+    required: [
+        'activityId',
+        'day',
+        'vo2maxEstimate'
+    ]
+} as const;
+
 export const AthleteThresholdsResponseDTOSchema = {
     type: 'object',
     properties: {
@@ -1852,6 +2003,149 @@ export const ThresholdProposalDTOSchema = {
         'kind',
         'source',
         'value'
+    ]
+} as const;
+
+export const RaceDistanceSchema = {
+    type: 'string',
+    enum: [
+        'FIVE_K',
+        'TEN_K',
+        'HALF_MARATHON',
+        'MARATHON'
+    ]
+} as const;
+
+export const RacePredictionDTOSchema = {
+    type: 'object',
+    properties: {
+        distance: {
+            $ref: '#/components/schemas/RaceDistance'
+        },
+        meters: {
+            type: 'number',
+            format: 'double',
+            description: 'The race distance, in m'
+        },
+        vdotSeconds: {
+            type: 'number',
+            format: 'double',
+            description: 'The time Daniels\' VDOT tables give, in s'
+        },
+        predictedSeconds: {
+            type: 'number',
+            format: 'double',
+            description: 'The predicted finish time, in s'
+        },
+        enduranceFactor: {
+            type: 'number',
+            format: 'double',
+            description: 'The endurance penalty of Marathon Shape, at least 1'
+        },
+        courseFactor: {
+            type: 'number',
+            format: 'double',
+            description: 'The Course Derating of the race-day conditions, at least 1'
+        }
+    },
+    required: [
+        'courseFactor',
+        'distance',
+        'enduranceFactor',
+        'meters',
+        'predictedSeconds',
+        'vdotSeconds'
+    ]
+} as const;
+
+export const RacePrognosisCurrentDTOSchema = {
+    type: 'object',
+    properties: {
+        day: {
+            type: 'string',
+            format: 'date'
+        },
+        effectiveVo2max: {
+            type: 'number',
+            format: 'double',
+            description: 'Effective VO2max, in ml/kg/min'
+        },
+        marathonShapePct: {
+            type: 'number',
+            format: 'double',
+            description: 'Marathon Shape, 0 to 100'
+        },
+        predictions: {
+            type: 'array',
+            description: 'One per race distance, shortest first',
+            items: {
+                $ref: '#/components/schemas/RacePredictionDTO'
+            }
+        }
+    },
+    required: [
+        'day',
+        'effectiveVo2max',
+        'marathonShapePct',
+        'predictions'
+    ]
+} as const;
+
+export const RacePrognosisDayDTOSchema = {
+    type: 'object',
+    properties: {
+        day: {
+            type: 'string',
+            format: 'date'
+        },
+        fiveKSeconds: {
+            type: 'number',
+            format: 'double'
+        },
+        tenKSeconds: {
+            type: 'number',
+            format: 'double'
+        },
+        halfSeconds: {
+            type: 'number',
+            format: 'double'
+        },
+        marathonSeconds: {
+            type: 'number',
+            format: 'double'
+        }
+    },
+    required: [
+        'day',
+        'fiveKSeconds',
+        'halfSeconds',
+        'marathonSeconds',
+        'tenKSeconds'
+    ]
+} as const;
+
+export const RacePrognosisResponseDTOSchema = {
+    type: 'object',
+    properties: {
+        current: {
+            type: [
+                'object',
+                'null'
+            ],
+            $ref: '#/components/schemas/RacePrognosisCurrentDTO',
+            description: 'The prognosis on the athlete\'s today; null when they have no Effective VO2max today'
+        },
+        days: {
+            type: 'array',
+            description: 'Every day in range with an Effective VO2max, ascending, never after today; without Course Derating',
+            items: {
+                $ref: '#/components/schemas/RacePrognosisDayDTO'
+            }
+        }
+    },
+    required: [
+        'current',
+        'days'
     ]
 } as const;
 
@@ -2138,6 +2432,307 @@ export const PeakEffortsResponseDTOSchema = {
     ]
 } as const;
 
+export const MarathonShapeCurrentDTOSchema = {
+    type: 'object',
+    properties: {
+        day: {
+            type: 'string',
+            format: 'date'
+        },
+        pct: {
+            type: 'number',
+            format: 'double',
+            description: 'Marathon Shape, 0 to 100'
+        },
+        volumeScore: {
+            type: 'number',
+            format: 'double',
+            description: 'Volume Score, 0 to 1'
+        },
+        longRunScore: {
+            type: 'number',
+            format: 'double',
+            description: 'Long-Run Score, 0 to 1'
+        },
+        weeklyKm: {
+            type: 'number',
+            format: 'double',
+            description: 'Run distance per week over the last 26 weeks, in km'
+        },
+        targetWeeklyKm: {
+            type: 'number',
+            format: 'double',
+            description: 'The weekly distance targeted, in km'
+        },
+        targetLongRunKm: {
+            type: 'number',
+            format: 'double',
+            description: 'The long run targeted, in km'
+        }
+    },
+    required: [
+        'day',
+        'longRunScore',
+        'pct',
+        'targetLongRunKm',
+        'targetWeeklyKm',
+        'volumeScore',
+        'weeklyKm'
+    ]
+} as const;
+
+export const MarathonShapeDayDTOSchema = {
+    type: 'object',
+    properties: {
+        day: {
+            type: 'string',
+            format: 'date'
+        },
+        pct: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Null when the day has no Effective VO2max'
+        }
+    },
+    required: [
+        'day',
+        'pct'
+    ]
+} as const;
+
+export const MarathonShapeResponseDTOSchema = {
+    type: 'object',
+    properties: {
+        current: {
+            type: [
+                'object',
+                'null'
+            ],
+            $ref: '#/components/schemas/MarathonShapeCurrentDTO',
+            description: 'Marathon Shape on the athlete\'s today; null when they have no Effective VO2max today'
+        },
+        days: {
+            type: 'array',
+            description: 'Every day in range, never before the first VO2max Estimate nor after today; empty before it',
+            items: {
+                $ref: '#/components/schemas/MarathonShapeDayDTO'
+            }
+        }
+    },
+    required: [
+        'current',
+        'days'
+    ]
+} as const;
+
+export const CriticalSpeedFitDTOSchema = {
+    type: 'object',
+    properties: {
+        status: {
+            type: 'string',
+            enum: [
+                'MODEL',
+                'INSUFFICIENT_POINTS',
+                'POOR_FIT',
+                'NON_PHYSICAL'
+            ]
+        },
+        criticalValue: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double'
+        },
+        reserveCapacity: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double'
+        },
+        pointCount: {
+            type: 'integer',
+            format: 'int32'
+        },
+        points: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/CriticalSpeedPointDTO'
+            }
+        },
+        rSquared: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double'
+        }
+    },
+    required: [
+        'criticalValue',
+        'pointCount',
+        'points',
+        'rSquared',
+        'reserveCapacity',
+        'status'
+    ]
+} as const;
+
+export const CriticalSpeedPointDTOSchema = {
+    type: 'object',
+    properties: {
+        benchmarkDuration: {
+            type: 'string',
+            enum: [
+                'FIVE_SECONDS',
+                'FIFTEEN_SECONDS',
+                'THIRTY_SECONDS',
+                'ONE_MINUTE',
+                'TWO_MINUTES',
+                'THREE_MINUTES',
+                'FIVE_MINUTES',
+                'TEN_MINUTES',
+                'TWENTY_MINUTES',
+                'THIRTY_MINUTES',
+                'SIXTY_MINUTES'
+            ]
+        },
+        durationSeconds: {
+            type: 'integer',
+            format: 'int32'
+        },
+        value: {
+            type: 'number',
+            format: 'double'
+        },
+        activityId: {
+            type: 'integer',
+            format: 'int64'
+        }
+    },
+    required: [
+        'activityId',
+        'benchmarkDuration',
+        'durationSeconds',
+        'value'
+    ]
+} as const;
+
+export const CriticalSpeedResponseDTOSchema = {
+    type: 'object',
+    properties: {
+        asOf: {
+            type: 'string',
+            format: 'date'
+        },
+        windowDays: {
+            type: 'integer',
+            format: 'int32'
+        },
+        pace: {
+            $ref: '#/components/schemas/CriticalSpeedFitDTO'
+        },
+        power: {
+            type: [
+                'object',
+                'null'
+            ],
+            $ref: '#/components/schemas/CriticalSpeedFitDTO'
+        }
+    },
+    required: [
+        'asOf',
+        'pace',
+        'power',
+        'windowDays'
+    ]
+} as const;
+
+export const AcclimationCurrentDTOSchema = {
+    type: 'object',
+    properties: {
+        day: {
+            type: 'string',
+            format: 'date'
+        },
+        heatPct: {
+            type: 'number',
+            format: 'double'
+        },
+        altitudePct: {
+            type: 'number',
+            format: 'double'
+        }
+    },
+    required: [
+        'altitudePct',
+        'day',
+        'heatPct'
+    ]
+} as const;
+
+export const AcclimationDayDTOSchema = {
+    type: 'object',
+    properties: {
+        day: {
+            type: 'string',
+            format: 'date'
+        },
+        heatPct: {
+            type: 'number',
+            format: 'double'
+        },
+        altitudePct: {
+            type: 'number',
+            format: 'double'
+        },
+        heatExposed: {
+            type: 'boolean',
+            description: 'Whether an Activity of at least 20 minutes that day was above 22 °C Ambient Temperature'
+        },
+        altitudeExposed: {
+            type: 'boolean',
+            description: 'Whether an Activity of at least 20 minutes that day was above 800 m Mean Altitude'
+        }
+    },
+    required: [
+        'altitudeExposed',
+        'altitudePct',
+        'day',
+        'heatExposed',
+        'heatPct'
+    ]
+} as const;
+
+export const AcclimationResponseDTOSchema = {
+    type: 'object',
+    properties: {
+        current: {
+            type: [
+                'object',
+                'null'
+            ],
+            $ref: '#/components/schemas/AcclimationCurrentDTO',
+            description: 'Acclimation on the athlete\'s today; null before their first exposed day'
+        },
+        days: {
+            type: 'array',
+            description: 'Every day in range, never before the first exposed day nor after today; empty before it',
+            items: {
+                $ref: '#/components/schemas/AcclimationDayDTO'
+            }
+        }
+    },
+    required: [
+        'current',
+        'days'
+    ]
+} as const;
+
 export const PagedResponseDTOActivitySummaryDTOSchema = {
     type: 'object',
     properties: {
@@ -2221,6 +2816,65 @@ export const ActivityBestEffortDTOSchema = {
         'elapsedTimeSeconds',
         'id',
         'window'
+    ]
+} as const;
+
+export const ActivityConditionsDTOSchema = {
+    type: 'object',
+    properties: {
+        deviceTemperatureC: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'The median temperature the device recorded, in °C'
+        },
+        ambientTemperatureC: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Ambient Temperature in °C: the device temperature less the Wrist-Heat Correction'
+        },
+        wristHeatCorrectionC: {
+            type: 'number',
+            format: 'double',
+            description: 'The Wrist-Heat Correction subtracted, in °C'
+        },
+        meanAltitudeM: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Mean Altitude in metres: the mean of the cleaned altitude'
+        },
+        heatAcclimationPct: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Heat Acclimation (0-100 %) at the end of the Activity\'s day; null before the athlete\'s first exposed day'
+        },
+        altitudeAcclimationPct: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Altitude Acclimation (0-100 %) at the end of the Activity\'s day; null before the athlete\'s first exposed day'
+        }
+    },
+    required: [
+        'altitudeAcclimationPct',
+        'ambientTemperatureC',
+        'deviceTemperatureC',
+        'heatAcclimationPct',
+        'meanAltitudeM',
+        'wristHeatCorrectionC'
     ]
 } as const;
 
@@ -2340,6 +2994,22 @@ export const ActivityDetailDTOSchema = {
             ],
             $ref: '#/components/schemas/TrainingLoadUnavailableReason',
             description: 'Why the Activity has no Training Load; null when it has one or it is not computed yet'
+        },
+        minStaminaPct: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'The lowest Stamina the Run reaches, in percent; null when it has no Stamina stream'
+        },
+        conditions: {
+            type: [
+                'object',
+                'null'
+            ],
+            $ref: '#/components/schemas/ActivityConditionsDTO',
+            description: 'The temperature, altitude and acclimation the Activity was done in; null until its derived data is computed'
         }
     },
     required: [
@@ -2347,11 +3017,13 @@ export const ActivityDetailDTOSchema = {
         'averagePaceKmh',
         'bestEfforts',
         'calories',
+        'conditions',
         'distance',
         'hasProtectedMetrics',
         'history',
         'id',
         'laps',
+        'minStaminaPct',
         'ownerUsername',
         'runMetrics',
         'source',
@@ -2527,6 +3199,30 @@ export const RunMetricsDTOSchema = {
                 'null'
             ],
             $ref: '#/components/schemas/DecouplingUnavailableReason'
+        },
+        vo2maxEstimateRaw: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'VO2max Estimate in ml/kg/min before the Correction Factor'
+        },
+        vo2maxEstimate: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'VO2max Estimate in ml/kg/min times the Correction Factor of the Run\'s day'
+        },
+        vo2maxUnavailableReason: {
+            type: [
+                'string',
+                'null'
+            ],
+            $ref: '#/components/schemas/Vo2maxUnavailableReason',
+            description: 'Why the Run has no VO2max Estimate; null when it has one or it has not been computed'
         }
     },
     required: [
@@ -2534,7 +3230,10 @@ export const RunMetricsDTOSchema = {
         'decouplingUnavailableReason',
         'efficiencyFactor',
         'movingSeconds',
-        'ngpMetersPerSecond'
+        'ngpMetersPerSecond',
+        'vo2maxEstimate',
+        'vo2maxEstimateRaw',
+        'vo2maxUnavailableReason'
     ]
 } as const;
 
@@ -2574,6 +3273,21 @@ export const TrainingLoadUnavailableReasonSchema = {
     ]
 } as const;
 
+export const Vo2maxUnavailableReasonSchema = {
+    type: 'string',
+    enum: [
+        'NO_PACE_DATA',
+        'NO_HEART_RATE_THRESHOLDS',
+        'NO_HEART_RATE',
+        'TOO_SHORT',
+        'TOO_HILLY',
+        'NOT_STEADY',
+        'INTENSITY_TOO_LOW',
+        'TOO_FEW_SEGMENTS',
+        'OUT_OF_RANGE'
+    ]
+} as const;
+
 export const ActivityDerivedStreamsDTOSchema = {
     type: 'object',
     properties: {
@@ -2589,10 +3303,21 @@ export const ActivityDerivedStreamsDTOSchema = {
                     'null'
                 ]
             }
+        },
+        staminaPct: {
+            type: [
+                'array',
+                'null'
+            ],
+            description: 'Stamina: the D′ balance as a percentage of D′ (0-100, one decimal), against the Critical Speed model in effect on the Run\'s date; null unless the Activity is a Run with Grade-Adjusted Pace and that model exists',
+            items: {
+                type: 'number'
+            }
         }
     },
     required: [
-        'gapSpeed'
+        'gapSpeed',
+        'staminaPct'
     ]
 } as const;
 
@@ -3705,5 +4430,166 @@ export const GeoJsonLineStringDTOSchema = {
     required: [
         'coordinates',
         'type'
+    ]
+} as const;
+
+export const ProfilePointDTOSchema = {
+    type: 'object',
+    properties: {
+        distanceM: {
+            type: 'number',
+            format: 'double',
+            description: 'From the start, in m'
+        },
+        altitudeM: {
+            type: 'number',
+            format: 'double',
+            description: 'Cleaned altitude, in m'
+        }
+    },
+    required: [
+        'altitudeM',
+        'distanceM'
+    ]
+} as const;
+
+export const RaceSplitDTOSchema = {
+    type: 'object',
+    properties: {
+        index: {
+            type: 'integer',
+            format: 'int32',
+            description: '1 for the first Split'
+        },
+        startM: {
+            type: 'number',
+            format: 'double',
+            description: 'From the start, in m'
+        },
+        endM: {
+            type: 'number',
+            format: 'double',
+            description: 'From the start, in m'
+        },
+        distanceM: {
+            type: 'number',
+            format: 'double',
+            description: 'In m'
+        },
+        targetSeconds: {
+            type: 'number',
+            format: 'double',
+            description: 'The Split\'s target time, in s'
+        },
+        paceSecondsPerUnit: {
+            type: 'number',
+            format: 'double',
+            description: 'The target pace, in s per km or mile'
+        },
+        cumulativeSeconds: {
+            type: 'number',
+            format: 'double',
+            description: 'The target time at the Split\'s end, in s'
+        },
+        elevationGainM: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'In m; null without altitude'
+        },
+        elevationLossM: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'In m; null without altitude'
+        },
+        avgGradePct: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Net rise over the Split\'s length, in percent; null without altitude'
+        }
+    },
+    required: [
+        'avgGradePct',
+        'cumulativeSeconds',
+        'distanceM',
+        'elevationGainM',
+        'elevationLossM',
+        'endM',
+        'index',
+        'paceSecondsPerUnit',
+        'startM',
+        'targetSeconds'
+    ]
+} as const;
+
+export const RaceSplitPlanResponseDTOSchema = {
+    type: 'object',
+    properties: {
+        activityId: {
+            type: 'integer',
+            format: 'int64'
+        },
+        courseDistanceM: {
+            type: 'number',
+            format: 'double',
+            description: 'The course\'s cleaned distance, in m'
+        },
+        goalSeconds: {
+            type: 'number',
+            format: 'double',
+            description: 'The Goal Time the splits sum to, in s'
+        },
+        unit: {
+            type: 'string',
+            enum: [
+                'KM',
+                'MILE'
+            ]
+        },
+        biasPct: {
+            type: 'number',
+            format: 'double',
+            description: 'The Split Bias: how much longer, in percent, the second half takes than the first on even ground'
+        },
+        elevationGainM: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'The course\'s total climb from its cleaned altitude, in m; null without altitude'
+        },
+        splits: {
+            type: 'array',
+            description: 'One per km or mile from the start; the last may be partial',
+            items: {
+                $ref: '#/components/schemas/RaceSplitDTO'
+            }
+        },
+        profile: {
+            type: 'array',
+            description: 'The course\'s elevation profile, at most 500 points; empty without altitude',
+            items: {
+                $ref: '#/components/schemas/ProfilePointDTO'
+            }
+        }
+    },
+    required: [
+        'activityId',
+        'biasPct',
+        'courseDistanceM',
+        'elevationGainM',
+        'goalSeconds',
+        'profile',
+        'splits',
+        'unit'
     ]
 } as const;

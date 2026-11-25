@@ -100,7 +100,7 @@ class ActivityDetailsService(
 
     /**
      * Reads an Activity's stored details as derived analytics need them (the series **Telemetry Cleaning** reads,
-     * and power), or `null` when none are stored. A pure read: it never writes. When the stored details lack
+     * power and temperature), or `null` when none are stored. A pure read: it never writes. When the stored details lack
      * distance the route is read too, so cleaning can synthesize distance in memory exactly as the parser would;
      * the stored row is left unchanged.
      */

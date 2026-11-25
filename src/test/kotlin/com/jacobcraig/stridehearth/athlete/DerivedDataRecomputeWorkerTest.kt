@@ -258,6 +258,41 @@ class DerivedDataRecomputeWorkerTest {
     }
 
     @Test
+    fun `fills the conditions of a row written before they existed from the stored temperature`() {
+        val activity =
+            activityRepository.save(
+                Activity(
+                    title = "Warm ride",
+                    sport = ActivitySport.RIDE,
+                    startedAt = Instant.parse("2025-05-01T08:00:00Z"),
+                    distance = 0.36,
+                    timeTakenSeconds = 120,
+                    user = runner,
+                    source = ActivitySource.FIT_UPLOAD,
+                ),
+            )
+        activityDetailsRepository.upsert(activity.id!!, climb(120).copy(temperature = Array(120) { 31.toShort() }), ParserVersion(1))
+        // As the version before conditions left it: everything else stored, the condition columns NULL.
+        jdbcTemplate.update(
+            "INSERT INTO activity_derived_metrics (activity_id, algorithm_version) VALUES (?, ?)",
+            activity.id,
+            DERIVED_DATA_VERSION - 1,
+        )
+
+        assertEquals(RecomputeResult(1, 0), drain())
+
+        val (version, device, ambient) =
+            jdbcTemplate.queryForObject(
+                "SELECT algorithm_version, device_temperature_c, ambient_temperature_c FROM activity_derived_metrics WHERE activity_id = ?",
+                { rs, _ -> Triple(rs.getInt(1), (rs.getObject(2) as Number?)?.toDouble(), (rs.getObject(3) as Number?)?.toDouble()) },
+                activity.id,
+            )!!
+        assertEquals(DERIVED_DATA_VERSION.toInt(), version)
+        assertEquals(31.0, device)
+        assertEquals(25.0, ambient)
+    }
+
+    @Test
     fun `recomputes a run whose GAP and Run metrics were written before grade was smoothed`() {
         val run = historical()
         // As #33 (version 2) left it, with GAP from the ±10 m grade.
