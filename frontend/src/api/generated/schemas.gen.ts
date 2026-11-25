@@ -2289,6 +2289,102 @@ export const PeakEffortsResponseDTOSchema = {
     ]
 } as const;
 
+export const MarathonShapeCurrentDTOSchema = {
+    type: 'object',
+    properties: {
+        day: {
+            type: 'string',
+            format: 'date'
+        },
+        pct: {
+            type: 'number',
+            format: 'double',
+            description: 'Marathon Shape, 0 to 100'
+        },
+        volumeScore: {
+            type: 'number',
+            format: 'double',
+            description: 'Volume Score, 0 to 1'
+        },
+        longRunScore: {
+            type: 'number',
+            format: 'double',
+            description: 'Long-Run Score, 0 to 1'
+        },
+        weeklyKm: {
+            type: 'number',
+            format: 'double',
+            description: 'Run distance per week over the last 26 weeks, in km'
+        },
+        targetWeeklyKm: {
+            type: 'number',
+            format: 'double',
+            description: 'The weekly distance targeted, in km'
+        },
+        targetLongRunKm: {
+            type: 'number',
+            format: 'double',
+            description: 'The long run targeted, in km'
+        }
+    },
+    required: [
+        'day',
+        'longRunScore',
+        'pct',
+        'targetLongRunKm',
+        'targetWeeklyKm',
+        'volumeScore',
+        'weeklyKm'
+    ]
+} as const;
+
+export const MarathonShapeDayDTOSchema = {
+    type: 'object',
+    properties: {
+        day: {
+            type: 'string',
+            format: 'date'
+        },
+        pct: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Null when the day has no Effective VO2max'
+        }
+    },
+    required: [
+        'day',
+        'pct'
+    ]
+} as const;
+
+export const MarathonShapeResponseDTOSchema = {
+    type: 'object',
+    properties: {
+        current: {
+            type: [
+                'object',
+                'null'
+            ],
+            $ref: '#/components/schemas/MarathonShapeCurrentDTO',
+            description: 'Marathon Shape on the athlete\'s today; null when they have no Effective VO2max today'
+        },
+        days: {
+            type: 'array',
+            description: 'Every day in range, never before the first VO2max Estimate nor after today; empty before it',
+            items: {
+                $ref: '#/components/schemas/MarathonShapeDayDTO'
+            }
+        }
+    },
+    required: [
+        'current',
+        'days'
+    ]
+} as const;
+
 export const CriticalSpeedFitDTOSchema = {
     type: 'object',
     properties: {

@@ -622,6 +622,26 @@ export const zPeakEffortsResponseDto = z.object({
     power: z.array(zPeakEffortSlotDto)
 });
 
+export const zMarathonShapeCurrentDto = z.object({
+    day: z.string().date(),
+    pct: z.number(),
+    volumeScore: z.number(),
+    longRunScore: z.number(),
+    weeklyKm: z.number(),
+    targetWeeklyKm: z.number(),
+    targetLongRunKm: z.number()
+});
+
+export const zMarathonShapeDayDto = z.object({
+    day: z.string().date(),
+    pct: z.number().nullable()
+});
+
+export const zMarathonShapeResponseDto = z.object({
+    current: zMarathonShapeCurrentDto.nullable(),
+    days: z.array(zMarathonShapeDayDto)
+});
+
 export const zCriticalSpeedPointDto = z.object({
     benchmarkDuration: z.enum([
         'FIVE_SECONDS',
@@ -1242,6 +1262,16 @@ export const zGetPersonalRecordProgressionResponse = zPersonalRecordProgressionR
  * The authenticated athlete's best running Peak Efforts
  */
 export const zGetPeakEffortsResponse = zPeakEffortsResponseDto;
+
+export const zGetMarathonShapeQuery = z.object({
+    from: z.string().date().optional(),
+    to: z.string().date().optional()
+});
+
+/**
+ * Today's Marathon Shape with its parts and targets, and one entry per day
+ */
+export const zGetMarathonShapeResponse = zMarathonShapeResponseDto;
 
 /**
  * The authenticated athlete's models, or why there is none

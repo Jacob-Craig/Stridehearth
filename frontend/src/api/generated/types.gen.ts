@@ -600,6 +600,53 @@ export type PeakEffortsResponseDto = {
     power: Array<PeakEffortSlotDto>;
 };
 
+export type MarathonShapeCurrentDto = {
+    day: string;
+    /**
+     * Marathon Shape, 0 to 100
+     */
+    pct: number;
+    /**
+     * Volume Score, 0 to 1
+     */
+    volumeScore: number;
+    /**
+     * Long-Run Score, 0 to 1
+     */
+    longRunScore: number;
+    /**
+     * Run distance per week over the last 26 weeks, in km
+     */
+    weeklyKm: number;
+    /**
+     * The weekly distance targeted, in km
+     */
+    targetWeeklyKm: number;
+    /**
+     * The long run targeted, in km
+     */
+    targetLongRunKm: number;
+};
+
+export type MarathonShapeDayDto = {
+    day: string;
+    /**
+     * Null when the day has no Effective VO2max
+     */
+    pct: number | null;
+};
+
+export type MarathonShapeResponseDto = {
+    /**
+     * Marathon Shape on the athlete's today; null when they have no Effective VO2max today
+     */
+    current: MarathonShapeCurrentDto | null;
+    /**
+     * Every day in range, never before the first VO2max Estimate nor after today; empty before it
+     */
+    days: Array<MarathonShapeDayDto>;
+};
+
 export type CriticalSpeedFitDto = {
     status: 'MODEL' | 'INSUFFICIENT_POINTS' | 'POOR_FIT' | 'NON_PHYSICAL';
     criticalValue: number | null;
@@ -2009,6 +2056,44 @@ export type GetPeakEffortsResponses = {
 };
 
 export type GetPeakEffortsResponse = GetPeakEffortsResponses[keyof GetPeakEffortsResponses];
+
+export type GetMarathonShapeData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * First day (YYYY-MM-DD); defaults to, and never precedes, the first VO2max Estimate
+         */
+        from?: string;
+        /**
+         * Last day (YYYY-MM-DD); defaults to, and is capped at, today in the athlete's time zone
+         */
+        to?: string;
+    };
+    url: '/api/athlete/marathon-shape';
+};
+
+export type GetMarathonShapeErrors = {
+    /**
+     * A malformed date, or from after to
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type GetMarathonShapeError = GetMarathonShapeErrors[keyof GetMarathonShapeErrors];
+
+export type GetMarathonShapeResponses = {
+    /**
+     * Today's Marathon Shape with its parts and targets, and one entry per day
+     */
+    200: MarathonShapeResponseDto;
+};
+
+export type GetMarathonShapeResponse = GetMarathonShapeResponses[keyof GetMarathonShapeResponses];
 
 export type GetCriticalSpeedData = {
     body?: never;
