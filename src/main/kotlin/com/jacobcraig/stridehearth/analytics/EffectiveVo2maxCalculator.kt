@@ -103,21 +103,28 @@ object EffectiveVo2maxCalculator {
             candidates
                 .mapNotNull { candidate -> window.uncorrected(candidate.day)?.let { candidate to it } }
                 .sortedWith(compareBy({ it.first.day }, { it.first.activityId }))
-        return generateSequence(from) { it.plusDays(1) }.takeWhile { it <= to }.map { day ->
-            val best =
-                calibrations
-                    .filter { (candidate, _) -> candidate.day <= day && candidate.day > day.minusDays(CALIBRATION_DAYS) }
-                    // The first of equal VDOTs wins: earlier day, then lower id.
-                    .maxWithOrNull(compareBy<Pair<CalibrationCandidate, Double>> { it.first.vdot }.thenByDescending { it.first.day }.thenByDescending { it.first.activityId })
-            val correction = best?.let { (candidate, u) -> (candidate.vdot / u).coerceIn(MIN_CORRECTION, MAX_CORRECTION) } ?: 1.0
-            FitnessDay(
-                day = day,
-                effectiveVo2max = window.uncorrected(day)?.let { it * correction },
-                correctionFactor = correction,
-                correctionSource = best?.first?.let { CorrectionSource(it.activityId, it.benchmarkDistance, it.vdot) },
-            )
-        }.toList()
+        return generateSequence(from) { it.plusDays(1) }
+            .takeWhile { it <= to }
+            .map { day ->
+                val best =
+                    calibrations
+                        .filter { (candidate, _) -> candidate.day <= day && candidate.day > day.minusDays(CALIBRATION_DAYS) }
+                        .maxWithOrNull(BEST_CALIBRATION)
+                val correction = best?.let { (candidate, u) -> (candidate.vdot / u).coerceIn(MIN_CORRECTION, MAX_CORRECTION) } ?: 1.0
+                FitnessDay(
+                    day = day,
+                    effectiveVo2max = window.uncorrected(day)?.let { it * correction },
+                    correctionFactor = correction,
+                    correctionSource = best?.first?.let { CorrectionSource(it.activityId, it.benchmarkDistance, it.vdot) },
+                )
+            }.toList()
     }
+
+    /** Highest VDOT first; of equal ones, the earlier day, then the lower id. */
+    private val BEST_CALIBRATION: Comparator<Pair<CalibrationCandidate, Double>> =
+        compareBy<Pair<CalibrationCandidate, Double>> { it.first.vdot }
+            .thenByDescending { it.first.day }
+            .thenByDescending { it.first.activityId }
 
     /** Per-day sums of the estimates, so U(D) costs [WINDOW_DAYS] lookups. */
     private class Window(

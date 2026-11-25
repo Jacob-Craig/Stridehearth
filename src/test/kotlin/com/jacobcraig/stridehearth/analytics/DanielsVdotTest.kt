@@ -1,8 +1,8 @@
 package com.jacobcraig.stridehearth.analytics
 
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
-import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
 /** Daniels' published VDOT tables, reproduced by the Daniels-Gilbert equations within 0.2 %. */

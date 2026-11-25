@@ -159,7 +159,10 @@ class EffectiveVo2maxCalculatorTest {
                     BenchmarkDistance.TEN_KILOMETERS to 2481.0,
                 )
 
-            assertEquals(BenchmarkDistance.TEN_KILOMETERS, EffectiveVo2maxCalculator.candidateOf(1, day0, 10500.0, efforts)?.benchmarkDistance)
+            assertEquals(
+                BenchmarkDistance.TEN_KILOMETERS,
+                EffectiveVo2maxCalculator.candidateOf(1, day0, 10500.0, efforts)?.benchmarkDistance,
+            )
         }
 
         @Test

@@ -342,8 +342,9 @@ class DerivedDataRecomputeWorker(
         return activities.size
     }
 
-    /** Recomputes only the Training Load of [activityIds]; returns how many loads it replaced. */
-    private fun recomputeThresholdDependentPage(activityIds: List<Long>): Int = derivedDataRefresh.refreshThresholdDependent(lockAndLoad(activityIds))
+    /** Recomputes only the threshold-dependent derived data of [activityIds]; returns how many rows it replaced. */
+    private fun recomputeThresholdDependentPage(activityIds: List<Long>): Int =
+        derivedDataRefresh.refreshThresholdDependent(lockAndLoad(activityIds))
 
     private fun lockAndLoad(activityIds: List<Long>): List<Activity> {
         // Lock first, then read: under READ COMMITTED the reads below see whatever a concurrent writer committed

@@ -230,7 +230,11 @@ class FitnessRollupIntegrationTest {
         activityService.deleteActivity(easy, runner.id!!)
 
         val cutoff = march(10)
-        assertEquals(writersBefore.filterKeys { it < cutoff }, writers().filterKeys { it < cutoff }, "rows before the day are not rewritten")
+        assertEquals(
+            writersBefore.filterKeys { it < cutoff },
+            writers().filterKeys { it < cutoff },
+            "rows before the day are not rewritten",
+        )
         assertEquals(Vo2maxFixtures.FAST_RAW, assertNotNull(effective()[march(15)]), 0.05)
         assertMatchesRebuild()
     }
@@ -247,7 +251,11 @@ class FitnessRollupIntegrationTest {
 
         val cutoff = march(10)
         assertEquals(before.filter { it.day < cutoff }, days().filter { it.day < cutoff })
-        assertEquals(writersBefore.filterKeys { it < cutoff }, writers().filterKeys { it < cutoff }, "rows before the day are not rewritten")
+        assertEquals(
+            writersBefore.filterKeys { it < cutoff },
+            writers().filterKeys { it < cutoff },
+            "rows before the day are not rewritten",
+        )
         assertEquals((Vo2maxFixtures.FAST_RAW + Vo2maxFixtures.EASY_RAW) / 2, assertNotNull(effective()[march(10)]), 0.05)
         assertMatchesRebuild()
     }
