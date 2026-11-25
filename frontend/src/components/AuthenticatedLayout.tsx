@@ -1,4 +1,4 @@
-import { Outlet, getRouteApi, useNavigate } from '@tanstack/react-router';
+import { getRouteApi, Outlet, useNavigate } from '@tanstack/react-router';
 import { useInitialiseTimeZone } from '../api/athlete';
 import { AppShell } from './AppShell';
 

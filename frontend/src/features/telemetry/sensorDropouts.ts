@@ -1,5 +1,5 @@
 import type { XySeries } from './lttb';
-import { type TimeWindow, sampleIndexAtTime } from './sampleLookup';
+import { sampleIndexAtTime, type TimeWindow } from './sampleLookup';
 
 /**
  * Silences up to this long are drawn as a continuous line. Watches using "smart recording" log some

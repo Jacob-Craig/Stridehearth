@@ -1,5 +1,5 @@
 import type { PmcDayDto } from '../../api/generated/types.gen';
-import { MISSING, formatDate } from '../../lib/format';
+import { formatDate, MISSING } from '../../lib/format';
 import { formZoneOf } from './formZones';
 
 const oneDecimal = (value: number) => value.toFixed(1);

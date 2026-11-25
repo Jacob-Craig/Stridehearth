@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider, createMemoryHistory } from '@tanstack/react-router';
+import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -383,8 +383,9 @@ describe('/activities/add_activity single FIT upload', () => {
 
     await waitFor(() => expect(history.location.pathname).toBe('/activities/42'));
     const upload = requests.find((r) => r.path === '/api/activities/upload');
-    expect(upload?.body).toBeInstanceOf(FormData);
-    expect((upload?.body as FormData).get('file')).toHaveProperty('name', 'run.fit');
+    const body = upload?.body;
+    expect(body).toBeInstanceOf(FormData);
+    expect((body as FormData).get('file')).toHaveProperty('name', 'run.fit');
   });
 
   it('routes an UPGRADED activity to its page', async () => {

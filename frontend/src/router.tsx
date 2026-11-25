@@ -1,10 +1,10 @@
 import type { QueryClient } from '@tanstack/react-query';
 import {
-  Outlet,
-  type RouterHistory,
   createRootRouteWithContext,
   createRoute,
   createRouter,
+  Outlet,
+  type RouterHistory,
   redirect,
 } from '@tanstack/react-router';
 import { z } from 'zod';

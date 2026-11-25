@@ -10,15 +10,15 @@ import {
   NavigationControl,
 } from 'maplibre-gl';
 import type { ColorScheme } from '../../lib/colorScheme';
-import { type MapPerspective, isTilted, perspectiveCameraOptions } from '../basemap/mapPerspective';
 import {
+  addBuildingsLayer,
   BASEMAP_STYLES,
   type BuildingsStyle,
-  addBuildingsLayer,
   tiltTo,
 } from '../basemap/maplibreBasemap';
+import { isTilted, type MapPerspective, perspectiveCameraOptions } from '../basemap/mapPerspective';
 import { BEST_EFFORT_HIGHLIGHT_COLOR } from './bestEffortHighlight';
-import { type FrameClock, animationFrameClock, coalescePerFrame } from './frameCoalescer';
+import { animationFrameClock, coalescePerFrame, type FrameClock } from './frameCoalescer';
 import type { LngLat } from './sampleLookup';
 import type { ScrubberMarker } from './scrubberBus';
 

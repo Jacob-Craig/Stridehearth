@@ -15,16 +15,16 @@ import { ErrorAlert } from '../../components/ErrorAlert';
 import { formatCount } from '../../lib/format';
 import { parseApiError } from '../../utils/error';
 import { BatchActionDialog } from './BatchActionDialog';
-import { ManageActivityTable } from './ManageActivityTable';
-import { ManageFilterForm } from './ManageFilterForm';
 import {
   type BatchDraft,
   type BatchMode,
+  batchModalReducer,
   CLOSED,
   EMPTY_DRAFT,
-  batchModalReducer,
 } from './batchModalState';
 import { backfillNotice, batchResultNotice } from './batchNotices';
+import { ManageActivityTable } from './ManageActivityTable';
+import { ManageFilterForm } from './ManageFilterForm';
 import type { ManageFilters } from './manageSearch';
 import { secondaryButton } from './manageStyles';
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import type { RouteTimeline } from './sampleLookup';
-import { type TelemetryScrubberBus, createTelemetryScrubber } from './scrubberBus';
+import { createTelemetryScrubber, type TelemetryScrubberBus } from './scrubberBus';
 
 /**
  * The scrubber bus shared by the route map and every sensor chart of one **Activity Details**.

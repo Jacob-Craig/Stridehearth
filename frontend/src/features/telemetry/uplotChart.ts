@@ -12,7 +12,7 @@ import { AXIS_PALETTE } from '../charts/chartTheme';
 import { BEST_EFFORT_HIGHLIGHT_COLOR } from './bestEffortHighlight';
 import { CHART_PLOT_HEIGHT_PX } from './chartLayout';
 import type { XySeries } from './lttb';
-import { type TimeWindow, sampleIndexAtTime } from './sampleLookup';
+import { sampleIndexAtTime, type TimeWindow } from './sampleLookup';
 import type { ScrubbableChart } from './scrubberBus';
 import { readingAt, sensorDropouts } from './sensorDropouts';
 import type { ChartOverlay, ChartSeries } from './sensorStreams';

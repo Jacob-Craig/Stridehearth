@@ -4,14 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { match } from 'ts-pattern';
 import type { HeatmapStartingViewDto } from '../../api/generated/types.gen';
 import { type HeatmapFilterParams, heatmapQueries, useHeatmapFreshness } from '../../api/heatmap';
+import { isTilted, type MapPerspective } from '../basemap/mapPerspective';
 import { PerspectiveToggle } from '../basemap/PerspectiveToggle';
-import { type MapPerspective, isTilted } from '../basemap/mapPerspective';
 import { type MountedRenderer, useLazyRenderer } from '../telemetry/useLazyRenderer';
 import { HeatmapFilterControls } from './HeatmapFilterControls';
 import {
+  browserTimeZone,
   DEFAULT_HEATMAP_FILTER,
   type HeatmapFilter,
-  browserTimeZone,
   hasNoSports,
   isDefaultFilter,
   isInvertedRange,
@@ -24,7 +24,7 @@ import {
   heatmapLayerLoaders,
 } from './heatmapLayers';
 import { readRememberedView, rememberView } from './rememberedView';
-import { THREE_D_NOTE, rememberThreeDNoteShown, wasThreeDNoteShown } from './threeDNote';
+import { rememberThreeDNoteShown, THREE_D_NOTE, wasThreeDNoteShown } from './threeDNote';
 
 const authenticatedApi = getRouteApi('/authenticated');
 

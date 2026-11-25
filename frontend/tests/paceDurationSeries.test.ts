@@ -5,13 +5,13 @@ import type {
   PeakEffortSlotDto,
 } from '../src/api/generated/types.gen';
 import {
-  PDC_TICKS_SECONDS,
   alignedPdcData,
   durationTickLabel,
   formatModelLegend,
   formatPdcValue,
   modelCurve,
   nearestPeak,
+  PDC_TICKS_SECONDS,
   peakCurves,
 } from '../src/features/pace-duration/paceDurationSeries';
 
@@ -36,7 +36,7 @@ const SLOTS: PeakEffortSlotDto[] = [
   slot('TWO_MINUTES', 120, peak(4, 5.0), peak(4, 5.0)),
 ];
 
-const fit = (overrides: Partial<CriticalSpeedFitDto>): CriticalSpeedFitDto => ({
+const criticalSpeedFit = (overrides: Partial<CriticalSpeedFitDto>): CriticalSpeedFitDto => ({
   status: 'MODEL',
   criticalValue: 4.0,
   reserveCapacity: 240,
@@ -69,7 +69,7 @@ describe('peakCurves', () => {
 
 describe('modelCurve', () => {
   it('samples CS + D′/t at 60 log-spaced durations from 2 to 60 minutes', () => {
-    const curve = modelCurve(fit({ criticalValue: 4.0, reserveCapacity: 240 }))!;
+    const curve = modelCurve(criticalSpeedFit({ criticalValue: 4.0, reserveCapacity: 240 }))!;
 
     expect(curve).toHaveLength(60);
     expect(curve[0]!.durationSeconds).toBeCloseTo(120, 9);
@@ -88,10 +88,14 @@ describe('modelCurve', () => {
   it('draws no model unless the fit published one', () => {
     expect(
       modelCurve(
-        fit({ status: 'INSUFFICIENT_POINTS', criticalValue: null, reserveCapacity: null }),
+        criticalSpeedFit({
+          status: 'INSUFFICIENT_POINTS',
+          criticalValue: null,
+          reserveCapacity: null,
+        }),
       ),
     ).toBeNull();
-    expect(modelCurve(fit({ status: 'POOR_FIT', criticalValue: null }))).toBeNull();
+    expect(modelCurve(criticalSpeedFit({ status: 'POOR_FIT', criticalValue: null }))).toBeNull();
     expect(modelCurve(null)).toBeNull();
   });
 });
@@ -109,7 +113,7 @@ describe('alignedPdcData', () => {
   });
 
   it('merges the model samples into the same x, sharing the 2-minute point', () => {
-    const model = modelCurve(fit({}))!;
+    const model = modelCurve(criticalSpeedFit({}))!;
     const data = alignedPdcData(peakCurves(SLOTS), model);
 
     expect(data.x).toHaveLength(2 + 60);
@@ -162,12 +166,15 @@ describe('labels', () => {
 
   it('gives the model parameters in the legend', () => {
     // 4 m/s = 14.4 km/h = 250 s/km.
-    expect(formatModelLegend('pace', fit({ criticalValue: 4, reserveCapacity: 240.4 }))).toBe(
-      'CS 04:10 /km · D′ 240 m',
-    );
-    expect(formatModelLegend('power', fit({ criticalValue: 300.2, reserveCapacity: 20_040 }))).toBe(
-      'CP 300 W · W′ 20.0 kJ',
-    );
-    expect(formatModelLegend('pace', fit({ status: 'NON_PHYSICAL' }))).toBeNull();
+    expect(
+      formatModelLegend('pace', criticalSpeedFit({ criticalValue: 4, reserveCapacity: 240.4 })),
+    ).toBe('CS 04:10 /km · D′ 240 m');
+    expect(
+      formatModelLegend(
+        'power',
+        criticalSpeedFit({ criticalValue: 300.2, reserveCapacity: 20_040 }),
+      ),
+    ).toBe('CP 300 W · W′ 20.0 kJ');
+    expect(formatModelLegend('pace', criticalSpeedFit({ status: 'NON_PHYSICAL' }))).toBeNull();
   });
 });

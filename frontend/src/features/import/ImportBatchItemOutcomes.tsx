@@ -41,6 +41,7 @@ export function ItemOutcomeDisclosure({ summary, outcomes, tone }: ItemOutcomeDi
       <ul id={panelId} hidden={!expanded} className="mt-1 space-y-0.5 pl-4 text-sm">
         {expanded &&
           outcomes.map((outcome, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: filenames can repeat within a Batch and the list never reorders
             <li key={`${outcome.filename}-${index}`}>
               <span className="font-medium">{outcome.filename}</span>
               <span className="text-slate-500 dark:text-slate-400">: </span>

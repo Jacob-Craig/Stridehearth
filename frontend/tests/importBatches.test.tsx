@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider, createMemoryHistory } from '@tanstack/react-router';
+import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,8 +10,8 @@ import type {
   UserResponseDto,
 } from '../src/api/generated/types.gen';
 import {
-  type ZipInspectionRequest,
   handleZipInspectionRequest,
+  type ZipInspectionRequest,
 } from '../src/features/import/zipInspectorProtocol';
 import { describeItemUpgrades } from '../src/lib/activityChange';
 import { createAppRouter } from '../src/router';

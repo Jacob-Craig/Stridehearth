@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { match } from 'ts-pattern';
 import { useColorScheme } from '../../lib/colorScheme';
-import { PerspectiveToggle } from '../basemap/PerspectiveToggle';
 import type { MapPerspective } from '../basemap/mapPerspective';
+import { PerspectiveToggle } from '../basemap/PerspectiveToggle';
 import { loadRouteMap } from './lazyRenderers';
 import type { RouteMapHandle } from './maplibreRouteMap';
-import { type RouteTimeline, type TimeWindow, effortRouteCoordinates } from './sampleLookup';
+import { effortRouteCoordinates, type RouteTimeline, type TimeWindow } from './sampleLookup';
 import type { TelemetryScrubberBus } from './scrubberBus';
 import { type MountedRenderer, useLazyRenderer } from './useLazyRenderer';
 

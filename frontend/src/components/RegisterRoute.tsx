@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { Link, getRouteApi, useNavigate } from '@tanstack/react-router';
+import { getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import { registrationStatusQueryOptions, useRefreshRegistrationStatus } from '../api/auth';
 import type { UserResponseDto } from '../api/generated/types.gen';
 import { RegisterForm } from './RegisterForm';
