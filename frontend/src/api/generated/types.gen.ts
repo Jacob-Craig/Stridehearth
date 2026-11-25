@@ -510,6 +510,67 @@ export type ThresholdProposalDto = {
     source: string;
 };
 
+export type RaceDistance = 'FIVE_K' | 'TEN_K' | 'HALF_MARATHON' | 'MARATHON';
+
+export type RacePredictionDto = {
+    distance: RaceDistance;
+    /**
+     * The race distance, in m
+     */
+    meters: number;
+    /**
+     * The time Daniels' VDOT tables give, in s
+     */
+    vdotSeconds: number;
+    /**
+     * The predicted finish time, in s
+     */
+    predictedSeconds: number;
+    /**
+     * The endurance penalty of Marathon Shape, at least 1
+     */
+    enduranceFactor: number;
+    /**
+     * The Course Derating of the race-day conditions, at least 1
+     */
+    courseFactor: number;
+};
+
+export type RacePrognosisCurrentDto = {
+    day: string;
+    /**
+     * Effective VO2max, in ml/kg/min
+     */
+    effectiveVo2max: number;
+    /**
+     * Marathon Shape, 0 to 100
+     */
+    marathonShapePct: number;
+    /**
+     * One per race distance, shortest first
+     */
+    predictions: Array<RacePredictionDto>;
+};
+
+export type RacePrognosisDayDto = {
+    day: string;
+    fiveKSeconds: number;
+    tenKSeconds: number;
+    halfSeconds: number;
+    marathonSeconds: number;
+};
+
+export type RacePrognosisResponseDto = {
+    /**
+     * The prognosis on the athlete's today; null when they have no Effective VO2max today
+     */
+    current: RacePrognosisCurrentDto | null;
+    /**
+     * Every day in range with an Effective VO2max, ascending, never after today; without Course Derating
+     */
+    days: Array<RacePrognosisDayDto>;
+};
+
 export type PmcDayDto = {
     date: string;
     /**
@@ -1968,6 +2029,52 @@ export type GetVo2MaxResponses = {
 };
 
 export type GetVo2MaxResponse = GetVo2MaxResponses[keyof GetVo2MaxResponses];
+
+export type GetRacePrognosisData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * First day (YYYY-MM-DD); defaults to, and never precedes, the first VO2max Estimate
+         */
+        from?: string;
+        /**
+         * Last day (YYYY-MM-DD); defaults to, and is capped at, today in the athlete's time zone
+         */
+        to?: string;
+        /**
+         * Race-day Ambient Temperature in °C, from -30 to 50; derates today's predictions only
+         */
+        temperatureC?: number;
+        /**
+         * The course's total climb in m, from 0 to 5000; derates today's predictions only
+         */
+        elevationGainM?: number;
+    };
+    url: '/api/athlete/race-prognosis';
+};
+
+export type GetRacePrognosisErrors = {
+    /**
+     * A malformed date or number, from after to, or race-day conditions out of range
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type GetRacePrognosisError = GetRacePrognosisErrors[keyof GetRacePrognosisErrors];
+
+export type GetRacePrognosisResponses = {
+    /**
+     * Today's predictions, derated for any race-day conditions, and one entry per day with an Effective VO2max
+     */
+    200: RacePrognosisResponseDto;
+};
+
+export type GetRacePrognosisResponse = GetRacePrognosisResponses[keyof GetRacePrognosisResponses];
 
 export type GetPerformanceManagementChartData = {
     body?: never;

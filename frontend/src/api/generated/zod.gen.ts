@@ -546,6 +546,42 @@ export const zAthleteThresholdsResponseDto = z.object({
     proposals: z.array(zThresholdProposalDto)
 });
 
+export const zRaceDistance = z.enum([
+    'FIVE_K',
+    'TEN_K',
+    'HALF_MARATHON',
+    'MARATHON'
+]);
+
+export const zRacePredictionDto = z.object({
+    distance: zRaceDistance,
+    meters: z.number(),
+    vdotSeconds: z.number(),
+    predictedSeconds: z.number(),
+    enduranceFactor: z.number(),
+    courseFactor: z.number()
+});
+
+export const zRacePrognosisCurrentDto = z.object({
+    day: z.string().date(),
+    effectiveVo2max: z.number(),
+    marathonShapePct: z.number(),
+    predictions: z.array(zRacePredictionDto)
+});
+
+export const zRacePrognosisDayDto = z.object({
+    day: z.string().date(),
+    fiveKSeconds: z.number(),
+    tenKSeconds: z.number(),
+    halfSeconds: z.number(),
+    marathonSeconds: z.number()
+});
+
+export const zRacePrognosisResponseDto = z.object({
+    current: zRacePrognosisCurrentDto.nullable(),
+    days: z.array(zRacePrognosisDayDto)
+});
+
 export const zPmcDayDto = z.object({
     date: z.string().date(),
     trainingLoad: z.number(),
@@ -1242,6 +1278,18 @@ export const zGetVo2MaxQuery = z.object({
  * Today's Effective VO2max, one entry per day, and the Runs in range
  */
 export const zGetVo2MaxResponse = zVo2MaxResponseDto;
+
+export const zGetRacePrognosisQuery = z.object({
+    from: z.string().date().optional(),
+    to: z.string().date().optional(),
+    temperatureC: z.number().gte(-30).lte(50).optional(),
+    elevationGainM: z.number().gte(0).lte(5000).optional()
+});
+
+/**
+ * Today's predictions, derated for any race-day conditions, and one entry per day with an Effective VO2max
+ */
+export const zGetRacePrognosisResponse = zRacePrognosisResponseDto;
 
 export const zGetPerformanceManagementChartQuery = z.object({
     from: z.string().date().optional(),

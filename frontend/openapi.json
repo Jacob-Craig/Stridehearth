@@ -1489,6 +1489,84 @@
         }
       }
     },
+    "/api/athlete/race-prognosis" : {
+      "get" : {
+        "tags" : [ "race-prognosis-api-controller" ],
+        "summary" : "The athlete's predicted 5K, 10K, Half and Marathon times today, and on each day",
+        "operationId" : "getRacePrognosis",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "description" : "First day (YYYY-MM-DD); defaults to, and never precedes, the first VO2max Estimate",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "description" : "Last day (YYYY-MM-DD); defaults to, and is capped at, today in the athlete's time zone",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "temperatureC",
+          "in" : "query",
+          "description" : "Race-day Ambient Temperature in °C, from -30 to 50; derates today's predictions only",
+          "required" : false,
+          "schema" : {
+            "type" : "number",
+            "maximum" : 50,
+            "minimum" : -30
+          }
+        }, {
+          "name" : "elevationGainM",
+          "in" : "query",
+          "description" : "The course's total climb in m, from 0 to 5000; derates today's predictions only",
+          "required" : false,
+          "schema" : {
+            "type" : "number",
+            "maximum" : 5000,
+            "minimum" : 0
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Today's predictions, derated for any race-day conditions, and one entry per day with an Effective VO2max",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RacePrognosisResponseDTO"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "A malformed date or number, from after to, or race-day conditions out of range",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/athlete/pmc" : {
       "get" : {
         "tags" : [ "pmc-api-controller" ],
@@ -3338,6 +3416,115 @@
           }
         },
         "required" : [ "effectiveDate", "id", "kind", "source", "value" ]
+      },
+      "RaceDistance" : {
+        "type" : "string",
+        "enum" : [ "FIVE_K", "TEN_K", "HALF_MARATHON", "MARATHON" ]
+      },
+      "RacePredictionDTO" : {
+        "type" : "object",
+        "properties" : {
+          "distance" : {
+            "$ref" : "#/components/schemas/RaceDistance"
+          },
+          "meters" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The race distance, in m"
+          },
+          "vdotSeconds" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The time Daniels' VDOT tables give, in s"
+          },
+          "predictedSeconds" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The predicted finish time, in s"
+          },
+          "enduranceFactor" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The endurance penalty of Marathon Shape, at least 1"
+          },
+          "courseFactor" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The Course Derating of the race-day conditions, at least 1"
+          }
+        },
+        "required" : [ "courseFactor", "distance", "enduranceFactor", "meters", "predictedSeconds", "vdotSeconds" ]
+      },
+      "RacePrognosisCurrentDTO" : {
+        "type" : "object",
+        "properties" : {
+          "day" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "effectiveVo2max" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "Effective VO2max, in ml/kg/min"
+          },
+          "marathonShapePct" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "Marathon Shape, 0 to 100"
+          },
+          "predictions" : {
+            "type" : "array",
+            "description" : "One per race distance, shortest first",
+            "items" : {
+              "$ref" : "#/components/schemas/RacePredictionDTO"
+            }
+          }
+        },
+        "required" : [ "day", "effectiveVo2max", "marathonShapePct", "predictions" ]
+      },
+      "RacePrognosisDayDTO" : {
+        "type" : "object",
+        "properties" : {
+          "day" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "fiveKSeconds" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "tenKSeconds" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "halfSeconds" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "marathonSeconds" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        },
+        "required" : [ "day", "fiveKSeconds", "halfSeconds", "marathonSeconds", "tenKSeconds" ]
+      },
+      "RacePrognosisResponseDTO" : {
+        "type" : "object",
+        "properties" : {
+          "current" : {
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/RacePrognosisCurrentDTO",
+            "description" : "The prognosis on the athlete's today; null when they have no Effective VO2max today"
+          },
+          "days" : {
+            "type" : "array",
+            "description" : "Every day in range with an Effective VO2max, ascending, never after today; without Course Derating",
+            "items" : {
+              "$ref" : "#/components/schemas/RacePrognosisDayDTO"
+            }
+          }
+        },
+        "required" : [ "current", "days" ]
       },
       "PmcDayDTO" : {
         "type" : "object",

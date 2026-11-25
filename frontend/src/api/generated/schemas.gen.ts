@@ -2006,6 +2006,149 @@ export const ThresholdProposalDTOSchema = {
     ]
 } as const;
 
+export const RaceDistanceSchema = {
+    type: 'string',
+    enum: [
+        'FIVE_K',
+        'TEN_K',
+        'HALF_MARATHON',
+        'MARATHON'
+    ]
+} as const;
+
+export const RacePredictionDTOSchema = {
+    type: 'object',
+    properties: {
+        distance: {
+            $ref: '#/components/schemas/RaceDistance'
+        },
+        meters: {
+            type: 'number',
+            format: 'double',
+            description: 'The race distance, in m'
+        },
+        vdotSeconds: {
+            type: 'number',
+            format: 'double',
+            description: 'The time Daniels\' VDOT tables give, in s'
+        },
+        predictedSeconds: {
+            type: 'number',
+            format: 'double',
+            description: 'The predicted finish time, in s'
+        },
+        enduranceFactor: {
+            type: 'number',
+            format: 'double',
+            description: 'The endurance penalty of Marathon Shape, at least 1'
+        },
+        courseFactor: {
+            type: 'number',
+            format: 'double',
+            description: 'The Course Derating of the race-day conditions, at least 1'
+        }
+    },
+    required: [
+        'courseFactor',
+        'distance',
+        'enduranceFactor',
+        'meters',
+        'predictedSeconds',
+        'vdotSeconds'
+    ]
+} as const;
+
+export const RacePrognosisCurrentDTOSchema = {
+    type: 'object',
+    properties: {
+        day: {
+            type: 'string',
+            format: 'date'
+        },
+        effectiveVo2max: {
+            type: 'number',
+            format: 'double',
+            description: 'Effective VO2max, in ml/kg/min'
+        },
+        marathonShapePct: {
+            type: 'number',
+            format: 'double',
+            description: 'Marathon Shape, 0 to 100'
+        },
+        predictions: {
+            type: 'array',
+            description: 'One per race distance, shortest first',
+            items: {
+                $ref: '#/components/schemas/RacePredictionDTO'
+            }
+        }
+    },
+    required: [
+        'day',
+        'effectiveVo2max',
+        'marathonShapePct',
+        'predictions'
+    ]
+} as const;
+
+export const RacePrognosisDayDTOSchema = {
+    type: 'object',
+    properties: {
+        day: {
+            type: 'string',
+            format: 'date'
+        },
+        fiveKSeconds: {
+            type: 'number',
+            format: 'double'
+        },
+        tenKSeconds: {
+            type: 'number',
+            format: 'double'
+        },
+        halfSeconds: {
+            type: 'number',
+            format: 'double'
+        },
+        marathonSeconds: {
+            type: 'number',
+            format: 'double'
+        }
+    },
+    required: [
+        'day',
+        'fiveKSeconds',
+        'halfSeconds',
+        'marathonSeconds',
+        'tenKSeconds'
+    ]
+} as const;
+
+export const RacePrognosisResponseDTOSchema = {
+    type: 'object',
+    properties: {
+        current: {
+            type: [
+                'object',
+                'null'
+            ],
+            $ref: '#/components/schemas/RacePrognosisCurrentDTO',
+            description: 'The prognosis on the athlete\'s today; null when they have no Effective VO2max today'
+        },
+        days: {
+            type: 'array',
+            description: 'Every day in range with an Effective VO2max, ascending, never after today; without Course Derating',
+            items: {
+                $ref: '#/components/schemas/RacePrognosisDayDTO'
+            }
+        }
+    },
+    required: [
+        'current',
+        'days'
+    ]
+} as const;
+
 export const PmcDayDTOSchema = {
     type: 'object',
     properties: {
