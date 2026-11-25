@@ -75,9 +75,9 @@ export type CreatedInviteDto = {
 };
 
 export type UserFormDto = {
-    email?: string;
-    password?: string;
-    username?: string;
+    email: string;
+    password: string;
+    username: string;
     firstName?: string;
     lastName?: string;
 };

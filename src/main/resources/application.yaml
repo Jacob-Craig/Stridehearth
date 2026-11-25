@@ -32,6 +32,12 @@ springdoc:
     enabled: false
   swagger-ui:
     enabled: false
+  # Nullability in the contract is declared explicitly with @Schema(types = [..., "null"]). springdoc 3
+  # would otherwise mark every Kotlin `T?` nullable, including request fields that are `T?` only so
+  # Bean Validation (not Jackson) rejects a missing value, and entity ids that are always present.
+  model-converters:
+    kotlin-nullable-property-customizer:
+      enabled: false
 
 stridehearth:
   # Derived Activity data (Grade-Adjusted Pace) missing or computed by an older algorithm version is recomputed in
