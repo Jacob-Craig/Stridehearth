@@ -2,6 +2,9 @@ package com.jacobcraig.stridehearth.activities
 
 import com.jacobcraig.stridehearth.activities.history.ActivityHistory
 import com.jacobcraig.stridehearth.api.RequestValidationException
+import com.jacobcraig.stridehearth.athlete.AcclimationRollup
+import com.jacobcraig.stridehearth.athlete.AthleteFitnessService
+import com.jacobcraig.stridehearth.athlete.AthleteTimeZone
 import com.jacobcraig.stridehearth.heatmap.HeatmapRouteRepository
 import com.jacobcraig.stridehearth.system.ActivitySport
 import com.jacobcraig.stridehearth.users.User
@@ -39,6 +42,9 @@ class ActivityServiceTest {
     private val heatmapRouteRepository: HeatmapRouteRepository = mock()
     private val derivedMetricsRepository: ActivityDerivedMetricsRepository = mock()
     private val staminaService: StaminaService = mock()
+    private val acclimationRollup: AcclimationRollup = mock()
+    private val athleteTimeZone: AthleteTimeZone = mock()
+    private val athleteFitnessService: AthleteFitnessService = mock()
     private val activityService =
         ActivityService(
             activityRepository,
@@ -52,6 +58,9 @@ class ActivityServiceTest {
             heatmapRouteRepository,
             derivedMetricsRepository,
             staminaService,
+            acclimationRollup,
+            athleteTimeZone,
+            athleteFitnessService,
         )
     private val owner = User(id = 7L, email = "a@b.com", passwordHash = "x", username = "alice")
 

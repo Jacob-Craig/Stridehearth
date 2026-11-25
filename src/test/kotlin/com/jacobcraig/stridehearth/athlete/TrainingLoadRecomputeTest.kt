@@ -96,7 +96,7 @@ class TrainingLoadRecomputeTest {
 
     @AfterEach
     fun tearDown() {
-        doCallRealMethod().whenever(refreshSpy).refreshTrainingLoad(any())
+        doCallRealMethod().whenever(refreshSpy).refreshThresholdDependent(any())
         doCallRealMethod().whenever(refreshSpy).refresh(any<Activity>(), anyOrNull(), anyOrNull(), anyOrNull())
         activityRepository.deleteAll()
         userRepository.deleteAll()
@@ -272,12 +272,12 @@ class TrainingLoadRecomputeTest {
             // Another LTHR change commits while the drain is recomputing with LTHR 150.
             requiresNew.execute { threshold(ThresholdKind.LTHR, 160.0, from = "2026-03-15") }
             invocation.callRealMethod()
-        }.whenever(refreshSpy).refreshTrainingLoad(any())
+        }.whenever(refreshSpy).refreshThresholdDependent(any())
 
         drain()
 
         assertEquals(Request(LocalDate.parse("2026-03-01"), pending = true), request(), "the newer request is kept")
-        doCallRealMethod().whenever(refreshSpy).refreshTrainingLoad(any())
+        doCallRealMethod().whenever(refreshSpy).refreshThresholdDependent(any())
 
         drain()
 
@@ -292,12 +292,12 @@ class TrainingLoadRecomputeTest {
         heartRateThresholds()
         val scope = listOf(runner.id!!, otherRunner.id!!)
 
-        assertEquals(RecomputeResult(0, 0, trainingLoadsRecomputed = 2), worker.drain(pageSize = 1, maxPages = 2, onlyUserIds = scope))
+        assertEquals(RecomputeResult(0, 0, thresholdDependentRecomputed = 2), worker.drain(pageSize = 1, maxPages = 2, onlyUserIds = scope))
         assertEquals(true, request()!!.pending)
         assertEquals(listOf(100.0, 100.0), activities.take(2).map { Math.round(load(it).first!! * 100) / 100.0 })
         assertEquals(null to "NO_THRESHOLDS", load(activities[2]))
 
-        assertEquals(RecomputeResult(0, 0, trainingLoadsRecomputed = 1), worker.drain(pageSize = 1, maxPages = 2, onlyUserIds = scope))
+        assertEquals(RecomputeResult(0, 0, thresholdDependentRecomputed = 1), worker.drain(pageSize = 1, maxPages = 2, onlyUserIds = scope))
         assertEquals(100.0, load(activities[2]).first!!, 0.01)
         assertEquals(false, request()!!.pending)
     }
@@ -310,12 +310,12 @@ class TrainingLoadRecomputeTest {
         threshold(ThresholdKind.LTHR, 150.0, from = "2026-03-01")
         val scope = listOf(runner.id!!, otherRunner.id!!)
         val failedAt = Instant.now()
-        doThrow(IllegalStateException("cannot analyse")).whenever(refreshSpy).refreshTrainingLoad(any())
+        doThrow(IllegalStateException("cannot analyse")).whenever(refreshSpy).refreshThresholdDependent(any())
 
         assertEquals(RecomputeResult(0, 1, 0), worker.drain(onlyUserIds = scope, now = failedAt))
         assertEquals(true, request()!!.pending, "a request with a failed Activity stays pending")
 
-        doCallRealMethod().whenever(refreshSpy).refreshTrainingLoad(any())
+        doCallRealMethod().whenever(refreshSpy).refreshThresholdDependent(any())
         assertEquals(RecomputeResult(0, 0, 0), worker.drain(onlyUserIds = scope, now = failedAt.plusSeconds(60)))
         assertEquals(true, request()!!.pending, "still pending while the Activity is backed off")
         assertEquals(100.0, load(april).first!!, 0.01)
@@ -335,7 +335,7 @@ class TrainingLoadRecomputeTest {
         val scope = listOf(runner.id!!, otherRunner.id!!)
         val failedAt = Instant.now()
         val keptPending = "Training Load recompute request for athlete ${runner.id} kept pending"
-        doThrow(IllegalStateException("cannot analyse")).whenever(refreshSpy).refreshTrainingLoad(any())
+        doThrow(IllegalStateException("cannot analyse")).whenever(refreshSpy).refreshThresholdDependent(any())
 
         worker.drain(onlyUserIds = scope, now = failedAt)
         assertEquals(1, output.all.split(keptPending).size - 1, "the drain that skipped the Activity says so")
@@ -353,7 +353,7 @@ class TrainingLoadRecomputeTest {
         jdbcTemplate.update("UPDATE activity_derived_metrics SET algorithm_version = 2 WHERE activity_id = ?", april.id)
         threshold(ThresholdKind.LTHR, 150.0, from = "2026-03-01")
 
-        assertEquals(RecomputeResult(activitiesRecomputed = 1, activitiesFailed = 0, trainingLoadsRecomputed = 0), drain())
+        assertEquals(RecomputeResult(activitiesRecomputed = 1, activitiesFailed = 0, thresholdDependentRecomputed = 0), drain())
         assertEquals(hrssAt170(150.0), load(april).first!!, 0.01)
     }
 

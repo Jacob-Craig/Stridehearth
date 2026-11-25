@@ -74,14 +74,14 @@ class ActivityDetailsRepository(
     /**
      * Reads, exactly as stored, the series derived analytics need: `t`, `distance`, `routeIndex`, speed, heart
      * rate, cadence and altitude (with their enhanced and fractional variants), which **Telemetry Cleaning** reads,
-     * and power. Like [findStoredScanningSeries] the route is not read. A pure read: it never writes.
+     * power, and the device temperature the Activity's conditions read. Like [findStoredScanningSeries] the route is not read. A pure read: it never writes.
      */
     fun findStoredAnalyticsSeries(activityId: Long): FitTelemetry? =
         jdbcClient
             .sql(
                 """
                 SELECT t, distance, route_index, enhanced_speed, speed, heart_rate, cadence, fractional_cadence,
-                       altitude, enhanced_altitude, power
+                       altitude, enhanced_altitude, power, temperature
                 FROM activity_details WHERE activity_id = :activityId
                 """.trimIndent(),
             ).param("activityId", activityId)
@@ -104,6 +104,7 @@ class ActivityDetailsRepository(
                     altitude = rs.getFloatArray("altitude") ?: emptyArray(),
                     enhancedAltitude = rs.getFloatArray("enhanced_altitude") ?: emptyArray(),
                     power = rs.getShortArray("power") ?: emptyArray(),
+                    temperature = rs.getShortArray("temperature") ?: emptyArray(),
                 )
             }.optional()
             .orElse(null)

@@ -4,6 +4,9 @@ import com.jacobcraig.stridehearth.activities.history.ActivityChange
 import com.jacobcraig.stridehearth.activities.history.ActivityHistory
 import com.jacobcraig.stridehearth.activities.history.FieldChange
 import com.jacobcraig.stridehearth.api.RequestValidationException
+import com.jacobcraig.stridehearth.athlete.AcclimationRollup
+import com.jacobcraig.stridehearth.athlete.AthleteFitnessService
+import com.jacobcraig.stridehearth.athlete.AthleteTimeZone
 import com.jacobcraig.stridehearth.heatmap.HeatmapRouteRepository
 import com.jacobcraig.stridehearth.system.ActivitySport
 import com.jacobcraig.stridehearth.users.UserRepository
@@ -25,6 +28,9 @@ class ActivityService(
     private val heatmapRouteRepository: HeatmapRouteRepository,
     private val derivedMetricsRepository: ActivityDerivedMetricsRepository,
     private val staminaService: StaminaService,
+    private val acclimationRollup: AcclimationRollup,
+    private val athleteTimeZone: AthleteTimeZone,
+    private val athleteFitnessService: AthleteFitnessService,
 ) {
     /** Logs a `MANUAL` **Activity** for [userId], recording its creation as an **Activity History Entry**. */
     @Transactional
@@ -61,7 +67,8 @@ class ActivityService(
 
     /**
      * The **Activity** with its **Laps** (in lap order), **Activity History Entries** (oldest first) and
-     * **Best Efforts** (shortest **Benchmark Distance** first), or null if it doesn't exist for this user.
+     * **Best Efforts** (shortest **Benchmark Distance** first), its derived data and the conditions it was done in,
+     * or null if it doesn't exist for this user.
      */
     @Transactional(readOnly = true)
     fun getActivityDetail(
@@ -69,14 +76,22 @@ class ActivityService(
         userId: Long,
     ): ActivityDetailDTO? {
         val activity = activityRepository.findByIdAndUserId(id, userId) ?: return null
+        val localDate = athleteTimeZone.localDate(userId, activity.startedAt)
+        val isRun = activity.sport == ActivitySport.RUN
         return activity.toDetailDto(
             hasActivityDetails = hasActivityDetails(id),
             laps = activityLapRepository.findByActivityIdOrderByLapNumberAsc(id),
             history = activityHistory.entriesFor(id),
             bestEfforts = activityBestEffortRepository.findByActivityId(id).sortedBy { it.benchmarkDistance.distanceMeters },
-            runMetrics = if (activity.sport == ActivitySport.RUN) derivedMetricsRepository.findRunMetrics(id) else null,
+            runMetrics = if (isRun) derivedMetricsRepository.findRunMetrics(id) else null,
             trainingLoad = derivedMetricsRepository.findTrainingLoad(id),
             minStaminaPct = staminaService.stamina(id, userId)?.min,
+            conditions =
+                derivedMetricsRepository.findConditions(id)?.toDto(
+                    acclimationRollup.findDay(userId, localDate),
+                ),
+            vo2max = if (isRun) derivedMetricsRepository.findVo2max(id) else null,
+            correctionFactor = if (isRun) athleteFitnessService.correctionFactorOn(userId, localDate) else null,
         )
     }
 
@@ -128,8 +143,8 @@ class ActivityService(
 
     /**
      * Applies an edit (with [metrics] only when they are editable), recording history; on a sport change it
-     * refreshes Best Efforts and derived data and recomputes the Activity's heatmap route, and on a `startedAt`
-     * change it refreshes derived data.
+     * refreshes Best Efforts and derived data and recomputes the Activity's heatmap route, and on a change of
+     * `startedAt` or any other Protected Metric it refreshes derived data.
      */
     private fun applyEdit(
         activity: Activity,
@@ -139,8 +154,9 @@ class ActivityService(
     ) {
         val oldSport = activity.sport
         val oldStartedAt = activity.startedAt
-        val changes =
-            activity.applyMetadataChanges(title, sport) + (metrics?.let { activity.applyProtectedMetricChanges(it) } ?: emptyList())
+        val metadataChanges = activity.applyMetadataChanges(title, sport)
+        val metricChanges = metrics?.let { activity.applyProtectedMetricChanges(it) }.orEmpty()
+        val changes = metadataChanges + metricChanges
 
         activityRepository.save(activity)
         val previousStartedAt = oldStartedAt.takeIf { it != activity.startedAt }
@@ -149,7 +165,8 @@ class ActivityService(
             derivedDataRefresh.refresh(activity, previousStartedAt = previousStartedAt, previousSport = oldSport)
             // After the refresh, which flushes the edit: a heatmap route insert key-share locks the Activity's row.
             heatmapRouteRepository.recomputeForSport(listOf(activity.id!!), activity.sport)
-        } else if (previousStartedAt != null) {
+        } else if (previousStartedAt != null || metricChanges.isNotEmpty()) {
+            // A manual Activity's Protected Metrics, such as its distance, feed the athlete's rollups (Marathon Shape).
             derivedDataRefresh.refresh(activity, previousStartedAt = previousStartedAt)
         }
         // After the refresh: the entry's insert runs at once and key-share locks the Activity's row, which must

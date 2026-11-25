@@ -101,6 +101,7 @@ const activity: ActivityDetailDto = {
   trainingLoad: null,
   trainingLoadUnavailableReason: null,
   minStaminaPct: null,
+  conditions: null,
 };
 
 function json(body: unknown): Response {

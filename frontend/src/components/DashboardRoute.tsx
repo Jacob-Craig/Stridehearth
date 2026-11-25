@@ -6,6 +6,7 @@ import { dashboardQueryOptions } from '../api/dashboard';
 import { criticalSpeedQueryOptions, peakEffortsQueryOptions } from '../api/paceDuration';
 import { personalRecordProgressionQueryOptions } from '../api/personalRecords';
 import { pmcQueryOptions } from '../api/pmc';
+import { racePrognosisQueryOptions } from '../api/racePrognosis';
 import type { QueryState } from '../features/pace-duration/PaceDurationCurve';
 import type { ProgressionState } from '../features/pr-progression/PersonalRecordProgression';
 import { Dashboard } from './Dashboard';
@@ -19,6 +20,7 @@ export const dashboardQueries = (userId: number | undefined) => ({
   progression: personalRecordProgressionQueryOptions(userId),
   peakEfforts: peakEffortsQueryOptions(userId),
   criticalSpeed: criticalSpeedQueryOptions(userId),
+  racePrognosis: racePrognosisQueryOptions(userId),
 });
 
 /** A query's result as a card sees it, so a failure stays inside that card. */
@@ -45,6 +47,7 @@ export function DashboardRoute() {
   const criticalSpeed = useQuery({ ...queries.criticalSpeed, refetchOnMount: false });
   return (
     <Dashboard
+      userId={user.id}
       personalRecordSlots={data.personalRecordSlots}
       pmc={{ data: pmc.data, isError: pmc.isError }}
       progression={match(progression)

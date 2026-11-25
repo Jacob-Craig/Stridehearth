@@ -35,6 +35,10 @@ import {
   manageActivitiesQueries,
 } from './features/manage/ManageActivitiesRoute';
 import { manageSearchSchema, toManageFilters } from './features/manage/manageSearch';
+import {
+  RaceSplitPlanRoute,
+  raceSplitPlanQueries,
+} from './features/race-split-plan/RaceSplitPlanRoute';
 import { SettingsRoute, settingsQueries } from './features/settings/SettingsRoute';
 
 export interface RouterContext {
@@ -130,6 +134,8 @@ export const dashboardRoute = createRoute({
       // So is the Pace-Duration Curve, whose section shows its own error.
       context.queryClient.prefetchQuery(queries.peakEfforts),
       context.queryClient.prefetchQuery(queries.criticalSpeed),
+      // So is today's Race Prognosis, whose card shows its own error and queries race-day conditions itself.
+      context.queryClient.prefetchQuery(queries.racePrognosis),
     ]);
   },
   component: DashboardRoute,
@@ -215,6 +221,15 @@ export const activityEditRoute = createRoute({
   errorComponent: routeErrorComponent('This Activity could not be loaded'),
 });
 
+export const activitySplitPlanRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/activities/$activityId/split-plan',
+  loader: ({ context, params }) =>
+    context.queryClient.ensureQueryData(raceSplitPlanQueries(context.user.id, params).activity),
+  component: RaceSplitPlanRoute,
+  errorComponent: routeErrorComponent('This Race Split Plan could not be loaded'),
+});
+
 export const heatmapRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/heatmap',
@@ -269,6 +284,7 @@ export function createAppRouter(context: RouterContext, history?: RouterHistory)
       activitiesAddActivityRoute,
       activityDetailRoute,
       activityEditRoute,
+      activitySplitPlanRoute,
       heatmapRoute,
       invitesRoute,
       settingsRoute,

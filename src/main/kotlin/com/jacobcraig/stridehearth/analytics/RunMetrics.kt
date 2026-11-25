@@ -1,10 +1,7 @@
 package com.jacobcraig.stridehearth.analytics
 
 import io.swagger.v3.oas.annotations.media.Schema
-import kotlin.math.ceil
-import kotlin.math.floor
 import kotlin.math.pow
-import kotlin.math.sqrt
 
 /** Why a Run has no **Aerobic Decoupling**, in the order the reasons are checked. */
 @Schema(enumAsRef = true)
@@ -88,48 +85,36 @@ data class RunMetrics(
             cleaned: CleanedTelemetry,
             gapSpeed: Array<Float?>?,
         ): RunMetrics {
-            val series = gapSpeed?.let { movingSeries(cleaned, it) } ?: MovingSeries(DoubleArray(0), arrayOfNulls(0))
-            val n = series.gap.size
+            val series = gapSpeed?.let { MovingSeries.of(cleaned, it) } ?: MovingSeries.EMPTY
+            val n = series.size
             val ngp =
                 normalized(series.gap, 0, n)
                     ?: return RunMetrics(n, null, null, null, DecouplingUnavailableReason.NO_PACE_DATA)
-            val efficiencyFactor = efficiencyFactor(ngp, series.heartRate, 0, n)
-            val halves = Halves(n)
+            val efficiencyFactor = efficiencyFactor(ngp, series, 0, n)
+            val halves = TrimmedRange(n)
             val (decoupling, reason) =
                 when {
                     efficiencyFactor == null -> null to DecouplingUnavailableReason.NO_HEART_RATE
                     n < MIN_STEADY_SECONDS -> null to DecouplingUnavailableReason.TOO_SHORT
-                    !covered(series.heartRate, halves.from, halves.mid) ||
-                        !covered(series.heartRate, halves.mid, halves.to) ->
+                    !series.heartRateCovers(halves.from, halves.mid) ||
+                        !series.heartRateCovers(halves.mid, halves.to) ->
                         null to DecouplingUnavailableReason.HEART_RATE_GAP_IN_HALF
                     else -> decoupling(series, halves)
                 }
             return RunMetrics(n, ngp, efficiencyFactor, decoupling, reason)
         }
 
-        /** The trimmed range `[ceil(0.10 N), floor(0.95 N))` split by count at [mid]. */
-        private class Halves(
-            n: Int,
-        ) {
-            val from = ceil(WARM_UP_FRACTION * n).toInt()
-            val to = floor((1 - COOL_DOWN_FRACTION) * n).toInt()
-            val mid = from + (to - from) / 2
-        }
-
         /** Called only with at least [MIN_STEADY_SECONDS] of Moving Time and heart rate covering both halves. */
         private fun decoupling(
             series: MovingSeries,
-            halves: Halves,
+            halves: TrimmedRange,
         ): Pair<Double?, DecouplingUnavailableReason?> {
             val from = halves.from
             val mid = halves.mid
             val to = halves.to
-            val rolling = rollingMeans(series.gap, from, to)
-            val mean = rolling.average()
-            val sd = sqrt(rolling.sumOf { (it - mean) * (it - mean) } / rolling.size)
-            if (sd / mean >= MAX_STEADY_CV) return null to DecouplingUnavailableReason.NOT_STEADY
-            val first = efficiencyFactor(checkNotNull(normalized(series.gap, from, mid)), series.heartRate, from, mid)
-            val second = efficiencyFactor(checkNotNull(normalized(series.gap, mid, to)), series.heartRate, mid, to)
+            if (checkNotNull(series.rollingCv(from, to)) >= MAX_STEADY_CV) return null to DecouplingUnavailableReason.NOT_STEADY
+            val first = efficiencyFactor(checkNotNull(normalized(series.gap, from, mid)), series, from, mid)
+            val second = efficiencyFactor(checkNotNull(normalized(series.gap, mid, to)), series, mid, to)
             return (checkNotNull(first) - checkNotNull(second)) / first * 100 to null
         }
 
@@ -139,105 +124,20 @@ data class RunMetrics(
             from: Int,
             to: Int,
         ): Double? {
-            val rolling = rollingMeans(gap, from, to)
+            val rolling = MovingSeries.rollingMeans(gap, from, to)
             if (rolling.isEmpty()) return null
             return rolling.map { it.pow(4) }.average().pow(0.25)
-        }
-
-        /** The trailing [ROLLING_WINDOW_SECONDS] means of [gap] whose windows lie wholly in [from, to). */
-        private fun rollingMeans(
-            gap: DoubleArray,
-            from: Int,
-            to: Int,
-        ): List<Double> {
-            if (to - from < ROLLING_WINDOW_SECONDS) return emptyList()
-            val means = ArrayList<Double>(to - from - ROLLING_WINDOW_SECONDS + 1)
-            var sum = 0.0
-            for (k in from until to) {
-                sum += gap[k]
-                if (k - from >= ROLLING_WINDOW_SECONDS) sum -= gap[k - ROLLING_WINDOW_SECONDS]
-                if (k - from >= ROLLING_WINDOW_SECONDS - 1) means += sum / ROLLING_WINDOW_SECONDS
-            }
-            return means
         }
 
         /** `60 x ngp / avgHR` over [from, to), or null when heart rate covers less than [MIN_COVERAGE] of it. */
         private fun efficiencyFactor(
             ngp: Double,
-            heartRate: Array<Double?>,
+            series: MovingSeries,
             from: Int,
             to: Int,
         ): Double? {
-            if (!covered(heartRate, from, to)) return null
-            return 60 * ngp / (from until to).mapNotNull { heartRate[it] }.average()
+            if (!series.heartRateCovers(from, to)) return null
+            return 60 * ngp / (from until to).mapNotNull { series.heartRate[it] }.average()
         }
-
-        /** Whether heart rate is present on at least [MIN_COVERAGE] of the seconds in [from, to), and on any. */
-        private fun covered(
-            heartRate: Array<Double?>,
-            from: Int,
-            to: Int,
-        ): Boolean {
-            val present = (from until to).count { heartRate[it] != null }
-            return present > 0 && present >= MIN_COVERAGE * (to - from)
-        }
-
-        private class MovingSeries(
-            val gap: DoubleArray,
-            val heartRate: Array<Double?>,
-        )
-
-        private fun movingSeries(
-            cleaned: CleanedTelemetry,
-            gapSpeed: Array<Float?>,
-        ): MovingSeries {
-            val t = cleaned.t
-            val gap = ArrayList<Double>(t.size)
-            val heartRate = ArrayList<Double?>(t.size)
-
-            fun keep(
-                gapValue: Double?,
-                speedValue: Double?,
-                heartRateValue: Double?,
-            ) {
-                if (gapValue == null || speedValue == null || speedValue < MOVING_SPEED_MPS) return
-                gap += gapValue
-                heartRate += heartRateValue
-            }
-
-            var previous = -1
-            for (i in t.indices) {
-                if (previous >= 0) {
-                    // A sample that does not advance time is skipped; the gap is filled from the last kept one.
-                    if (t[i] <= t[previous]) continue
-                    val dt = t[i] - t[previous]
-                    if (dt <= RECORDING_PAUSE_SECONDS) {
-                        for (s in 1 until dt) {
-                            val fraction = s.toDouble() / dt
-                            keep(
-                                lerp(gapSpeed.at(previous), gapSpeed.at(i), fraction),
-                                lerp(cleaned.speed.at(previous), cleaned.speed.at(i), fraction),
-                                lerp(
-                                    cleaned.heartRate.getOrNull(previous)?.toDouble(),
-                                    cleaned.heartRate.getOrNull(i)?.toDouble(),
-                                    fraction,
-                                ),
-                            )
-                        }
-                    }
-                }
-                keep(gapSpeed.at(i), cleaned.speed.at(i), cleaned.heartRate.getOrNull(i)?.toDouble())
-                previous = i
-            }
-            return MovingSeries(gap.toDoubleArray(), heartRate.toTypedArray())
-        }
-
-        private fun Array<Float?>.at(i: Int): Double? = getOrNull(i)?.toDouble()
-
-        private fun lerp(
-            a: Double?,
-            b: Double?,
-            fraction: Double,
-        ): Double? = if (a == null || b == null) null else a + (b - a) * fraction
     }
 }

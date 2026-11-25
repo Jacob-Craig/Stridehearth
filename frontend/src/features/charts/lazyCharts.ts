@@ -22,3 +22,11 @@ export const loadPmcChart = sharedImport(() => import('../pmc/pmcChart'));
 export const loadPaceDurationChart = sharedImport(
   () => import('../pace-duration/paceDurationChart'),
 );
+
+/** The **Race Prognosis** trend adapter, with uPlot. */
+export const loadPrognosisChart = sharedImport(() => import('../race-prognosis/prognosisChart'));
+
+/** The **Race Split Plan** elevation profile adapter, with uPlot. */
+export const loadElevationProfileChart = sharedImport(
+  () => import('../race-split-plan/elevationProfileChart'),
+);

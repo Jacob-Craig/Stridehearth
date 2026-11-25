@@ -3,11 +3,15 @@ package com.jacobcraig.stridehearth.activities
 import com.jacobcraig.stridehearth.activities.history.ActivityHistoryEntryDTO
 import com.jacobcraig.stridehearth.activities.history.HistoryEntry
 import com.jacobcraig.stridehearth.activities.history.toDto
+import com.jacobcraig.stridehearth.analytics.ActivityConditions
 import com.jacobcraig.stridehearth.analytics.DecouplingUnavailableReason
 import com.jacobcraig.stridehearth.analytics.RunMetrics
 import com.jacobcraig.stridehearth.analytics.TrainingLoadMethod
 import com.jacobcraig.stridehearth.analytics.TrainingLoadResult
 import com.jacobcraig.stridehearth.analytics.TrainingLoadUnavailableReason
+import com.jacobcraig.stridehearth.analytics.Vo2maxResult
+import com.jacobcraig.stridehearth.analytics.Vo2maxUnavailableReason
+import com.jacobcraig.stridehearth.athlete.AcclimationRow
 import com.jacobcraig.stridehearth.system.ActivitySport
 import io.swagger.v3.oas.annotations.media.Schema
 import java.time.Instant
@@ -15,7 +19,8 @@ import java.time.Instant
 /**
  * One **Activity** with everything its detail view shows: the summary metrics (canonical primitives
  * only, as in [ActivitySummaryDTO]), its owner, device **Laps**, **Activity History Entries** and
- * **Best Efforts**, for a Run its derived [RunMetricsDTO], and its **Training Load** or why it has none. The high-resolution **Activity Details** are served separately by
+ * **Best Efforts**, for a Run its derived [RunMetricsDTO], its **Training Load** or why it has none, and the
+ * [ActivityConditionsDTO] it was done in. The high-resolution **Activity Details** are served separately by
  * `GET /api/activities/{id}/telemetry` ([ActivityTelemetryResponseDTO]).
  */
 data class ActivityDetailDTO(
@@ -76,7 +81,62 @@ data class ActivityDetailDTO(
         description = "The lowest Stamina the Run reaches, in percent; null when it has no Stamina stream",
     )
     val minStaminaPct: Double?,
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
+        types = ["object", "null"],
+        description = "The temperature, altitude and acclimation the Activity was done in; null until its derived data is computed",
+    )
+    val conditions: ActivityConditionsDTO?,
 )
+
+/**
+ * The heat and altitude an Activity was done in, from its own Activity Details (ADR-0017), and the athlete's
+ * acclimation on its athlete-local day. Every value is unrounded and null when it cannot be computed.
+ */
+data class ActivityConditionsDTO(
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
+        types = ["number", "null"],
+        description = "The median temperature the device recorded, in °C",
+    )
+    val deviceTemperatureC: Double?,
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
+        types = ["number", "null"],
+        description = "Ambient Temperature in °C: the device temperature less the Wrist-Heat Correction",
+    )
+    val ambientTemperatureC: Double?,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The Wrist-Heat Correction subtracted, in °C")
+    val wristHeatCorrectionC: Double,
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
+        types = ["number", "null"],
+        description = "Mean Altitude in metres: the mean of the cleaned altitude",
+    )
+    val meanAltitudeM: Double?,
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
+        types = ["number", "null"],
+        description = "Heat Acclimation (0-100 %) at the end of the Activity's day; null before the athlete's first exposed day",
+    )
+    val heatAcclimationPct: Double?,
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
+        types = ["number", "null"],
+        description = "Altitude Acclimation (0-100 %) at the end of the Activity's day; null before the athlete's first exposed day",
+    )
+    val altitudeAcclimationPct: Double?,
+)
+
+fun ActivityConditions.toDto(acclimation: AcclimationRow?): ActivityConditionsDTO =
+    ActivityConditionsDTO(
+        deviceTemperatureC = deviceTemperatureC,
+        ambientTemperatureC = ambientTemperatureC,
+        wristHeatCorrectionC = ActivityConditions.WRIST_HEAT_CORRECTION_C,
+        meanAltitudeM = meanAltitudeM,
+        heatAcclimationPct = acclimation?.heatPct,
+        altitudeAcclimationPct = acclimation?.altitudePct,
+    )
 
 /** An Activity's **Training Load**, unrounded, scaled so one hour at threshold is 100, and its **Training Load Method**. */
 data class TrainingLoadDTO(
@@ -113,16 +173,46 @@ data class RunMetricsDTO(
     val aerobicDecouplingPercent: Double?,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = ["string", "null"])
     val decouplingUnavailableReason: DecouplingUnavailableReason?,
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
+        types = ["number", "null"],
+        description = "VO2max Estimate in ml/kg/min before the Correction Factor",
+    )
+    val vo2maxEstimateRaw: Double? = null,
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
+        types = ["number", "null"],
+        description = "VO2max Estimate in ml/kg/min times the Correction Factor of the Run's day",
+    )
+    val vo2maxEstimate: Double? = null,
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
+        types = ["string", "null"],
+        description = "Why the Run has no VO2max Estimate; null when it has one or it has not been computed",
+    )
+    val vo2maxUnavailableReason: Vo2maxUnavailableReason? = null,
 )
 
-fun RunMetrics.toDto(): RunMetricsDTO =
-    RunMetricsDTO(
+/**
+ * [vo2max] is the Run's stored **VO2max Estimate** or why it has none, and [correctionFactor] the **Correction Factor**
+ * of its day: the corrected estimate is null until the athlete's rollups cover that day.
+ */
+fun RunMetrics.toDto(
+    vo2max: Vo2maxResult? = null,
+    correctionFactor: Double? = null,
+): RunMetricsDTO {
+    val raw = (vo2max as? Vo2maxResult.Estimate)?.raw
+    return RunMetricsDTO(
         movingSeconds = movingSeconds,
         ngpMetersPerSecond = ngpMps,
         efficiencyFactor = efficiencyFactor,
         aerobicDecouplingPercent = aerobicDecouplingPct,
         decouplingUnavailableReason = decouplingUnavailableReason,
+        vo2maxEstimateRaw = raw,
+        vo2maxEstimate = raw?.let { r -> correctionFactor?.let { r * it } },
+        vo2maxUnavailableReason = (vo2max as? Vo2maxResult.Unavailable)?.reason,
     )
+}
 
 /** One device-recorded **Lap**. Distance is in kilometers and average speed in km/h. */
 data class ActivityLapDTO(
@@ -191,6 +281,9 @@ fun Activity.toDetailDto(
     runMetrics: RunMetrics? = null,
     trainingLoad: TrainingLoadResult? = null,
     minStaminaPct: Float? = null,
+    conditions: ActivityConditionsDTO? = null,
+    vo2max: Vo2maxResult? = null,
+    correctionFactor: Double? = null,
 ): ActivityDetailDTO =
     toSummaryDto(hasActivityDetails).let { summary ->
         ActivityDetailDTO(
@@ -209,10 +302,11 @@ fun Activity.toDetailDto(
             laps = laps.map { it.toDto() },
             history = history.map { it.toDto() },
             bestEfforts = bestEfforts.map { it.toDto() },
-            runMetrics = runMetrics?.takeIf { sport == ActivitySport.RUN }?.toDto(),
+            runMetrics = runMetrics?.takeIf { sport == ActivitySport.RUN }?.toDto(vo2max, correctionFactor),
             trainingLoad = (trainingLoad as? TrainingLoadResult.Scored)?.let { TrainingLoadDTO(it.value, it.method) },
             trainingLoadUnavailableReason = (trainingLoad as? TrainingLoadResult.Unavailable)?.reason,
             minStaminaPct = minStaminaPct?.let { Math.round(it * 10.0) / 10.0 },
+            conditions = conditions,
         )
     }
 

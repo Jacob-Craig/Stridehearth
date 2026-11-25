@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   averageSpeedKmh,
   decouplingStatus,
+  formatAltitudeM,
   formatDate,
   formatDateTime,
   formatDecouplingPercent,
@@ -16,6 +17,7 @@ import {
   formatNgpPerKm,
   formatPacePerKm,
   formatStaminaPercent,
+  formatTemperatureC,
   formatTrainingLoad,
 } from '../src/lib/format';
 
@@ -115,6 +117,25 @@ describe('formatElevationGain', () => {
 
   it('shows a dash when the device recorded no elevation', () => {
     expect(formatElevationGain(null)).toBe('—');
+  });
+});
+
+describe('formatTemperatureC', () => {
+  it('rounds to whole degrees Celsius', () => {
+    expect(formatTemperatureC(18.4)).toBe('18 °C');
+    expect(formatTemperatureC(23.5)).toBe('24 °C');
+    expect(formatTemperatureC(-3.6)).toBe('-4 °C');
+  });
+
+  it('never shows a negative zero', () => {
+    expect(formatTemperatureC(-0.4)).toBe('0 °C');
+  });
+});
+
+describe('formatAltitudeM', () => {
+  it('rounds to whole metres', () => {
+    expect(formatAltitudeM(312.4)).toBe('312 m');
+    expect(formatAltitudeM(1999.5)).toBe('2000 m');
   });
 });
 
