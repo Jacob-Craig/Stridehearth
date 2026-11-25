@@ -58,6 +58,18 @@ class ActivityAnalysisTest {
         assertNull(analysis.gapSpeed)
     }
 
+    @ParameterizedTest
+    @EnumSource(ActivitySport::class)
+    fun `every sport gets its conditions from its Activity Details and cleaned altitude`(sport: ActivitySport) {
+        val warm = climb.copy(temperature = Array(120) { 28.toShort() })
+
+        val analysis = ActivityAnalysis.analyse(warm, sport)
+
+        assertEquals(ActivityConditions.of(warm, analysis.cleaned), analysis.conditions)
+        assertEquals(22.0, analysis.conditions.ambientTemperatureC)
+        assertNotNull(analysis.conditions.meanAltitudeM)
+    }
+
     /**
      * A flat 1 Hz run at 3 m/s whose GPS teleports 300 m in the one second ending at t = 60: distance jumps by 303 m
      * and the recorded speed reads 40 m/s there.

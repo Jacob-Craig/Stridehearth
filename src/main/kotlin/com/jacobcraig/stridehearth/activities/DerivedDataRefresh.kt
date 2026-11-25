@@ -28,8 +28,9 @@ import java.time.ZoneId
  * - 3: Grade-Adjusted Pace measures grade over a 180 m baseline between 60 m altitude anchors (#51).
  * - 4: Peak Efforts of Runs by Benchmark Duration, over GAP speed and power (#38).
  * - 5: Training Load of every Activity (#35).
+ * - 6: Activity conditions (#43): the device and Ambient Temperature and the Mean Altitude of every Activity.
  */
-const val DERIVED_DATA_VERSION: Short = 5
+const val DERIVED_DATA_VERSION: Short = 6
 
 /**
  * The derived-data module (ADR-0014): the only writer of `activity_derived_metrics`, which holds one row per
@@ -136,6 +137,7 @@ class DerivedDataRefresh(
             analysis?.gapSpeed,
             analysis?.runMetrics,
             analysis?.trainingLoad ?: noActivityDetails(),
+            analysis?.conditions,
         )
         peakEffortRepository.replace(activityId, analysis?.peakEfforts.orEmpty())
     }

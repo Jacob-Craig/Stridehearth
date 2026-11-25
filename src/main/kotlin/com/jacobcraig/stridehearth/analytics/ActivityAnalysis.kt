@@ -16,7 +16,8 @@ import com.jacobcraig.stridehearth.system.fit.FitTelemetry
  * GAP peaks read the cleaned stream, so a GPS spike cannot produce one; power is read as recorded, except that a
  * sample above [MAX_RUN_POWER_WATTS] or below zero is read as missing. [trainingLoad] is the **Training Load**
  * ([TrainingLoadCalculator]) against the Thresholds in force on the Activity's date, from that same plausible power
- * and the cleaned heart rate, so a glitch sample raised to the power 3.5 cannot inflate it either.
+ * and the cleaned heart rate, so a glitch sample raised to the power 3.5 cannot inflate it either. [conditions] (the
+ * temperature and **Mean Altitude** it was done in, [ActivityConditions]) exist for every sport.
  *
  * No Spring and no I/O.
  */
@@ -26,6 +27,7 @@ class ActivityAnalysis private constructor(
     val runMetrics: RunMetrics?,
     val peakEfforts: List<PeakEffort>,
     val trainingLoad: TrainingLoadResult,
+    val conditions: ActivityConditions,
 ) {
     companion object {
         /**
@@ -61,7 +63,7 @@ class ActivityAnalysis private constructor(
                 )
             val peakEfforts =
                 if (sport == ActivitySport.RUN) peakEfforts(details, power, cleaned, gapSpeed) else emptyList()
-            return ActivityAnalysis(cleaned, gapSpeed, runMetrics, peakEfforts, trainingLoad)
+            return ActivityAnalysis(cleaned, gapSpeed, runMetrics, peakEfforts, trainingLoad, ActivityConditions.of(details, cleaned))
         }
 
         /** [power] with every sample outside 0..[MAX_RUN_POWER_WATTS] read as missing. */

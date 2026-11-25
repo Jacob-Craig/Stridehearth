@@ -215,6 +215,50 @@ class DerivedDataRefreshTest {
         )
     }
 
+    private data class ConditionColumns(
+        val deviceTemperatureC: Float?,
+        val ambientTemperatureC: Float?,
+        val meanAltitudeM: Float?,
+    )
+
+    private fun conditionColumns(activity: Activity): ConditionColumns =
+        jdbcTemplate.queryForObject(
+            "SELECT device_temperature_c, ambient_temperature_c, mean_altitude_m FROM activity_derived_metrics WHERE activity_id = ?",
+            { rs, _ ->
+                ConditionColumns(
+                    (rs.getObject(1) as Number?)?.toFloat(),
+                    (rs.getObject(2) as Number?)?.toFloat(),
+                    (rs.getObject(3) as Number?)?.toFloat(),
+                )
+            },
+            activity.id,
+        )!!
+
+    @Test
+    fun `importing an Activity of any sport stores its device and Ambient Temperature and its Mean Altitude`() {
+        // 300 samples at 29 °C; altitude 100 m + 5% of 3 m per second: the cleaned mean is about 122 m.
+        val warm = climbingDetails().copy(temperature = Array(300) { 29.toShort() })
+        listOf(ActivitySport.RUN, ActivitySport.RIDE).forEach { sport ->
+            val activity = import(sport = sport, details = warm, externalId = "warm-${sport.name}")
+
+            val stored = conditionColumns(activity)
+
+            assertEquals(29.0f, stored.deviceTemperatureC, sport.name)
+            assertEquals(23.0f, stored.ambientTemperatureC, sport.name)
+            assertEquals(122.0f, assertNotNull(stored.meanAltitudeM, sport.name), 1.5f, sport.name)
+        }
+    }
+
+    @Test
+    fun `an Activity without a temperature stream or Activity Details stores no conditions`() {
+        val cool = import(externalId = "no-temperature")
+        val bare = import(details = null, externalId = "no-details")
+
+        assertEquals(null, conditionColumns(cool).deviceTemperatureC)
+        assertNotNull(conditionColumns(cool).meanAltitudeM)
+        assertEquals(ConditionColumns(null, null, null), conditionColumns(bare))
+    }
+
     @Test
     fun `a short run stores NGP with the reason decoupling is unavailable`() {
         val run = import()

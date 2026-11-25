@@ -1,5 +1,6 @@
 package com.jacobcraig.stridehearth.activities
 
+import com.jacobcraig.stridehearth.analytics.ActivityConditions
 import com.jacobcraig.stridehearth.analytics.DecouplingUnavailableReason
 import com.jacobcraig.stridehearth.analytics.RunMetrics
 import com.jacobcraig.stridehearth.analytics.TrainingLoadMethod
@@ -14,7 +15,7 @@ import java.time.ZoneOffset
 
 /**
  * Data access for `activity_derived_metrics`: one row per **Activity**, of every sport, holding its derived data
- * (the **Grade-Adjusted Pace** stream, for a Run its [RunMetrics], and its **Training Load**) and the `algorithm_version` that computed it (ADR-0014). The row is the
+ * (the **Grade-Adjusted Pace** stream, for a Run its [RunMetrics], its **Training Load** and its [ActivityConditions]) and the `algorithm_version` that computed it (ADR-0014). The row is the
  * ledger of what has been computed, so a column that does not apply to an Activity is NULL rather than the row
  * missing. Raw SQL through [JdbcClient], like `activity_details`: no JPA entity maps it.
  *
@@ -25,8 +26,8 @@ class ActivityDerivedMetricsRepository(
     private val jdbcClient: JdbcClient,
 ) {
     /**
-     * Stores [gapSpeed], [runMetrics] and [trainingLoad] for [activityId] as computed by [version], replacing whatever
-     * is stored.
+     * Stores [gapSpeed], [runMetrics], [trainingLoad] and [conditions] for [activityId] as computed by [version],
+     * replacing whatever is stored.
      */
     fun upsert(
         activityId: Long,
@@ -34,15 +35,18 @@ class ActivityDerivedMetricsRepository(
         gapSpeed: Array<Float?>?,
         runMetrics: RunMetrics? = null,
         trainingLoad: TrainingLoadResult? = null,
+        conditions: ActivityConditions? = null,
     ) {
         jdbcClient
             .sql(
                 """
                 INSERT INTO activity_derived_metrics (activity_id, algorithm_version, gap_speed, moving_seconds, ngp_mps,
                     efficiency_factor, aerobic_decoupling_pct, decoupling_unavailable_reason, training_load,
-                    training_load_method, training_load_unavailable_reason, computed_at)
+                    training_load_method, training_load_unavailable_reason, device_temperature_c, ambient_temperature_c,
+                    mean_altitude_m, computed_at)
                 VALUES (:activityId, :version, :gapSpeed::real[], :movingSeconds, :ngpMps, :efficiencyFactor,
-                    :aerobicDecouplingPct, :reason, :trainingLoad, :trainingLoadMethod, :trainingLoadReason, now())
+                    :aerobicDecouplingPct, :reason, :trainingLoad, :trainingLoadMethod, :trainingLoadReason,
+                    :deviceTemperatureC, :ambientTemperatureC, :meanAltitudeM, now())
                 ON CONFLICT (activity_id) DO UPDATE
                 SET algorithm_version = EXCLUDED.algorithm_version,
                     gap_speed = EXCLUDED.gap_speed,
@@ -54,6 +58,9 @@ class ActivityDerivedMetricsRepository(
                     training_load = EXCLUDED.training_load,
                     training_load_method = EXCLUDED.training_load_method,
                     training_load_unavailable_reason = EXCLUDED.training_load_unavailable_reason,
+                    device_temperature_c = EXCLUDED.device_temperature_c,
+                    ambient_temperature_c = EXCLUDED.ambient_temperature_c,
+                    mean_altitude_m = EXCLUDED.mean_altitude_m,
                     computed_at = EXCLUDED.computed_at
                 """.trimIndent(),
             ).param("activityId", activityId)
@@ -65,6 +72,9 @@ class ActivityDerivedMetricsRepository(
             .param("aerobicDecouplingPct", runMetrics?.aerobicDecouplingPct, Types.DOUBLE)
             .param("reason", runMetrics?.decouplingUnavailableReason?.name, Types.VARCHAR)
             .trainingLoadParams(trainingLoad)
+            .param("deviceTemperatureC", conditions?.deviceTemperatureC, Types.REAL)
+            .param("ambientTemperatureC", conditions?.ambientTemperatureC, Types.REAL)
+            .param("meanAltitudeM", conditions?.meanAltitudeM, Types.REAL)
             .update()
     }
 
