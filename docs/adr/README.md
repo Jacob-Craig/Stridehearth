@@ -20,3 +20,4 @@ This directory documents the architectural and engineering decisions for the Str
 - [0014-recompute-derived-activity-data-in-one-versioned-refresh.md](0014-recompute-derived-activity-data-in-one-versioned-refresh.md): Recompute Derived Activity Data in One Versioned Refresh, Backfilled by a Background Worker
 - [0015-athlete-local-dates-come-from-a-stored-iana-time-zone.md](0015-athlete-local-dates-come-from-a-stored-iana-time-zone.md): Athlete-Local Dates Come from a Stored IANA Time Zone
 - [0016-athlete-rollups-run-before-commit-under-a-per-athlete-lock-taken-last.md](0016-athlete-rollups-run-before-commit-under-a-per-athlete-lock-taken-last.md): Athlete Rollups Run Before Commit under a Per-Athlete Lock Taken Last
+- [0017-weather-comes-from-the-device-and-external-weather-is-an-operator-opt-in.md](0017-weather-comes-from-the-device-and-external-weather-is-an-operator-opt-in.md): Weather Comes from the Device; External Weather Is an Operator Opt-In

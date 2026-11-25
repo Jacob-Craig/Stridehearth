@@ -22,11 +22,11 @@ Replacing an Activity's stored Activity Details and Laps with ones decoded from 
 _Avoid_: Re-parse, migration
 
 **Backfill**:
-Filling in something an Activity lacks (Activity Details, their distance, Laps, Best Efforts, or derived data such as Grade-Adjusted Pace, Normalized Graded Pace, Peak Efforts or Training Load) without replacing anything it already has. Replacing derived data that is out of date is a Recompute.
+Filling in something an Activity lacks (Activity Details, their distance, Laps, Best Efforts, or derived data such as Grade-Adjusted Pace, Normalized Graded Pace, Peak Efforts, Training Load or Ambient Temperature) without replacing anything it already has. Replacing derived data that is out of date is a Recompute.
 _Avoid_: Repair, fix-up
 
 **Recompute (derived data)**:
-Replacing an Activity's stored derived data (such as its Grade-Adjusted Pace, Run metrics like Normalized Graded Pace, Peak Efforts, or Training Load) because something it was computed from changed: its Activity Details, its sport or start time, the athlete's Thresholds or Athlete Time Zone, or the version of the algorithm that computed it. It never changes the Activity itself, so it leaves no Activity History Entry.
+Replacing an Activity's stored derived data (such as its Grade-Adjusted Pace, Run metrics like Normalized Graded Pace, Peak Efforts, Training Load, or Ambient Temperature and Mean Altitude) because something it was computed from changed: its Activity Details, its sport or start time, the athlete's Thresholds or Athlete Time Zone, or the version of the algorithm that computed it. It never changes the Activity itself, so it leaves no Activity History Entry.
 _Avoid_: Reprocess, regenerate, migration
 
 **Activity Source**:
@@ -138,13 +138,25 @@ _Avoid_: Power-duration curve (for pace), mean-maximal curve, PDC (in the UI)
 
 **Telemetry Cleaning**:
 The pass that produces Cleaned Activity Details from an Activity's Activity Details and sport: it rejects GPS spikes (speeds above the sport's ceiling and distance jumps), treats heart rate as missing during dropouts and cadence-lock, interpolates gaps of up to 10 seconds, and smooths altitude over a 15 m distance window.
-It never changes the stored Activity Details, and an Activity with no GPS fix keeps its speed, distance and altitude exactly as recorded.
+It never changes the stored Activity Details, and an Activity with no GPS fix keeps its speed, distance and altitude exactly as recorded. Temperature is not cleaned.
 _Avoid_: Filtering, sanitising, data correction
 
 **Cleaned Activity Details**:
 Speed, distance, heart-rate and altitude series computed from an Activity's Activity Details by Telemetry Cleaning, with GPS spikes, heart-rate dropouts and altitude noise removed.
 They are never stored and never shown in place of Activity Details; derived analytics read them. Best Efforts are the exception: they are measured on the recorded distance.
 _Avoid_: Filtered telemetry, corrected data, cleaned streams
+
+**Ambient Temperature**:
+The air temperature an Activity was done in, as Stridehearth estimates it: the median of the temperatures the device recorded (when at least 60 samples cover at least half the Activity) less the Wrist-Heat Correction. It comes only from the Activity's own file (ADR-0017). Derived, so recomputed, never edited.
+_Avoid_: Weather, air temperature, device temperature
+
+**Wrist-Heat Correction**:
+The 6 °C subtracted from a device's temperature to estimate the Ambient Temperature, because a watch worn on the wrist reads warmer than the air. Where a device is worn is never recorded, so it applies to every Activity.
+_Avoid_: Temperature offset, body-heat adjustment
+
+**Mean Altitude**:
+The mean of an Activity's cleaned altitude, in metres, once it has at least 60 samples. Derived, so recomputed, never edited.
+_Avoid_: Average elevation, altitude
 
 **Grade-Adjusted Pace (GAP)**:
 The pace an athlete would have held on flat ground for the same effort, computed per sample from Cleaned Activity Details and the gradient (Minetti's cost of running, grade clamped to ±45%), for Runs, Walks and Hikes.
@@ -236,6 +248,18 @@ _Avoid_: Weekly load, stress
 **Performance Management Chart (PMC)**:
 An athlete's daily series of Daily Load, Fitness, Fatigue, Form, ACWR, Monotony and Strain, one entry per day from their first scored day to today. Derived and rebuilt from the earliest affected day whenever an Activity's Training Load or day changes, never edited.
 _Avoid_: Fitness chart, training graph
+
+**Heat Acclimation**:
+How adapted an athlete is to heat, 0–100 %, at the end of each athlete-local day: a day with an Activity of at least 20 minutes above 22 °C Ambient Temperature adds 100/14 points, any other day takes away 100/21, so 14 exposed days build it fully and 21 days without exposure lose it all. Derived and rebuilt from the earliest affected day, never edited.
+_Avoid_: Heat adaptation, heat tolerance
+
+**Altitude Acclimation**:
+Heat Acclimation's counterpart for altitude: a day counts as exposed when it has an Activity of at least 20 minutes above 800 m Mean Altitude. Tracked separately from Heat Acclimation.
+_Avoid_: Altitude adaptation
+
+**Heat Derating**:
+How much slower the same effort runs in the heat: running time multiplied by 1 + 0.003 per °C of Ambient Temperature above 20 °C (1.5% per 5 °C). It uses temperature only, and acclimation does not change it yet. Predictions such as Race Prognosis and VO2max apply it.
+_Avoid_: Heat penalty, heat adjustment
 
 **Dashboard**:
 The athlete's primary landing view summarizing Personal Records, aggregate training volume, and performance trends across recorded Activities.
