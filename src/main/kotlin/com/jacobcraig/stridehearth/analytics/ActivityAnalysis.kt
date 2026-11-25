@@ -17,7 +17,9 @@ import com.jacobcraig.stridehearth.system.fit.FitTelemetry
  * sample above [MAX_RUN_POWER_WATTS] or below zero is read as missing. [trainingLoad] is the **Training Load**
  * ([TrainingLoadCalculator]) against the Thresholds in force on the Activity's date, from that same plausible power
  * and the cleaned heart rate, so a glitch sample raised to the power 3.5 cannot inflate it either. [conditions] (the
- * temperature and **Mean Altitude** it was done in, [ActivityConditions]) exist for every sport.
+ * temperature and **Mean Altitude** it was done in, [ActivityConditions]) exist for every sport. [vo2max], the
+ * **VO2max Estimate** ([Vo2maxEstimator]) or why there is none, exists for a Run only, against the same Thresholds.
+ * Both depend on the Thresholds, so [thresholdDependent] groups them for a recompute after a Threshold change.
  *
  * No Spring and no I/O.
  */
@@ -28,7 +30,11 @@ class ActivityAnalysis private constructor(
     val peakEfforts: List<PeakEffort>,
     val trainingLoad: TrainingLoadResult,
     val conditions: ActivityConditions,
+    val vo2max: Vo2maxResult?,
 ) {
+    /** The derived data that depends on the Thresholds in force on the Activity's date. */
+    val thresholdDependent: ThresholdDependentMetrics get() = ThresholdDependentMetrics(trainingLoad, vo2max)
+
     companion object {
         /**
          * The highest power, in W, a Run's power peaks and Training Load believe. Running power meters report well
@@ -63,7 +69,9 @@ class ActivityAnalysis private constructor(
                 )
             val peakEfforts =
                 if (sport == ActivitySport.RUN) peakEfforts(details, power, cleaned, gapSpeed) else emptyList()
-            return ActivityAnalysis(cleaned, gapSpeed, runMetrics, peakEfforts, trainingLoad, ActivityConditions.of(details, cleaned))
+            val conditions = ActivityConditions.of(details, cleaned)
+            val vo2max = if (sport == ActivitySport.RUN) Vo2maxEstimator.estimate(cleaned, gapSpeed, thresholds, conditions) else null
+            return ActivityAnalysis(cleaned, gapSpeed, runMetrics, peakEfforts, trainingLoad, conditions, vo2max)
         }
 
         /** [power] with every sample outside 0..[MAX_RUN_POWER_WATTS] read as missing. */

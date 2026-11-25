@@ -1,6 +1,7 @@
 package com.jacobcraig.stridehearth.activities
 
 import com.jacobcraig.stridehearth.analytics.ActivityAnalysis
+import com.jacobcraig.stridehearth.analytics.ThresholdDependentMetrics
 import com.jacobcraig.stridehearth.analytics.TrainingLoadResult
 import com.jacobcraig.stridehearth.analytics.TrainingLoadUnavailableReason
 import com.jacobcraig.stridehearth.athlete.AthleteAnalyticsStateRepository
@@ -29,8 +30,9 @@ import java.time.ZoneId
  * - 4: Peak Efforts of Runs by Benchmark Duration, over GAP speed and power (#38).
  * - 5: Training Load of every Activity (#35).
  * - 6: Activity conditions (#43): the device and Ambient Temperature and the Mean Altitude of every Activity.
+ * - 7: VO2max Estimate of Runs (#42).
  */
-const val DERIVED_DATA_VERSION: Short = 6
+const val DERIVED_DATA_VERSION: Short = 7
 
 /**
  * The derived-data module (ADR-0014): the only writer of `activity_derived_metrics`, which holds one row per
@@ -46,8 +48,9 @@ const val DERIVED_DATA_VERSION: Short = 6
  *   the caller's pending change, and its write key-share locks the Activity's row, both of which ADR-0006 orders
  *   after the Personal Record lock.
  * - `details`, if passed, must be the Activity Details just stored; otherwise the stored ones are read.
- * - The **Training Load** is scored against the **Thresholds** in force on the Activity's athlete-local date (in the
- *   **Athlete Time Zone**). When the Thresholds or the time zone change, [refreshTrainingLoad] recomputes only it.
+ * - The **Training Load** and a Run's **VO2max Estimate** are computed against the **Thresholds** in force on the
+ *   Activity's athlete-local date (in the **Athlete Time Zone**). When the Thresholds or the time zone change,
+ *   [refreshThresholdDependent] recomputes only them.
  * - A deleted Activity's rows go by `ON DELETE CASCADE`; the refresh only marks its athlete's rollups.
  * - It is idempotent and writes no **Activity History Entry**. Its only lock of its own is the shared side of each
  *   athlete's scoring lock, taken before it reads their Thresholds and held to commit, so a Threshold or time-zone
@@ -103,13 +106,14 @@ class DerivedDataRefresh(
     }
 
     /**
-     * Recomputes only the **Training Load** of each of [activities] that still exists and has a derived-data row, from
-     * its stored Activity Details and the Thresholds now in force on its date, and marks its athlete's daily rollups.
-     * Used when the athlete's Thresholds or time zone change; returns how many loads it replaced. An Activity without
+     * Recomputes only the Threshold-dependent derived data ([ThresholdDependentMetrics]: the **Training Load** and a
+     * Run's **VO2max Estimate**) of each of [activities] that still exists and has a derived-data row, from its stored
+     * Activity Details and the Thresholds now in force on its date, and marks its athlete's daily rollups. Used when
+     * the athlete's Thresholds or time zone change; returns how many rows it replaced. An Activity without
      * a row, or with a row of an older version, is left to the version Backfill or Recompute, which computes everything.
      */
     @Transactional(propagation = Propagation.MANDATORY)
-    fun refreshTrainingLoad(activities: Collection<Activity>): Int {
+    fun refreshThresholdDependent(activities: Collection<Activity>): Int {
         if (activities.isEmpty()) return 0
         entityManager.flush()
         val existing = derivedMetricsRepository.findExistingActivityIds(activities.map { checkNotNull(it.id) })
@@ -117,8 +121,8 @@ class DerivedDataRefresh(
         var replaced = 0
         for (activity in activities) {
             if (activity.id !in existing) continue
-            val load = analyse(activity, details = null, thresholds)?.trainingLoad ?: noActivityDetails()
-            if (derivedMetricsRepository.updateTrainingLoad(activity.id!!, DERIVED_DATA_VERSION, load)) replaced++
+            val metrics = analyse(activity, details = null, thresholds)?.thresholdDependent ?: noActivityDetails()
+            if (derivedMetricsRepository.updateThresholdDependent(activity.id!!, DERIVED_DATA_VERSION, metrics)) replaced++
             athleteRollups.markDailyLoad(checkNotNull(activity.user.id), activity.startedAt)
         }
         return replaced
@@ -136,7 +140,7 @@ class DerivedDataRefresh(
             DERIVED_DATA_VERSION,
             analysis?.gapSpeed,
             analysis?.runMetrics,
-            analysis?.trainingLoad ?: noActivityDetails(),
+            analysis?.thresholdDependent ?: noActivityDetails(),
             analysis?.conditions,
         )
         peakEffortRepository.replace(activityId, analysis?.peakEfforts.orEmpty())
@@ -152,7 +156,9 @@ class DerivedDataRefresh(
         return ActivityAnalysis.analyse(source, activity.sport, thresholds.on(activity))
     }
 
-    private fun noActivityDetails(): TrainingLoadResult = TrainingLoadResult.Unavailable(TrainingLoadUnavailableReason.NO_ACTIVITY_DETAILS)
+    /** An Activity without Activity Details: no Training Load and, as nothing can be estimated, no VO2max reason either. */
+    private fun noActivityDetails(): ThresholdDependentMetrics =
+        ThresholdDependentMetrics(TrainingLoadResult.Unavailable(TrainingLoadUnavailableReason.NO_ACTIVITY_DETAILS))
 
     /**
      * The Thresholds in force on each Activity's athlete-local date, reading each athlete's history and zone once per

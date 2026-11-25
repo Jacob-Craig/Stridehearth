@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap
 data class RecomputeResult(
     val activitiesRecomputed: Int,
     val activitiesFailed: Int,
-    val trainingLoadsRecomputed: Int = 0,
+    val thresholdDependentRecomputed: Int = 0,
     val rollupsRebuilt: Int = 0,
     val rollupsFailed: Int = 0,
 )
@@ -198,7 +198,7 @@ class DerivedDataRecomputeWorker(
                     scanned = true
                     break
                 }
-                tally.trainingLoads += runPage(page, afterId, now, tally, ::recomputeTrainingLoadPage, skipped)
+                tally.trainingLoads += runPage(page, afterId, now, tally, ::recomputeThresholdDependentPage, skipped)
                 attempted = true
                 afterId = page.last()
                 tally.pages++
@@ -209,7 +209,7 @@ class DerivedDataRecomputeWorker(
                     return false
                 }
                 skipped.removeAll(retry.toSet())
-                tally.trainingLoads += runPage(retry, retry.first() - 1, now, tally, ::recomputeTrainingLoadPage, skipped)
+                tally.trainingLoads += runPage(retry, retry.first() - 1, now, tally, ::recomputeThresholdDependentPage, skipped)
                 attempted = true
                 tally.pages++
             }
@@ -343,7 +343,7 @@ class DerivedDataRecomputeWorker(
     }
 
     /** Recomputes only the Training Load of [activityIds]; returns how many loads it replaced. */
-    private fun recomputeTrainingLoadPage(activityIds: List<Long>): Int = derivedDataRefresh.refreshTrainingLoad(lockAndLoad(activityIds))
+    private fun recomputeThresholdDependentPage(activityIds: List<Long>): Int = derivedDataRefresh.refreshThresholdDependent(lockAndLoad(activityIds))
 
     private fun lockAndLoad(activityIds: List<Long>): List<Activity> {
         // Lock first, then read: under READ COMMITTED the reads below see whatever a concurrent writer committed
