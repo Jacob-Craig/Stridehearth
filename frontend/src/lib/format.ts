@@ -96,6 +96,30 @@ export function formatDecouplingUnavailableReason(reason: DecouplingUnavailableR
   return DECOUPLING_UNAVAILABLE_LABELS[reason];
 }
 
+export type Vo2maxUnavailableReason = NonNullable<RunMetricsDto['vo2maxUnavailableReason']>;
+
+const VO2MAX_UNAVAILABLE_LABELS: Readonly<Record<Vo2maxUnavailableReason, string>> = {
+  NO_PACE_DATA: 'No pace data',
+  NO_HEART_RATE_THRESHOLDS: 'Set your Max and Resting HR',
+  NO_HEART_RATE: 'No heart rate',
+  TOO_SHORT: 'Needs 20 min of running',
+  TOO_HILLY: 'Too hilly',
+  NOT_STEADY: 'Pace too variable',
+  INTENSITY_TOO_LOW: 'Too easy to estimate',
+  TOO_FEW_SEGMENTS: 'Too little steady running',
+  OUT_OF_RANGE: 'Outside the plausible range',
+};
+
+/** Why a Run has no **VO2max Estimate**, e.g. `Too hilly`. */
+export function formatVo2maxUnavailableReason(reason: Vo2maxUnavailableReason): string {
+  return VO2MAX_UNAVAILABLE_LABELS[reason];
+}
+
+/** A VO2max in ml/kg/min to one decimal, e.g. `52.1`. */
+export function formatVo2max(value: number): string {
+  return value.toFixed(1);
+}
+
 const TRAINING_LOAD_METHOD_LABELS: Readonly<Record<TrainingLoadMethod, string>> = {
   RSS: 'RSS',
   RTSS: 'rTSS',

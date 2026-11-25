@@ -344,6 +344,9 @@ describe('/activities/$activityId summary', () => {
       efficiencyFactor: 1.2,
       aerobicDecouplingPercent: 4.9,
       decouplingUnavailableReason: null,
+      vo2maxEstimateRaw: null,
+      vo2maxEstimate: null,
+      vo2maxUnavailableReason: null,
       ...overrides,
     });
 
@@ -455,6 +458,62 @@ describe('/activities/$activityId summary', () => {
       expect(within(list).getByText('Efficiency Factor').closest('li')).toHaveTextContent('—');
     });
 
+    it('shows the VO2max Estimate after Aerobic Decoupling to one decimal, with the uncorrected value in a tooltip', async () => {
+      const tile = await summaryTile(
+        runMetrics({ vo2maxEstimateRaw: 50.34, vo2maxEstimate: 52.06 }),
+        'VO2max',
+      );
+
+      expect(tile.previousElementSibling).toHaveTextContent('Aerobic Decoupling');
+      expect(tile).toHaveTextContent('52.1');
+      expect(within(tile).getByText('52.1')).toHaveAttribute(
+        'title',
+        'Before the Correction Factor: 50.3 ml/kg/min',
+      );
+    });
+
+    it('shows the uncorrected estimate, labelled, while the Correction Factor is not yet known', async () => {
+      const tile = await summaryTile(runMetrics({ vo2maxEstimateRaw: 50.34 }), 'VO2max');
+
+      expect(tile).toHaveTextContent('50.3');
+      expect(tile).toHaveTextContent('Uncorrected');
+    });
+
+    it.each([
+      ['NO_PACE_DATA', 'No pace data'],
+      ['NO_HEART_RATE', 'No heart rate'],
+      ['TOO_SHORT', 'Needs 20 min of running'],
+      ['TOO_HILLY', 'Too hilly'],
+      ['NOT_STEADY', 'Pace too variable'],
+      ['INTENSITY_TOO_LOW', 'Too easy to estimate'],
+      ['TOO_FEW_SEGMENTS', 'Too little steady running'],
+      ['OUT_OF_RANGE', 'Outside the plausible range'],
+    ] as const)('explains why there is no VO2max Estimate: %s', async (reason, copy) => {
+      const tile = await summaryTile(runMetrics({ vo2maxUnavailableReason: reason }), 'VO2max');
+
+      expect(tile).toHaveTextContent('—');
+      expect(tile).toHaveTextContent(copy);
+      expect(within(tile).queryByRole('link')).toBeNull();
+    });
+
+    it('links a missing heart-rate Threshold to the settings page', async () => {
+      const tile = await summaryTile(
+        runMetrics({ vo2maxUnavailableReason: 'NO_HEART_RATE_THRESHOLDS' }),
+        'VO2max',
+      );
+
+      expect(within(tile).getByRole('link', { name: 'Set your Max and Resting HR' })).toHaveAttribute(
+        'href',
+        '/settings',
+      );
+    });
+
+    it('shows a dash alone before the estimate is computed', async () => {
+      const tile = await summaryTile(runMetrics(), 'VO2max');
+
+      expect(tile).toHaveTextContent(/^VO2max—$/);
+    });
+
     it('adds no Run metric tiles without Run metrics', async () => {
       stubActivity(detail({ runMetrics: null }));
       renderApp('/activities/42');
@@ -464,6 +523,7 @@ describe('/activities/$activityId summary', () => {
       expect(within(list).queryByText('NGP')).toBeNull();
       expect(within(list).queryByText('Efficiency Factor')).toBeNull();
       expect(within(list).queryByText('Aerobic Decoupling')).toBeNull();
+      expect(within(list).queryByText('VO2max')).toBeNull();
     });
   });
 

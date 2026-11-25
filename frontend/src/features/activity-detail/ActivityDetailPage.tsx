@@ -26,6 +26,7 @@ import { ConditionsMetrics } from './ConditionsMetrics';
 import { DecouplingBadge } from './DecouplingBadge';
 import { LapsTable } from './LapsTable';
 import { TrainingLoadValue } from './TrainingLoadValue';
+import { Vo2maxValue } from './Vo2maxValue';
 import { SECONDARY_BUTTON_CLASS } from './styles';
 
 /** A single device Lap is the whole Activity again, so Laps are only listed from two upwards. */
@@ -130,7 +131,7 @@ export function ActivityDetailPage({ userId, activity, telemetry }: ActivityDeta
 
 /**
  * The summary tiles, five per row on wide screens: the recorded metrics, then a Run's derived
- * metrics (NGP, Efficiency Factor, Aerobic Decoupling) when it has them, then the Training Load
+ * metrics (NGP, Efficiency Factor, Aerobic Decoupling, VO2max Estimate) when it has them, then the Training Load
  * once it has been computed (a value, or the reason there is none), then the lowest **Stamina** a
  * Run reached when it has a Stamina stream.
  */
@@ -147,6 +148,7 @@ function SummaryMetrics({ activity }: { activity: ActivityDetailDto }) {
           ['NGP', formatNgpPerKm(runMetrics.ngpMetersPerSecond)],
           ['Efficiency Factor', formatEfficiencyFactor(runMetrics.efficiencyFactor)],
           ['Aerobic Decoupling', <DecouplingBadge key="decoupling" runMetrics={runMetrics} />],
+          ['VO2max', <Vo2maxValue key="vo2max" runMetrics={runMetrics} />],
         ] as const)
       : []),
     ...(trainingLoad || trainingLoadUnavailableReason
