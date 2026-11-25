@@ -290,6 +290,14 @@ _Avoid_: Mileage score
 The long-run part of Marathon Shape, 0-1: each Run of at least 13 km on the 70 days ending that day scores ((distance − 13 km) / (target long run − 13 km))², at most 2, counting less the older it is (1 − age/70); the target long run is 12·ln(Effective VO2max / 4) − 6 km, at least 15 km. The sum against 5.5, what one target long run a week for 10 weeks scores, capped at 1.
 _Avoid_: Long-run index
 
+**Race Prognosis**:
+An athlete's predicted finish times for the 5K, 10K, Half Marathon and Marathon on one of their days. The base time is what Daniels' VDOT tables give for that day's Effective VO2max. An endurance penalty lengthens it as Marathon Shape falls below 100%, growing with distance: nothing for the 5K, up to +20% for the Marathon at 0% (1 + 0.20 · (distance − 5 km) / 37.195 km · (1 − Marathon Shape / 100)). Today's can also take Course Derating. Absent without an Effective VO2max. Computed from the stored daily values whenever it is read, never stored or edited.
+_Avoid_: Race predictor, race time estimate
+
+**Course Derating**:
+How much slower race-day conditions make a Race Prognosis: its time multiplied by the Heat Derating of the race-day temperature, and by 1 + 4 × the course's total climb / its distance (on gentle grades a metre of climb costs about 6 m of flat running and a metre of descent gives back about 2, for a course that finishes where it starts). Applied to today's prognosis only when the athlete enters conditions, never to the daily trend.
+_Avoid_: Course adjustment, course correction
+
 **Dashboard**:
 The athlete's primary landing view summarizing Personal Records, aggregate training volume, and performance trends across recorded Activities.
 _Avoid_: Statistics page, homepage, stats hub
