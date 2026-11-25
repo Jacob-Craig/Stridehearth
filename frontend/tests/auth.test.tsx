@@ -108,6 +108,26 @@ describe('Auth & App Shell Components', () => {
       });
     });
 
+    it('leaves judging an email address to the server', async () => {
+      const user = userEvent.setup();
+      vi.mocked(authApi.registerUser).mockResolvedValueOnce({ id: 3, username: 'localrunner' });
+
+      render(<RegisterForm onRegisterSuccess={vi.fn()} />);
+
+      // The server's @Email accepts a dotless domain; a stricter client check would silently
+      // disable Register for it.
+      await user.type(screen.getByLabelText(/^username/i), 'localrunner');
+      await user.type(screen.getByLabelText(/^email/i), 'runner@localhost');
+      await user.type(screen.getByLabelText(/^password/i), 'password123');
+      await user.click(screen.getByRole('button', { name: /register|sign up/i }));
+
+      await waitFor(() =>
+        expect(authApi.registerUser).toHaveBeenCalledWith(
+          expect.objectContaining({ email: 'runner@localhost' }),
+        ),
+      );
+    });
+
     it('maps DUPLICATE_RESOURCE fieldErrors directly to the form fields', async () => {
       const user = userEvent.setup();
       vi.mocked(authApi.registerUser).mockRejectedValueOnce(
