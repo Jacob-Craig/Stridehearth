@@ -310,6 +310,31 @@ describe('Settings', () => {
     });
   });
 
+  it('names a Critical Speed suggestion by its source, not its code', async () => {
+    stubApi({
+      'GET /api/athlete/thresholds': () => ({
+        status: 200,
+        body: {
+          ...populated,
+          proposals: [
+            {
+              id: 10,
+              kind: 'THRESHOLD_PACE',
+              value: 4.0,
+              effectiveDate: '2026-11-19',
+              source: 'CRITICAL_SPEED',
+            },
+          ],
+        },
+      }),
+    });
+    renderAt('/settings', runner);
+
+    const suggestions = await screen.findByRole('region', { name: /suggested updates/i });
+    expect(within(suggestions).getByText(/Critical Speed/)).toBeInTheDocument();
+    expect(within(suggestions).queryByText(/CRITICAL_SPEED/)).not.toBeInTheDocument();
+  });
+
   it("changes the athlete's time zone", async () => {
     const fetchMock = stubApi({
       'GET /api/athlete/thresholds': () => ({ status: 200, body: empty }),

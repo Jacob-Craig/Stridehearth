@@ -1431,6 +1431,142 @@
         }
       }
     },
+    "/api/athlete/vo2max" : {
+      "get" : {
+        "tags" : [ "vo-2max-api-controller" ],
+        "summary" : "The athlete's daily Effective VO2max, continued to today, and their Runs' VO2max Estimates",
+        "operationId" : "getVo2max",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "description" : "First day (YYYY-MM-DD); defaults to, and never precedes, the first VO2max Estimate",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "description" : "Last day (YYYY-MM-DD); defaults to, and is capped at, today in the athlete's time zone",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Today's Effective VO2max, one entry per day, and the Runs in range",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Vo2maxResponseDTO"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "A malformed date, or from after to",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/athlete/race-prognosis" : {
+      "get" : {
+        "tags" : [ "race-prognosis-api-controller" ],
+        "summary" : "The athlete's predicted 5K, 10K, Half and Marathon times today, and on each day",
+        "operationId" : "getRacePrognosis",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "description" : "First day (YYYY-MM-DD); defaults to, and never precedes, the first VO2max Estimate",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "description" : "Last day (YYYY-MM-DD); defaults to, and is capped at, today in the athlete's time zone",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "temperatureC",
+          "in" : "query",
+          "description" : "Race-day Ambient Temperature in °C, from -30 to 50; derates today's predictions only",
+          "required" : false,
+          "schema" : {
+            "type" : "number",
+            "maximum" : 50,
+            "minimum" : -30
+          }
+        }, {
+          "name" : "elevationGainM",
+          "in" : "query",
+          "description" : "The course's total climb in m, from 0 to 5000; derates today's predictions only",
+          "required" : false,
+          "schema" : {
+            "type" : "number",
+            "maximum" : 5000,
+            "minimum" : 0
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Today's predictions, derated for any race-day conditions, and one entry per day with an Effective VO2max",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RacePrognosisResponseDTO"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "A malformed date or number, from after to, or race-day conditions out of range",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/athlete/pmc" : {
       "get" : {
         "tags" : [ "pmc-api-controller" ],
@@ -1547,6 +1683,151 @@
         }
       }
     },
+    "/api/athlete/marathon-shape" : {
+      "get" : {
+        "tags" : [ "marathon-shape-api-controller" ],
+        "summary" : "The athlete's daily Marathon Shape, continued to today",
+        "operationId" : "getMarathonShape",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "description" : "First day (YYYY-MM-DD); defaults to, and never precedes, the first VO2max Estimate",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "description" : "Last day (YYYY-MM-DD); defaults to, and is capped at, today in the athlete's time zone",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Today's Marathon Shape with its parts and targets, and one entry per day",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MarathonShapeResponseDTO"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "A malformed date, or from after to",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/athlete/critical-speed" : {
+      "get" : {
+        "tags" : [ "critical-speed-controller" ],
+        "summary" : "The athlete's Critical Speed / D′ (and Critical Power / W′) model from their last 90 days of Peak Efforts",
+        "operationId" : "getCriticalSpeed",
+        "responses" : {
+          "200" : {
+            "description" : "The authenticated athlete's models, or why there is none",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CriticalSpeedResponseDTO"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/athlete/acclimation" : {
+      "get" : {
+        "tags" : [ "acclimation-api-controller" ],
+        "summary" : "The athlete's daily Heat and Altitude Acclimation, decayed to today",
+        "operationId" : "getAcclimation",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "description" : "First day (YYYY-MM-DD); defaults to, and never precedes, the first exposed day",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "description" : "Last day (YYYY-MM-DD); defaults to, and is capped at, today in the athlete's time zone",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Today's acclimation and one entry per day",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AcclimationResponseDTO"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "A malformed date, or from after to",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/activities/{id}/telemetry" : {
       "get" : {
         "tags" : [ "activity-telemetry-controller" ],
@@ -1586,6 +1867,93 @@
             "description" : "Unauthenticated",
             "content" : {
               "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/activities/{id}/race-split-plan" : {
+      "get" : {
+        "tags" : [ "race-split-plan-controller" ],
+        "summary" : "Target times per km or mile over an Activity's route that hold Grade-Adjusted effort even and sum to a Goal Time",
+        "operationId" : "getRaceSplitPlan",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "goalSeconds",
+          "in" : "query",
+          "description" : "The Goal Time, in s, from 60 to 86400",
+          "required" : true,
+          "schema" : {
+            "type" : "number",
+            "maximum" : 86400,
+            "minimum" : 60
+          }
+        }, {
+          "name" : "unit",
+          "in" : "query",
+          "description" : "The length each Split covers",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "KM", "MILE" ]
+          }
+        }, {
+          "name" : "biasPct",
+          "in" : "query",
+          "description" : "The Split Bias, in percent from -5 to 5: positive makes the second half slower",
+          "required" : false,
+          "schema" : {
+            "type" : "number",
+            "maximum" : 5,
+            "minimum" : -5
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "The Race Split Plan",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RaceSplitPlanResponseDTO"
+                }
+              }
+            }
+          },
+          "404" : {
+            "description" : "No such Activity for this athlete",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "Not a Run, Walk or Hike with a GPS route, or a Goal Time, unit or Split Bias out of range",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiErrorResponse"
                 }
@@ -2896,6 +3264,112 @@
         },
         "required" : [ "expiresAt" ]
       },
+      "CorrectionSourceDTO" : {
+        "type" : "object",
+        "properties" : {
+          "activityId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "benchmarkDistance" : {
+            "type" : "string",
+            "enum" : [ "FOUR_HUNDRED_METERS", "ONE_KILOMETER", "ONE_MILE", "FIVE_KILOMETERS", "TEN_KILOMETERS", "HALF_MARATHON" ]
+          },
+          "vdot" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        },
+        "required" : [ "activityId", "benchmarkDistance", "vdot" ]
+      },
+      "Vo2maxCurrentDTO" : {
+        "type" : "object",
+        "properties" : {
+          "day" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "effectiveVo2max" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Null when no Run of the last 30 days has a VO2max Estimate"
+          },
+          "correctionFactor" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "Between 0.8 and 1.2; 1.0 without a calibrating race"
+          },
+          "correctionSource" : {
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/CorrectionSourceDTO",
+            "description" : "The Best Effort the Correction Factor came from; null when it is 1.0 for want of one"
+          }
+        },
+        "required" : [ "correctionFactor", "correctionSource", "day", "effectiveVo2max" ]
+      },
+      "Vo2maxDayDTO" : {
+        "type" : "object",
+        "properties" : {
+          "day" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "effectiveVo2max" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Null when no Run of the 30 days ending that day has a VO2max Estimate"
+          },
+          "correctionFactor" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        },
+        "required" : [ "correctionFactor", "day", "effectiveVo2max" ]
+      },
+      "Vo2maxResponseDTO" : {
+        "type" : "object",
+        "properties" : {
+          "current" : {
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/Vo2maxCurrentDTO",
+            "description" : "Effective VO2max on the athlete's today; null before their first VO2max Estimate"
+          },
+          "days" : {
+            "type" : "array",
+            "description" : "Every day in range, never before the first VO2max Estimate nor after today; empty before it",
+            "items" : {
+              "$ref" : "#/components/schemas/Vo2maxDayDTO"
+            }
+          },
+          "runs" : {
+            "type" : "array",
+            "description" : "The Runs in range with a VO2max Estimate, oldest first",
+            "items" : {
+              "$ref" : "#/components/schemas/Vo2maxRunDTO"
+            }
+          }
+        },
+        "required" : [ "current", "days", "runs" ]
+      },
+      "Vo2maxRunDTO" : {
+        "type" : "object",
+        "properties" : {
+          "activityId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "day" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "The Run's day in the athlete's time zone"
+          },
+          "vo2maxEstimate" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        },
+        "required" : [ "activityId", "day", "vo2maxEstimate" ]
+      },
       "AthleteThresholdsResponseDTO" : {
         "type" : "object",
         "properties" : {
@@ -3029,6 +3503,115 @@
           }
         },
         "required" : [ "effectiveDate", "id", "kind", "source", "value" ]
+      },
+      "RaceDistance" : {
+        "type" : "string",
+        "enum" : [ "FIVE_K", "TEN_K", "HALF_MARATHON", "MARATHON" ]
+      },
+      "RacePredictionDTO" : {
+        "type" : "object",
+        "properties" : {
+          "distance" : {
+            "$ref" : "#/components/schemas/RaceDistance"
+          },
+          "meters" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The race distance, in m"
+          },
+          "vdotSeconds" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The time Daniels' VDOT tables give, in s"
+          },
+          "predictedSeconds" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The predicted finish time, in s"
+          },
+          "enduranceFactor" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The endurance penalty of Marathon Shape, at least 1"
+          },
+          "courseFactor" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The Course Derating of the race-day conditions, at least 1"
+          }
+        },
+        "required" : [ "courseFactor", "distance", "enduranceFactor", "meters", "predictedSeconds", "vdotSeconds" ]
+      },
+      "RacePrognosisCurrentDTO" : {
+        "type" : "object",
+        "properties" : {
+          "day" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "effectiveVo2max" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "Effective VO2max, in ml/kg/min"
+          },
+          "marathonShapePct" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "Marathon Shape, 0 to 100"
+          },
+          "predictions" : {
+            "type" : "array",
+            "description" : "One per race distance, shortest first",
+            "items" : {
+              "$ref" : "#/components/schemas/RacePredictionDTO"
+            }
+          }
+        },
+        "required" : [ "day", "effectiveVo2max", "marathonShapePct", "predictions" ]
+      },
+      "RacePrognosisDayDTO" : {
+        "type" : "object",
+        "properties" : {
+          "day" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "fiveKSeconds" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "tenKSeconds" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "halfSeconds" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "marathonSeconds" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        },
+        "required" : [ "day", "fiveKSeconds", "halfSeconds", "marathonSeconds", "tenKSeconds" ]
+      },
+      "RacePrognosisResponseDTO" : {
+        "type" : "object",
+        "properties" : {
+          "current" : {
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/RacePrognosisCurrentDTO",
+            "description" : "The prognosis on the athlete's today; null when they have no Effective VO2max today"
+          },
+          "days" : {
+            "type" : "array",
+            "description" : "Every day in range with an Effective VO2max, ascending, never after today; without Course Derating",
+            "items" : {
+              "$ref" : "#/components/schemas/RacePrognosisDayDTO"
+            }
+          }
+        },
+        "required" : [ "current", "days" ]
       },
       "PmcDayDTO" : {
         "type" : "object",
@@ -3227,6 +3810,216 @@
         },
         "required" : [ "pace", "power", "windowDays" ]
       },
+      "MarathonShapeCurrentDTO" : {
+        "type" : "object",
+        "properties" : {
+          "day" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "pct" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "Marathon Shape, 0 to 100"
+          },
+          "volumeScore" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "Volume Score, 0 to 1"
+          },
+          "longRunScore" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "Long-Run Score, 0 to 1"
+          },
+          "weeklyKm" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "Run distance per week over the last 26 weeks, in km"
+          },
+          "targetWeeklyKm" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The weekly distance targeted, in km"
+          },
+          "targetLongRunKm" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The long run targeted, in km"
+          }
+        },
+        "required" : [ "day", "longRunScore", "pct", "targetLongRunKm", "targetWeeklyKm", "volumeScore", "weeklyKm" ]
+      },
+      "MarathonShapeDayDTO" : {
+        "type" : "object",
+        "properties" : {
+          "day" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "pct" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Null when the day has no Effective VO2max"
+          }
+        },
+        "required" : [ "day", "pct" ]
+      },
+      "MarathonShapeResponseDTO" : {
+        "type" : "object",
+        "properties" : {
+          "current" : {
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/MarathonShapeCurrentDTO",
+            "description" : "Marathon Shape on the athlete's today; null when they have no Effective VO2max today"
+          },
+          "days" : {
+            "type" : "array",
+            "description" : "Every day in range, never before the first VO2max Estimate nor after today; empty before it",
+            "items" : {
+              "$ref" : "#/components/schemas/MarathonShapeDayDTO"
+            }
+          }
+        },
+        "required" : [ "current", "days" ]
+      },
+      "CriticalSpeedFitDTO" : {
+        "type" : "object",
+        "properties" : {
+          "status" : {
+            "type" : "string",
+            "enum" : [ "MODEL", "INSUFFICIENT_POINTS", "POOR_FIT", "NON_PHYSICAL" ]
+          },
+          "criticalValue" : {
+            "type" : [ "number", "null" ],
+            "format" : "double"
+          },
+          "reserveCapacity" : {
+            "type" : [ "number", "null" ],
+            "format" : "double"
+          },
+          "pointCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "points" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/CriticalSpeedPointDTO"
+            }
+          },
+          "rSquared" : {
+            "type" : [ "number", "null" ],
+            "format" : "double"
+          }
+        },
+        "required" : [ "criticalValue", "pointCount", "points", "rSquared", "reserveCapacity", "status" ]
+      },
+      "CriticalSpeedPointDTO" : {
+        "type" : "object",
+        "properties" : {
+          "benchmarkDuration" : {
+            "type" : "string",
+            "enum" : [ "FIVE_SECONDS", "FIFTEEN_SECONDS", "THIRTY_SECONDS", "ONE_MINUTE", "TWO_MINUTES", "THREE_MINUTES", "FIVE_MINUTES", "TEN_MINUTES", "TWENTY_MINUTES", "THIRTY_MINUTES", "SIXTY_MINUTES" ]
+          },
+          "durationSeconds" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "value" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "activityId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "activityId", "benchmarkDuration", "durationSeconds", "value" ]
+      },
+      "CriticalSpeedResponseDTO" : {
+        "type" : "object",
+        "properties" : {
+          "asOf" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "windowDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pace" : {
+            "$ref" : "#/components/schemas/CriticalSpeedFitDTO"
+          },
+          "power" : {
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/CriticalSpeedFitDTO"
+          }
+        },
+        "required" : [ "asOf", "pace", "power", "windowDays" ]
+      },
+      "AcclimationCurrentDTO" : {
+        "type" : "object",
+        "properties" : {
+          "day" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "heatPct" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "altitudePct" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        },
+        "required" : [ "altitudePct", "day", "heatPct" ]
+      },
+      "AcclimationDayDTO" : {
+        "type" : "object",
+        "properties" : {
+          "day" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "heatPct" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "altitudePct" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "heatExposed" : {
+            "type" : "boolean",
+            "description" : "Whether an Activity of at least 20 minutes that day was above 22 °C Ambient Temperature"
+          },
+          "altitudeExposed" : {
+            "type" : "boolean",
+            "description" : "Whether an Activity of at least 20 minutes that day was above 800 m Mean Altitude"
+          }
+        },
+        "required" : [ "altitudeExposed", "altitudePct", "day", "heatExposed", "heatPct" ]
+      },
+      "AcclimationResponseDTO" : {
+        "type" : "object",
+        "properties" : {
+          "current" : {
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/AcclimationCurrentDTO",
+            "description" : "Acclimation on the athlete's today; null before their first exposed day"
+          },
+          "days" : {
+            "type" : "array",
+            "description" : "Every day in range, never before the first exposed day nor after today; empty before it",
+            "items" : {
+              "$ref" : "#/components/schemas/AcclimationDayDTO"
+            }
+          }
+        },
+        "required" : [ "current", "days" ]
+      },
       "PagedResponseDTOActivitySummaryDTO" : {
         "type" : "object",
         "properties" : {
@@ -3288,6 +4081,42 @@
           }
         },
         "required" : [ "benchmarkDistance", "benchmarkName", "distanceMeters", "elapsedTimeSeconds", "id", "window" ]
+      },
+      "ActivityConditionsDTO" : {
+        "type" : "object",
+        "properties" : {
+          "deviceTemperatureC" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "The median temperature the device recorded, in °C"
+          },
+          "ambientTemperatureC" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Ambient Temperature in °C: the device temperature less the Wrist-Heat Correction"
+          },
+          "wristHeatCorrectionC" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The Wrist-Heat Correction subtracted, in °C"
+          },
+          "meanAltitudeM" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Mean Altitude in metres: the mean of the cleaned altitude"
+          },
+          "heatAcclimationPct" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Heat Acclimation (0-100 %) at the end of the Activity's day; null before the athlete's first exposed day"
+          },
+          "altitudeAcclimationPct" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Altitude Acclimation (0-100 %) at the end of the Activity's day; null before the athlete's first exposed day"
+          }
+        },
+        "required" : [ "altitudeAcclimationPct", "ambientTemperatureC", "deviceTemperatureC", "heatAcclimationPct", "meanAltitudeM", "wristHeatCorrectionC" ]
       },
       "ActivityDetailDTO" : {
         "type" : "object",
@@ -3375,9 +4204,19 @@
             "type" : [ "string", "null" ],
             "$ref" : "#/components/schemas/TrainingLoadUnavailableReason",
             "description" : "Why the Activity has no Training Load; null when it has one or it is not computed yet"
+          },
+          "minStaminaPct" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "The lowest Stamina the Run reaches, in percent; null when it has no Stamina stream"
+          },
+          "conditions" : {
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/ActivityConditionsDTO",
+            "description" : "The temperature, altitude and acclimation the Activity was done in; null until its derived data is computed"
           }
         },
-        "required" : [ "averageHeartRate", "averagePaceKmh", "bestEfforts", "calories", "distance", "hasProtectedMetrics", "history", "id", "laps", "ownerUsername", "runMetrics", "source", "sport", "startedAt", "timeTakenSeconds", "title", "trainingLoad", "trainingLoadUnavailableReason" ]
+        "required" : [ "averageHeartRate", "averagePaceKmh", "bestEfforts", "calories", "conditions", "distance", "hasProtectedMetrics", "history", "id", "laps", "minStaminaPct", "ownerUsername", "runMetrics", "source", "sport", "startedAt", "timeTakenSeconds", "title", "trainingLoad", "trainingLoadUnavailableReason" ]
       },
       "ActivityHistoryEntryDTO" : {
         "type" : "object",
@@ -3492,9 +4331,24 @@
           "decouplingUnavailableReason" : {
             "type" : [ "string", "null" ],
             "$ref" : "#/components/schemas/DecouplingUnavailableReason"
+          },
+          "vo2maxEstimateRaw" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "VO2max Estimate in ml/kg/min before the Correction Factor"
+          },
+          "vo2maxEstimate" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "VO2max Estimate in ml/kg/min times the Correction Factor of the Run's day"
+          },
+          "vo2maxUnavailableReason" : {
+            "type" : [ "string", "null" ],
+            "$ref" : "#/components/schemas/Vo2maxUnavailableReason",
+            "description" : "Why the Run has no VO2max Estimate; null when it has one or it has not been computed"
           }
         },
-        "required" : [ "aerobicDecouplingPercent", "decouplingUnavailableReason", "efficiencyFactor", "movingSeconds", "ngpMetersPerSecond" ]
+        "required" : [ "aerobicDecouplingPercent", "decouplingUnavailableReason", "efficiencyFactor", "movingSeconds", "ngpMetersPerSecond", "vo2maxEstimate", "vo2maxEstimateRaw", "vo2maxUnavailableReason" ]
       },
       "TrainingLoadDTO" : {
         "type" : "object",
@@ -3517,6 +4371,10 @@
         "type" : "string",
         "enum" : [ "NO_ACTIVITY_DETAILS", "NO_THRESHOLDS", "INCONSISTENT_THRESHOLDS", "NO_USABLE_STREAM" ]
       },
+      "Vo2maxUnavailableReason" : {
+        "type" : "string",
+        "enum" : [ "NO_PACE_DATA", "NO_HEART_RATE_THRESHOLDS", "NO_HEART_RATE", "TOO_SHORT", "TOO_HILLY", "NOT_STEADY", "INTENSITY_TOO_LOW", "TOO_FEW_SEGMENTS", "OUT_OF_RANGE" ]
+      },
       "ActivityDerivedStreamsDTO" : {
         "type" : "object",
         "properties" : {
@@ -3526,9 +4384,16 @@
             "items" : {
               "type" : [ "number", "null" ]
             }
+          },
+          "staminaPct" : {
+            "type" : [ "array", "null" ],
+            "description" : "Stamina: the D′ balance as a percentage of D′ (0-100, one decimal), against the Critical Speed model in effect on the Run's date; null unless the Activity is a Run with Grade-Adjusted Pace and that model exists",
+            "items" : {
+              "type" : "number"
+            }
           }
         },
-        "required" : [ "gapSpeed" ]
+        "required" : [ "gapSpeed", "staminaPct" ]
       },
       "ActivityTelemetryBestEffortDTO" : {
         "type" : "object",
@@ -4079,6 +4944,126 @@
           }
         },
         "required" : [ "coordinates", "type" ]
+      },
+      "ProfilePointDTO" : {
+        "type" : "object",
+        "properties" : {
+          "distanceM" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "From the start, in m"
+          },
+          "altitudeM" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "Cleaned altitude, in m"
+          }
+        },
+        "required" : [ "altitudeM", "distanceM" ]
+      },
+      "RaceSplitDTO" : {
+        "type" : "object",
+        "properties" : {
+          "index" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "1 for the first Split"
+          },
+          "startM" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "From the start, in m"
+          },
+          "endM" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "From the start, in m"
+          },
+          "distanceM" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "In m"
+          },
+          "targetSeconds" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The Split's target time, in s"
+          },
+          "paceSecondsPerUnit" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The target pace, in s per km or mile"
+          },
+          "cumulativeSeconds" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The target time at the Split's end, in s"
+          },
+          "elevationGainM" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "In m; null without altitude"
+          },
+          "elevationLossM" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "In m; null without altitude"
+          },
+          "avgGradePct" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Net rise over the Split's length, in percent; null without altitude"
+          }
+        },
+        "required" : [ "avgGradePct", "cumulativeSeconds", "distanceM", "elevationGainM", "elevationLossM", "endM", "index", "paceSecondsPerUnit", "startM", "targetSeconds" ]
+      },
+      "RaceSplitPlanResponseDTO" : {
+        "type" : "object",
+        "properties" : {
+          "activityId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "courseDistanceM" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The course's cleaned distance, in m"
+          },
+          "goalSeconds" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The Goal Time the splits sum to, in s"
+          },
+          "unit" : {
+            "type" : "string",
+            "enum" : [ "KM", "MILE" ]
+          },
+          "biasPct" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The Split Bias: how much longer, in percent, the second half takes than the first on even ground"
+          },
+          "elevationGainM" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "The course's total climb from its cleaned altitude, in m; null without altitude"
+          },
+          "splits" : {
+            "type" : "array",
+            "description" : "One per km or mile from the start; the last may be partial",
+            "items" : {
+              "$ref" : "#/components/schemas/RaceSplitDTO"
+            }
+          },
+          "profile" : {
+            "type" : "array",
+            "description" : "The course's elevation profile, at most 500 points; empty without altitude",
+            "items" : {
+              "$ref" : "#/components/schemas/ProfilePointDTO"
+            }
+          }
+        },
+        "required" : [ "activityId", "biasPct", "courseDistanceM", "elevationGainM", "goalSeconds", "profile", "splits", "unit" ]
       }
     }
   }

@@ -20,7 +20,11 @@ class AthleteRollupsTest {
     private val entityManager = mock<EntityManager>()
     private val stateRepository = mock<AthleteAnalyticsStateRepository>()
     private val dailyLoadRollup = mock<DailyLoadRollup>()
-    private val rollups = AthleteRollups(entityManager, stateRepository, dailyLoadRollup)
+    private val criticalSpeedRollup = mock<CriticalSpeedRollup>()
+    private val acclimationRollup = mock<AcclimationRollup>()
+    private val fitnessRollup = mock<FitnessRollup>()
+    private val rollups =
+        AthleteRollups(entityManager, stateRepository, dailyLoadRollup, criticalSpeedRollup, acclimationRollup, fitnessRollup)
 
     private fun at(text: String) = Instant.parse(text)
 
@@ -89,11 +93,13 @@ class AthleteRollupsTest {
 
         commit()
 
-        inOrder(entityManager, stateRepository, dailyLoadRollup) {
+        inOrder(entityManager, stateRepository, dailyLoadRollup, acclimationRollup, fitnessRollup) {
             verify(entityManager).flush()
             verify(stateRepository).lockScoringInputs(1)
             verify(stateRepository).lockRollups(1)
             verify(dailyLoadRollup).recomputeFrom(1, at("2026-02-01T08:00:00Z"))
+            verify(acclimationRollup).recomputeFrom(1, at("2026-02-01T08:00:00Z"))
+            verify(fitnessRollup).recomputeFrom(1, at("2026-02-01T08:00:00Z"))
         }
     }
 
@@ -120,10 +126,46 @@ class AthleteRollupsTest {
 
         commit()
 
-        inOrder(dailyLoadRollup, stateRepository) {
+        inOrder(criticalSpeedRollup, dailyLoadRollup, acclimationRollup, fitnessRollup, stateRepository) {
+            verify(criticalSpeedRollup).refit(1, null)
             verify(dailyLoadRollup).recomputeFrom(1, null)
+            verify(acclimationRollup).recomputeFrom(1, null)
+            verify(fitnessRollup).recomputeFrom(1, null)
             verify(stateRepository).insertRollupVersionIfAbsent(1)
         }
+    }
+
+    @Test
+    fun `before commit, a current athlete's Critical Speed models are refitted at every peak mark, before the daily load`() {
+        whenever(stateRepository.findRollupVersion(1)).thenReturn(ROLLUP_VERSION)
+        TransactionSynchronizationManager.initSynchronization()
+        rollups.markDailyLoad(1, at("2015-03-01T08:00:00Z"))
+        rollups.markPeaksChanged(1, at("2015-03-01T08:00:00Z"))
+        rollups.markPeaksChanged(1, at("2020-06-01T08:00:00Z"))
+
+        commit()
+
+        inOrder(stateRepository, criticalSpeedRollup, dailyLoadRollup) {
+            verify(stateRepository).lockRollups(1)
+            verify(criticalSpeedRollup).refit(1, setOf(at("2015-03-01T08:00:00Z"), at("2020-06-01T08:00:00Z")))
+            verify(dailyLoadRollup).recomputeFrom(1, at("2015-03-01T08:00:00Z"))
+        }
+    }
+
+    @Test
+    fun `without a peak mark the Critical Speed models are left alone`() {
+        whenever(stateRepository.findRollupVersion(1)).thenReturn(ROLLUP_VERSION)
+        TransactionSynchronizationManager.initSynchronization()
+        rollups.markDailyLoad(1, at("2026-03-02T08:00:00Z"))
+
+        commit()
+
+        verify(criticalSpeedRollup, never()).refit(any(), anyOrNull())
+    }
+
+    @Test
+    fun `the rollup version is 5 since Marathon Shape joined the rollups`() {
+        assertEquals(5, ROLLUP_VERSION)
     }
 
     @Test
@@ -136,6 +178,9 @@ class AthleteRollupsTest {
 
         verify(stateRepository).lockRollups(1)
         verify(dailyLoadRollup, never()).recomputeFrom(any(), anyOrNull())
+        verify(acclimationRollup, never()).recomputeFrom(any(), anyOrNull())
+        verify(fitnessRollup, never()).recomputeFrom(any(), anyOrNull())
+        verify(criticalSpeedRollup, never()).refit(any(), anyOrNull())
     }
 
     @Test
@@ -146,9 +191,15 @@ class AthleteRollupsTest {
         assertEquals(true, rollups.rebuildStale(1))
         assertEquals(false, rollups.rebuildStale(2))
 
+        verify(criticalSpeedRollup).refit(1, null)
         verify(dailyLoadRollup).recomputeFrom(1, null)
+        verify(acclimationRollup).recomputeFrom(1, null)
+        verify(fitnessRollup).recomputeFrom(1, null)
         verify(stateRepository).setRollupVersion(1)
         verify(dailyLoadRollup, never()).recomputeFrom(2, null)
+        verify(acclimationRollup, never()).recomputeFrom(2, null)
+        verify(fitnessRollup, never()).recomputeFrom(2, null)
+        verify(criticalSpeedRollup, never()).refit(2, null)
     }
 
     @Test

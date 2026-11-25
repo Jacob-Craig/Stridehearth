@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   averageSpeedKmh,
   decouplingStatus,
+  formatAltitudeM,
   formatDate,
   formatDateTime,
   formatDecouplingPercent,
@@ -15,6 +16,8 @@ import {
   formatElevationGain,
   formatNgpPerKm,
   formatPacePerKm,
+  formatStaminaPercent,
+  formatTemperatureC,
   formatTrainingLoad,
 } from '../src/lib/format';
 
@@ -117,6 +120,25 @@ describe('formatElevationGain', () => {
   });
 });
 
+describe('formatTemperatureC', () => {
+  it('rounds to whole degrees Celsius', () => {
+    expect(formatTemperatureC(18.4)).toBe('18 °C');
+    expect(formatTemperatureC(23.5)).toBe('24 °C');
+    expect(formatTemperatureC(-3.6)).toBe('-4 °C');
+  });
+
+  it('never shows a negative zero', () => {
+    expect(formatTemperatureC(-0.4)).toBe('0 °C');
+  });
+});
+
+describe('formatAltitudeM', () => {
+  it('rounds to whole metres', () => {
+    expect(formatAltitudeM(312.4)).toBe('312 m');
+    expect(formatAltitudeM(1999.5)).toBe('2000 m');
+  });
+});
+
 describe('formatDateTime', () => {
   it('formats an instant as a date and 24-hour time in the given zone', () => {
     expect(formatDateTime('2026-03-01T09:05:00Z', 'UTC')).toBe('1 Mar 2026, 09:05');
@@ -203,5 +225,13 @@ describe('formatTrainingLoad', () => {
     expect(formatTrainingLoad({ value: 87.4, method: 'RTSS' })).toBe('87 · rTSS');
     expect(formatTrainingLoad({ value: 99.5, method: 'RSS' })).toBe('100 · RSS');
     expect(formatTrainingLoad({ value: 0.2, method: 'HRSS' })).toBe('0 · HRSS');
+  });
+});
+
+describe('formatStaminaPercent', () => {
+  it('rounds Stamina to a whole percentage', () => {
+    expect(formatStaminaPercent(24.6)).toBe('25%');
+    expect(formatStaminaPercent(0)).toBe('0%');
+    expect(formatStaminaPercent(100)).toBe('100%');
   });
 });
