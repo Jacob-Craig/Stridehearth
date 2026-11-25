@@ -119,6 +119,9 @@ object MarathonShapeCalculator {
                 }
         }
 
+        /** [day] with its Marathon Shape, from its Effective VO2max. */
+        fun withShape(day: FitnessDay): FitnessDay = day.copy(marathonShape = shapeOn(day.day, day.effectiveVo2max))
+
         /** The Marathon Shape on [day] with Effective VO2max [vo2max], or null without one. */
         fun shapeOn(
             day: LocalDate,

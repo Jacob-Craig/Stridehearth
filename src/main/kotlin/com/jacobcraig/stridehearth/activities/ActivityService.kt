@@ -143,8 +143,8 @@ class ActivityService(
 
     /**
      * Applies an edit (with [metrics] only when they are editable), recording history; on a sport change it
-     * refreshes Best Efforts and derived data and recomputes the Activity's heatmap route, and on a `startedAt`
-     * change it refreshes derived data.
+     * refreshes Best Efforts and derived data and recomputes the Activity's heatmap route, and on a change of
+     * `startedAt` or any other Protected Metric it refreshes derived data.
      */
     private fun applyEdit(
         activity: Activity,
@@ -154,8 +154,9 @@ class ActivityService(
     ) {
         val oldSport = activity.sport
         val oldStartedAt = activity.startedAt
-        val changes =
-            activity.applyMetadataChanges(title, sport) + (metrics?.let { activity.applyProtectedMetricChanges(it) } ?: emptyList())
+        val metadataChanges = activity.applyMetadataChanges(title, sport)
+        val metricChanges = metrics?.let { activity.applyProtectedMetricChanges(it) }.orEmpty()
+        val changes = metadataChanges + metricChanges
 
         activityRepository.save(activity)
         val previousStartedAt = oldStartedAt.takeIf { it != activity.startedAt }
@@ -164,7 +165,8 @@ class ActivityService(
             derivedDataRefresh.refresh(activity, previousStartedAt = previousStartedAt, previousSport = oldSport)
             // After the refresh, which flushes the edit: a heatmap route insert key-share locks the Activity's row.
             heatmapRouteRepository.recomputeForSport(listOf(activity.id!!), activity.sport)
-        } else if (previousStartedAt != null) {
+        } else if (previousStartedAt != null || metricChanges.isNotEmpty()) {
+            // A manual Activity's Protected Metrics, such as its distance, feed the athlete's rollups (Marathon Shape).
             derivedDataRefresh.refresh(activity, previousStartedAt = previousStartedAt)
         }
         // After the refresh: the entry's insert runs at once and key-share locks the Activity's row, which must

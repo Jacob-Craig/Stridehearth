@@ -42,8 +42,9 @@ const val DERIVED_DATA_VERSION: Short = 7
  *
  * Caller contract, as for [BestEffortRefresh]:
  * - Call it in the caller's transaction whenever an input changes: an Activity is created (with or without Activity
- *   Details, MANUAL included), its stored details change (an Upgrade), its sport or `startedAt` is edited, or it is
- *   deleted. Title-only edits do not need it.
+ *   Details, MANUAL included), its stored details change (an Upgrade), its sport or `startedAt` is edited, a manual
+ *   Activity's Protected Metrics are edited (its distance feeds Marathon Shape), or it is deleted. Title-only edits do
+ *   not need it.
  * - Call it directly after [BestEffortRefresh.refresh] and before heatmap and Activity History writes: it flushes
  *   the caller's pending change, and its write key-share locks the Activity's row, both of which ADR-0006 orders
  *   after the Personal Record lock.

@@ -6,6 +6,9 @@ import com.jacobcraig.stridehearth.analytics.CorrectionSource
 import com.jacobcraig.stridehearth.analytics.EffectiveVo2maxCalculator
 import com.jacobcraig.stridehearth.analytics.EstimatedRun
 import com.jacobcraig.stridehearth.analytics.FitnessDay
+import com.jacobcraig.stridehearth.analytics.MarathonShape
+import com.jacobcraig.stridehearth.analytics.MarathonShapeCalculator
+import com.jacobcraig.stridehearth.analytics.RunDistance
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Component
@@ -21,11 +24,12 @@ import java.time.ZoneOffset
  * The **Effective VO2max** rollup (#42): `athlete_daily_fitness`, one row per athlete-local day (in the **Athlete Time
  * Zone**) from the athlete's first day with a **VO2max Estimate** to their last day with an Activity, but never past
  * their today, computed by [EffectiveVo2maxCalculator] from the stored estimates and the **Best Efforts** that
- * calibrate the **Correction Factor**.
+ * calibrate the **Correction Factor**. Each row also holds that day's **Marathon Shape** (#44), computed by
+ * [MarathonShapeCalculator] from the day's Effective VO2max and the recorded distance of the athlete's Runs.
  *
- * Every input of a day looks backwards (30 days of estimates, 365 days of candidates), so it rebuilds from the affected
- * day forward, reading inputs from [EffectiveVo2maxCalculator.LOOKBACK_DAYS] before it, and never rewrites an earlier
- * row. [AthleteFitnessService] continues the rows to today in memory.
+ * Every input of a day looks backwards (30 days of estimates, 365 days of candidates, 182 days of Run distances), so
+ * it rebuilds from the affected day forward, reading inputs from [EffectiveVo2maxCalculator.LOOKBACK_DAYS] before it,
+ * and never rewrites an earlier row. [AthleteFitnessService] continues the rows to today in memory.
  *
  * Its caller serialises it per athlete ([AthleteRollups], ADR-0016); it takes no lock of its own.
  */
@@ -67,8 +71,58 @@ class FitnessRollup(
                 start,
                 lastDay,
             )
-        insert(userId, series)
+        val history = marathonHistory(userId, zone, start, lastDay)
+        insert(userId, series.map(history::withShape))
     }
+
+    /**
+     * The Run distances behind [userId]'s Marathon Shape on local days [from, to] in [zone]: every Run from
+     * [MarathonShapeCalculator.LOOKBACK_DAYS] before [from] to [to], and the day of their first Run.
+     */
+    fun marathonHistory(
+        userId: Long,
+        zone: ZoneId,
+        from: LocalDate,
+        to: LocalDate,
+    ): MarathonShapeCalculator.History =
+        MarathonShapeCalculator.History(
+            findRunDistances(userId, zone, from.minusDays(MarathonShapeCalculator.LOOKBACK_DAYS), to),
+            firstRunDay(userId, zone),
+        )
+
+    /** [userId]'s Runs on local days [from, to] in [zone], by their recorded distance (a Protected Metric). */
+    private fun findRunDistances(
+        userId: Long,
+        zone: ZoneId,
+        from: LocalDate,
+        to: LocalDate,
+    ): List<RunDistance> =
+        jdbcClient
+            .sql(
+                """
+                SELECT (started_at AT TIME ZONE :zone)::date AS day, distance
+                FROM activity
+                WHERE user_id = :u AND sport = 'RUN' AND (started_at AT TIME ZONE :zone)::date BETWEEN :from AND :to
+                """.trimIndent(),
+            ).param("u", userId)
+            .param("zone", sqlZone(zone))
+            .param("from", from, Types.DATE)
+            .param("to", to, Types.DATE)
+            // Activity distance is stored in kilometres.
+            .query { rs, _ -> RunDistance(rs.getObject("day", LocalDate::class.java), rs.getDouble("distance")) }
+            .list()
+
+    private fun firstRunDay(
+        userId: Long,
+        zone: ZoneId,
+    ): LocalDate? =
+        jdbcClient
+            .sql("SELECT min((started_at AT TIME ZONE :zone)::date) AS first_day FROM activity WHERE user_id = :u AND sport = 'RUN'")
+            .param("u", userId)
+            .param("zone", sqlZone(zone))
+            .query { rs, _ -> rs.getObject("first_day", LocalDate::class.java) }
+            .optional()
+            .orElse(null)
 
     private fun latestStoredBefore(
         userId: Long,
@@ -105,6 +159,15 @@ class FitnessRollup(
                                 activityId = it,
                                 benchmarkDistance = BenchmarkDistance.valueOf(rs.getString("correction_benchmark_distance")),
                                 vdot = rs.getDouble("correction_vdot"),
+                            )
+                        },
+                    marathonShape =
+                        (rs.getObject("marathon_shape_pct") as Double?)?.let {
+                            MarathonShape(
+                                pct = it,
+                                volumeScore = rs.getDouble("marathon_volume_score"),
+                                longRunScore = rs.getDouble("marathon_long_run_score"),
+                                weeklyKm = rs.getDouble("marathon_weekly_km"),
                             )
                         },
                 )
@@ -199,8 +262,9 @@ class FitnessRollup(
         jdbcTemplate.batchUpdate(
             """
             INSERT INTO athlete_daily_fitness (user_id, day, effective_vo2max, correction_factor, correction_activity_id,
-                correction_benchmark_distance, correction_vdot)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+                correction_benchmark_distance, correction_vdot, marathon_shape_pct, marathon_volume_score,
+                marathon_long_run_score, marathon_weekly_km)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """.trimIndent(),
             series,
             BATCH_SIZE,
@@ -212,6 +276,10 @@ class FitnessRollup(
             ps.setObject(5, day.correctionSource?.activityId, Types.BIGINT)
             ps.setObject(6, day.correctionSource?.benchmarkDistance?.name, Types.VARCHAR)
             ps.setObject(7, day.correctionSource?.vdot, Types.DOUBLE)
+            ps.setObject(8, day.marathonShape?.pct, Types.DOUBLE)
+            ps.setObject(9, day.marathonShape?.volumeScore, Types.DOUBLE)
+            ps.setObject(10, day.marathonShape?.longRunScore, Types.DOUBLE)
+            ps.setObject(11, day.marathonShape?.weeklyKm, Types.DOUBLE)
         }
     }
 

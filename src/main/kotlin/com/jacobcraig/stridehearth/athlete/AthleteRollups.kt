@@ -15,8 +15,9 @@ import java.time.Instant
  * - 2: Critical Speed and Critical Power models (#39).
  * - 3: Heat Acclimation and Altitude Acclimation (#43).
  * - 4: Effective VO2max (#42).
+ * - 5: Marathon Shape (#44).
  */
-const val ROLLUP_VERSION = 4
+const val ROLLUP_VERSION = 5
 
 /**
  * What one transaction marked for one athlete: the earliest moment from which their daily rollups must be rebuilt
@@ -40,7 +41,7 @@ data class RollupMarks(
  * their rollup lock, always the last lock a transaction takes (ADR-0016), refits their **Critical Speed** models
  * within 90 days of each day their peaks changed ([CriticalSpeedRollup]), and rebuilds their **Daily Load** and
  * **Performance Management Chart** ([DailyLoadRollup]), their **Heat Acclimation** and **Altitude Acclimation**
- * ([AcclimationRollup]) and their **Effective VO2max** ([FitnessRollup]) from the earliest marked day. An athlete without a state row
+ * ([AcclimationRollup]) and their **Effective VO2max** and **Marathon Shape** ([FitnessRollup]) from the earliest marked day. An athlete without a state row
  * gets a full rebuild, and their row is created current; an athlete whose rollups are stale ([ROLLUP_VERSION]) is left
  * to the recompute worker's full rebuild.
  */

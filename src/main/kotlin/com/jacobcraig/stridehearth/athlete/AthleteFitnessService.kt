@@ -27,7 +27,7 @@ data class FitnessSeries(
 )
 
 /**
- * Reads an athlete's **Effective VO2max** (#42). The stored rows ([FitnessRollup]) end at their last day with an
+ * Reads an athlete's **Effective VO2max** (#42) and **Marathon Shape** (#44). The stored rows ([FitnessRollup]) end at their last day with an
  * Activity; days after it, up to today, are computed here with the same [EffectiveVo2maxCalculator] from the estimates
  * and Best Efforts before them, so the value runs out 30 days after the last estimate without a daily job. Later
  * athlete-level predictions read the series through this one place.
@@ -88,12 +88,14 @@ class AthleteFitnessService(
         if (first > until) return emptyMap()
         val zone = fitnessRollup.zoneOf(userId)
         val readFrom = first.minusDays(EffectiveVo2maxCalculator.LOOKBACK_DAYS)
+        val history = fitnessRollup.marathonHistory(userId, zone, first, lastStored)
         return EffectiveVo2maxCalculator
             .series(
                 fitnessRollup.findRuns(userId, zone, readFrom, lastStored),
                 fitnessRollup.findCandidates(userId, zone, readFrom, lastStored),
                 first,
                 until,
-            ).associateBy { it.day }
+            ).map(history::withShape)
+            .associateBy { it.day }
     }
 }

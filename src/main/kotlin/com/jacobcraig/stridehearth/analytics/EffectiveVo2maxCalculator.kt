@@ -31,13 +31,15 @@ data class CorrectionSource(
 
 /**
  * An athlete's **Effective VO2max** on [day] (null without an estimate in the window), the **Correction Factor** in
- * force that day and its [correctionSource] (null when it is 1.0 for want of a candidate).
+ * force that day and its [correctionSource] (null when it is 1.0 for want of a candidate), and their
+ * **Marathon Shape** that day (#44; null without an Effective VO2max, and until [MarathonShapeCalculator] adds it).
  */
 data class FitnessDay(
     val day: LocalDate,
     val effectiveVo2max: Double?,
     val correctionFactor: Double,
     val correctionSource: CorrectionSource?,
+    val marathonShape: MarathonShape? = null,
 )
 
 /**
