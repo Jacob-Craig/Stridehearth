@@ -5,8 +5,8 @@ import {
   type ActivityFormErrors,
   type ActivityFormValues,
   type FormConversion,
-  type ProtectedMetricFormField,
   formErrorsFromApi,
+  type ProtectedMetricFormField,
 } from '../lib/activityForm';
 import { ACTIVITY_SPORTS, type ActivitySport, formatSport } from '../lib/format';
 import { getFieldError, parseApiError } from '../utils/error';

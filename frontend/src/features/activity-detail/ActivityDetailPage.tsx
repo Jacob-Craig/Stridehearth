@@ -25,9 +25,9 @@ import { BestEffortsTable } from './BestEffortsTable';
 import { ConditionsMetrics } from './ConditionsMetrics';
 import { DecouplingBadge } from './DecouplingBadge';
 import { LapsTable } from './LapsTable';
+import { SECONDARY_BUTTON_CLASS } from './styles';
 import { TrainingLoadValue } from './TrainingLoadValue';
 import { Vo2maxValue } from './Vo2maxValue';
-import { SECONDARY_BUTTON_CLASS } from './styles';
 
 /** The sports whose route can be planned at even Grade-Adjusted effort, as the API allows. */
 const SPLIT_PLAN_SPORTS: ReadonlySet<ActivityDetailDto['sport']> = new Set(['RUN', 'WALK', 'HIKE']);

@@ -3,9 +3,9 @@
  * dropping a multi-thousand-file export never blocks rendering.
  */
 import {
+  handleZipInspectionRequest,
   type ZipInspectionRequest,
   type ZipInspectionResponse,
-  handleZipInspectionRequest,
 } from './zipInspectorProtocol';
 
 interface ZipInspectorWorkerScope {

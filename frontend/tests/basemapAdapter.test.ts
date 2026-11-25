@@ -5,7 +5,7 @@ import {
   setBuildingsVisible,
   tiltTo,
 } from '../src/features/basemap/maplibreBasemap';
-import { FakeMap, asMapLibre } from './support/fakeMaplibre';
+import { asMapLibre, FakeMap } from './support/fakeMaplibre';
 
 vi.mock('maplibre-gl', () => import('./support/fakeMaplibre').then((m) => m.fakeMaplibreModule));
 

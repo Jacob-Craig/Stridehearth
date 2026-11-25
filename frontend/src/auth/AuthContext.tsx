@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { type ReactNode, createContext, useContext } from 'react';
+import { createContext, type ReactNode, useContext } from 'react';
 import { getCurrentUser, logoutUser } from '../api/auth';
 import type { UserResponseDto } from '../api/generated/types.gen';
 

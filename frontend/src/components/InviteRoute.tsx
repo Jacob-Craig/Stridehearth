@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { type ErrorComponentProps, Link, getRouteApi, useNavigate } from '@tanstack/react-router';
+import { type ErrorComponentProps, getRouteApi, Link, useNavigate } from '@tanstack/react-router';
 import type { UserResponseDto } from '../api/generated/types.gen';
 import { inviteStatusQueryOptions, redeemInvite } from '../api/invites';
 import { formatDate } from '../lib/format';

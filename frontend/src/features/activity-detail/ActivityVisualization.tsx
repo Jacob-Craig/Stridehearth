@@ -4,9 +4,9 @@ import type {
   ActivityTelemetryResponseDto,
 } from '../../api/generated/types.gen';
 import { ActivityRouteMap } from '../telemetry/ActivityRouteMap';
-import { TelemetryChartGrid } from '../telemetry/TelemetryChartGrid';
-import { type RouteTimeline, parseRoute } from '../telemetry/sampleLookup';
+import { parseRoute, type RouteTimeline } from '../telemetry/sampleLookup';
 import { selectChartSeries } from '../telemetry/sensorStreams';
+import { TelemetryChartGrid } from '../telemetry/TelemetryChartGrid';
 import { useTelemetryScrubber } from '../telemetry/useTelemetryScrubber';
 
 export interface ActivityVisualizationProps {

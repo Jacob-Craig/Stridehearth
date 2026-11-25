@@ -1,4 +1,4 @@
-import { type ZipInspection, blobSource, inspectZip } from './zipInspector';
+import { blobSource, inspectZip, type ZipInspection } from './zipInspector';
 
 /** Message posted to `zipInspector.worker.ts`. `File`/`Blob` are structured-cloned without copying bytes. */
 export interface ZipInspectionRequest {

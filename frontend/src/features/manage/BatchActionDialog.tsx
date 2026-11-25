@@ -244,11 +244,7 @@ function Submitting({ mode, count }: { mode: BatchMode; count: number }) {
  * Every affected **Activity**, in a scrollable list that mounts only the rows in view so a `size=all`
  * selection of thousands stays cheap. Each row states its position so assistive tech knows the full count.
  */
-function AffectedActivitiesList({
-  activities,
-}: {
-  activities: readonly ActivitySummaryDto[];
-}) {
+function AffectedActivitiesList({ activities }: { activities: readonly ActivitySummaryDto[] }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
     count: activities.length,

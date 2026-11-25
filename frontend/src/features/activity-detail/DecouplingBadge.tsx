@@ -1,9 +1,9 @@
 import type { RunMetricsDto } from '../../api/generated/types.gen';
 import {
-  MISSING,
   decouplingStatus,
   formatDecouplingPercent,
   formatDecouplingUnavailableReason,
+  MISSING,
 } from '../../lib/format';
 
 const STATUS_STYLES = {

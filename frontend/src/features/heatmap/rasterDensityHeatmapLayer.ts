@@ -11,13 +11,13 @@ import {
 } from 'maplibre-gl';
 import type { HeatmapRendererDto } from '../../api/generated/types.gen';
 import { withFilterParams } from '../../api/heatmap';
-import { isTilted, perspectiveCameraOptions } from '../basemap/mapPerspective';
 import {
+  addBuildingsLayer,
   BASEMAP_STYLES,
   type BuildingsStyle,
-  addBuildingsLayer,
   tiltTo,
 } from '../basemap/maplibreBasemap';
+import { isTilted, perspectiveCameraOptions } from '../basemap/mapPerspective';
 import type {
   HeatmapLayerHandle,
   HeatmapLayerOptions,

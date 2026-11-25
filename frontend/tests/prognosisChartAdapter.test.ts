@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type { RacePrognosisDayDto } from '../src/api/generated/types.gen';
 import { createPrognosisChart } from '../src/features/race-prognosis/prognosisChart';
 import {
-  PROGNOSIS_PALETTE,
   alignedPrognosisData,
+  PROGNOSIS_PALETTE,
 } from '../src/features/race-prognosis/prognosisSeries';
 
 /** A stand-in for uPlot (jsdom has no canvas) that keeps what it was built with. */

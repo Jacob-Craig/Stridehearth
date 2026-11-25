@@ -11,8 +11,8 @@ import { loadProgressionChart } from './lazyProgressionChart';
 import type { ProgressionChartHandle } from './progressionChart';
 import {
   type BenchmarkDistance,
-  PROGRESSION_PLOT_HEIGHT_PX,
   defaultBenchmark,
+  PROGRESSION_PLOT_HEIGHT_PX,
   progressionSteps,
 } from './progressionSeries';
 

@@ -12,10 +12,10 @@ import { AXIS_PALETTE } from '../charts/chartTheme';
 import { calendarDate } from '../charts/dateAxis';
 import {
   type AlignedPrognosisData,
+  formatPaceSeconds,
   PROGNOSIS_PALETTE,
   PROGNOSIS_PLOT_HEIGHT_PX,
   RACE_DISTANCES,
-  formatPaceSeconds,
 } from './prognosisSeries';
 
 const Y_AXIS_SIZE = 72;
