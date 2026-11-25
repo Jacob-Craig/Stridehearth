@@ -16,11 +16,15 @@ const sources = import.meta.glob<string>('../src/**/*.{ts,tsx}', {
   eager: true,
 });
 
+// Vitest clears mock calls before every test, so count the calls the basemap module made while it
+// loaded (its imports run before this line) rather than inside the test.
+const workerUrlCallsOnLoad = vi.mocked(setWorkerUrl).mock.calls.length;
+
 describe('MapLibre basemap', () => {
   const newMap = () => new FakeMap({ style: 'basemap', container: document.createElement('div') });
 
   it('sets the MapLibre worker URL once when the basemap loads', () => {
-    expect(setWorkerUrl).toHaveBeenCalledTimes(1);
+    expect(workerUrlCallsOnLoad).toBe(1);
   });
 
   it('is the only module that sets the MapLibre worker URL', () => {
