@@ -34,7 +34,7 @@ class DerivedDataRecomputeSchedule(
                     "Derived data: recomputed {} Activities and {} Training Loads, rebuilt {} athletes' rollups, skipped {} Activities " +
                         "and {} athletes' rollups that failed",
                     result.activitiesRecomputed,
-                    result.trainingLoadsRecomputed,
+                    result.thresholdDependentRecomputed,
                     result.rollupsRebuilt,
                     result.activitiesFailed,
                     result.rollupsFailed,

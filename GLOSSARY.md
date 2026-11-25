@@ -22,11 +22,11 @@ Replacing an Activity's stored Activity Details and Laps with ones decoded from 
 _Avoid_: Re-parse, migration
 
 **Backfill**:
-Filling in something an Activity lacks (Activity Details, their distance, Laps, Best Efforts, or derived data such as Grade-Adjusted Pace, Normalized Graded Pace, Peak Efforts or Training Load) without replacing anything it already has. Replacing derived data that is out of date is a Recompute.
+Filling in something an Activity lacks (Activity Details, their distance, Laps, Best Efforts, or derived data such as Grade-Adjusted Pace, Normalized Graded Pace, Peak Efforts, Training Load, VO2max Estimate or Ambient Temperature) without replacing anything it already has. Replacing derived data that is out of date is a Recompute.
 _Avoid_: Repair, fix-up
 
 **Recompute (derived data)**:
-Replacing an Activity's stored derived data (such as its Grade-Adjusted Pace, Run metrics like Normalized Graded Pace, Peak Efforts, or Training Load) because something it was computed from changed: its Activity Details, its sport or start time, the athlete's Thresholds or Athlete Time Zone, or the version of the algorithm that computed it. It never changes the Activity itself, so it leaves no Activity History Entry.
+Replacing an Activity's stored derived data (such as its Grade-Adjusted Pace, Run metrics like Normalized Graded Pace, Peak Efforts, Training Load, VO2max Estimate, or Ambient Temperature and Mean Altitude) because something it was computed from changed: its Activity Details, its sport or start time, the athlete's Thresholds or Athlete Time Zone, or the version of the algorithm that computed it. It never changes the Activity itself, so it leaves no Activity History Entry.
 _Avoid_: Reprocess, regenerate, migration
 
 **Activity Source**:
@@ -110,15 +110,53 @@ The highest average Grade-Adjusted speed, or power, over one continuous window o
 It is not a Best Effort and never sets a Personal Record. Derived, so recomputed, never edited.
 _Avoid_: Duration best effort, peak, power PR, mean-maximal
 
+**Critical Speed (CS)**:
+The highest running speed an athlete can sustain without steadily using up their D′, in m/s: the slope of the 2-parameter model `D(t) = CS·t + D′`, fitted by least squares to the distances of their best Grade-Adjusted Peak Efforts at the 2, 3, 5, 10 and 20 minute Benchmark Durations from Runs on the 90 days up to a date (that day included, in their Athlete Time Zone).
+No model is published (it records why instead) with fewer than 3 such Peak Efforts, an R² below 0.9, a non-positive CS, or a D′ under 100 m (which comes from sub-maximal efforts, such as one steady easy run, whose near-straight distance-time line fits with a high R² anyway). A model is kept for every day the athlete has a Run and refitted whenever a Peak Effort in its window changes. When it differs from the threshold pace in force by more than 3% (of the threshold, as a speed) it makes a Threshold Proposal; it never changes a Threshold itself. Derived, so recomputed, never edited.
+_Avoid_: Threshold pace (that is the Threshold the athlete records), FTP, critical pace
+
+**D′ (D prime)**:
+The distance, in metres, an athlete can cover above Critical Speed before they must slow down: the intercept of the same fit. It is spent while running faster than CS and recovers below it.
+_Avoid_: Anaerobic capacity, W′ (for running speed), reserve
+
+**Stamina**:
+How much of their D′ an athlete has left at each moment of a Run, as a percentage of D′ (100% full, 0% empty), by Skiba's D′ balance (D′bal). Above Critical Speed (on Grade-Adjusted speed) it is spent metre for metre; at or below CS it recovers towards full, faster the further below CS, with time constant `τ = D′ / (CS − speed)`. A recording pause or a missing speed recovers as standing still.
+It is measured against the Critical Speed model in effect on the Run's own date (its own Peak Efforts included), and a Run has none when there is no model on that date. Computed on every read, never stored or edited. Its lowest value is the Run's **Min Stamina**.
+_Avoid_: D′bal (the balance in metres), W′bal (for power), fatigue, energy
+
+**Critical Power (CP)**:
+Critical Speed's counterpart for running power, in watts, fitted the same way from power Peak Efforts (work `P·t` against time) when the athlete has any in the window. No model is published with a W′ under 5 kJ, D′'s 100 m floor for power. It proposes the critical power Threshold the same way.
+_Avoid_: FTP, threshold power
+
+**W′ (W prime)**:
+D′'s counterpart for power: the work, in joules, an athlete can do above Critical Power, the intercept of the power fit.
+_Avoid_: Anaerobic work capacity, D′ (for power)
+
+**Pace-Duration Curve**:
+An athlete's best Peak Efforts plotted against their Benchmark Durations (5 s to 60 minutes, on a log scale): one curve for the last 90 days and one for all time, with their current Critical Speed model `CS + D′/t` drawn from 2 minutes up. When they have power Peak Efforts it can show power instead, with the Critical Power model. Each point opens the Activity that set it. Worked out from the stored Peak Efforts whenever it is read.
+_Avoid_: Power-duration curve (for pace), mean-maximal curve, PDC (in the UI)
+
 **Telemetry Cleaning**:
 The pass that produces Cleaned Activity Details from an Activity's Activity Details and sport: it rejects GPS spikes (speeds above the sport's ceiling and distance jumps), treats heart rate as missing during dropouts and cadence-lock, interpolates gaps of up to 10 seconds, and smooths altitude over a 15 m distance window.
-It never changes the stored Activity Details, and an Activity with no GPS fix keeps its speed, distance and altitude exactly as recorded.
+It never changes the stored Activity Details, and an Activity with no GPS fix keeps its speed, distance and altitude exactly as recorded. Temperature is not cleaned.
 _Avoid_: Filtering, sanitising, data correction
 
 **Cleaned Activity Details**:
 Speed, distance, heart-rate and altitude series computed from an Activity's Activity Details by Telemetry Cleaning, with GPS spikes, heart-rate dropouts and altitude noise removed.
 They are never stored and never shown in place of Activity Details; derived analytics read them. Best Efforts are the exception: they are measured on the recorded distance.
 _Avoid_: Filtered telemetry, corrected data, cleaned streams
+
+**Ambient Temperature**:
+The air temperature an Activity was done in, as Stridehearth estimates it: the median of the temperatures the device recorded (when at least 60 samples cover at least half the Activity) less the Wrist-Heat Correction. It comes only from the Activity's own file (ADR-0017). Derived, so recomputed, never edited.
+_Avoid_: Weather, air temperature, device temperature
+
+**Wrist-Heat Correction**:
+The 6 °C subtracted from a device's temperature to estimate the Ambient Temperature, because a watch worn on the wrist reads warmer than the air. Where a device is worn is never recorded, so it applies to every Activity.
+_Avoid_: Temperature offset, body-heat adjustment
+
+**Mean Altitude**:
+The mean of an Activity's cleaned altitude, in metres, once it has at least 60 samples. Derived, so recomputed, never edited.
+_Avoid_: Average elevation, altitude
 
 **Grade-Adjusted Pace (GAP)**:
 The pace an athlete would have held on flat ground for the same effort, computed per sample from Cleaned Activity Details and the gradient (Minetti's cost of running, grade clamped to ±45%), for Runs, Walks and Hikes.
@@ -210,6 +248,67 @@ _Avoid_: Weekly load, stress
 **Performance Management Chart (PMC)**:
 An athlete's daily series of Daily Load, Fitness, Fatigue, Form, ACWR, Monotony and Strain, one entry per day from their first scored day to today. Derived and rebuilt from the earliest affected day whenever an Activity's Training Load or day changes, never edited.
 _Avoid_: Fitness chart, training graph
+
+**Heat Acclimation**:
+How adapted an athlete is to heat, 0–100 %, at the end of each athlete-local day: a day with an Activity of at least 20 minutes above 22 °C Ambient Temperature adds 100/14 points, any other day takes away 100/21, so 14 exposed days build it fully and 21 days without exposure lose it all. Derived and rebuilt from the earliest affected day, never edited.
+_Avoid_: Heat adaptation, heat tolerance
+
+**Altitude Acclimation**:
+Heat Acclimation's counterpart for altitude: a day counts as exposed when it has an Activity of at least 20 minutes above 800 m Mean Altitude. Tracked separately from Heat Acclimation.
+_Avoid_: Altitude adaptation
+
+**Heat Derating**:
+How much slower the same effort runs in the heat: running time multiplied by 1 + 0.003 per °C of Ambient Temperature above 20 °C (1.5% per 5 °C). It uses temperature only, and acclimation does not change it yet. Predictions such as Race Prognosis and VO2max apply it.
+_Avoid_: Heat penalty, heat adjustment
+
+**VDOT**:
+Jack Daniels' measure of running ability in ml/kg/min: the oxygen cost of a race pace (Daniels-Gilbert equation) divided by the share of VO2max sustainable for the race's duration. A 19:57 5K is VDOT 50. Read from a race result, or from it to a predicted time.
+_Avoid_: VO2max (for a race's VDOT), running index
+
+**VO2max Estimate**:
+A Run's estimate of the VO2max it reflects, in ml/kg/min: over the steady part of its Moving Time (as for Aerobic Decoupling), each minute's Grade-Adjusted Pace is turned into its oxygen cost on Daniels' curve (slowed by the Heat Derating of its Ambient Temperature) and set against its share of heart-rate reserve from the resting and max heart-rate Thresholds; the line through rest at 3.5 is extended to 100 %, and raised to its sea-level value for the Run's Mean Altitude. Because it uses Daniels' curve, it is on the VDOT scale. Stored uncorrected; shown times its day's Correction Factor.
+A Run has none, and records why, without Grade-Adjusted Pace, without both heart-rate Thresholds (or under 20 bpm apart), with heart rate on less than 80% of its Moving Time, under 20 minutes, with more than 20 m of climb per km, when its pace is not steady, below 50% of heart-rate reserve, with fewer than 10 usable minutes, or outside 20-90. Depends on the Thresholds, so recomputed with the Training Load, never edited.
+_Avoid_: VO2max score, fitness level
+
+**Correction Factor**:
+What an athlete's VO2max Estimates are multiplied by so they agree with their racing: the VDOT of their best race of the last 365 days divided by their uncorrected 30-day VO2max mean on that race's day, kept between 0.8 and 1.2; 1.0 without a race. A race is a Run whose 5K, 10K or Half-Marathon Best Effort covers at least 90% of its distance, so it needs no estimate of its own. Calibrated automatically; it cannot be set by hand yet.
+_Avoid_: Calibration factor, adjustment
+
+**Effective VO2max**:
+An athlete's VO2max on one of their days: the mean of the VO2max Estimates of their Runs on the 30 days ending that day, weighted by Moving Time, times that day's Correction Factor. Absent when none of those Runs has an estimate. Derived and rebuilt from the earliest affected day, never edited.
+_Avoid_: VO2max score, fitness level, current VO2max
+
+**Marathon Shape**:
+How ready an athlete's training is for a marathon on one of their days, 0-100%: two thirds Volume Score and one third Long-Run Score, both measured against targets set by that day's Effective VO2max (after Runalyze). Absent without an Effective VO2max. Derived and rebuilt from the earliest affected day, never edited.
+_Avoid_: Endurance score, marathon readiness
+
+**Volume Score**:
+The volume part of Marathon Shape, 0-1: the recorded distance of the athlete's Runs (manual ones included) over the 26 weeks ending that day, per week (over the weeks since their first Run when that is shorter, but never fewer than 4), against a weekly target of Effective VO2max^1.135 km. Capped at 1.
+_Avoid_: Mileage score
+
+**Long-Run Score**:
+The long-run part of Marathon Shape, 0-1: each Run of at least 13 km on the 70 days ending that day scores ((distance − 13 km) / (target long run − 13 km))², at most 2, counting less the older it is (1 − age/70); the target long run is 12·ln(Effective VO2max / 4) − 6 km, at least 15 km. The sum against 5.5, what one target long run a week for 10 weeks scores, capped at 1.
+_Avoid_: Long-run index
+
+**Race Prognosis**:
+An athlete's predicted finish times for the 5K, 10K, Half Marathon and Marathon on one of their days. The base time is what Daniels' VDOT tables give for that day's Effective VO2max. An endurance penalty lengthens it as Marathon Shape falls below 100%, growing with distance: nothing for the 5K, up to +20% for the Marathon at 0% (1 + 0.20 · (distance − 5 km) / 37.195 km · (1 − Marathon Shape / 100)). Today's can also take Course Derating. Absent without an Effective VO2max. Computed from the stored daily values whenever it is read, never stored or edited.
+_Avoid_: Race predictor, race time estimate
+
+**Course Derating**:
+How much slower race-day conditions make a Race Prognosis: its time multiplied by the Heat Derating of the race-day temperature, and by 1 + 4 × the course's total climb / its distance (on gentle grades a metre of climb costs about 6 m of flat running and a metre of descent gives back about 2, for a course that finishes where it starts). Applied to today's prognosis only when the athlete enters conditions, never to the daily trend.
+_Avoid_: Course adjustment, course correction
+
+**Race Split Plan**:
+A target time for every Split (each km or mile from the start, the last one partial) over an existing Activity's route that holds Grade-Adjusted effort even and sums exactly to a Goal Time. Each stretch of the Cleaned Activity Details takes time in proportion to its distance times Minetti's cost ratio at its grade (the inverse of Grade-Adjusted Pace), so climbs are slower; a descent is never planned more than 15% faster than the flat (a cost ratio of at least 0.85, which binds on anything steeper than about −3%). A Split Bias then tilts it. Only for a Run, Walk or Hike with a GPS route. Computed whenever it is asked for, never stored.
+_Avoid_: PacePro, pace plan, pacing strategy
+
+**Goal Time**:
+The finish time a Race Split Plan's Splits add up to, from one minute to a day. It starts at the Activity's own time; "Use predicted time" takes the Race Prognosis of the race distance within 10% of the course's length, Course Derated for the course's climb and scaled to its length by Riegel's formula (time × (course / race distance)^1.06).
+_Avoid_: Target time, race goal
+
+**Split Bias**:
+How much longer, in percent from −5 to +5, a Race Split Plan's second half takes than its first on even ground: positive is a positive split (slowing down), negative a negative split. The effort ramps evenly over the course, and the Goal Time is unchanged.
+_Avoid_: Pacing bias, fade
 
 **Dashboard**:
 The athlete's primary landing view summarizing Personal Records, aggregate training volume, and performance trends across recorded Activities.

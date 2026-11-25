@@ -1,10 +1,14 @@
 package com.jacobcraig.stridehearth.activities
 
+import com.jacobcraig.stridehearth.analytics.ActivityConditions
 import com.jacobcraig.stridehearth.analytics.DecouplingUnavailableReason
 import com.jacobcraig.stridehearth.analytics.RunMetrics
+import com.jacobcraig.stridehearth.analytics.ThresholdDependentMetrics
 import com.jacobcraig.stridehearth.analytics.TrainingLoadMethod
 import com.jacobcraig.stridehearth.analytics.TrainingLoadResult
 import com.jacobcraig.stridehearth.analytics.TrainingLoadUnavailableReason
+import com.jacobcraig.stridehearth.analytics.Vo2maxResult
+import com.jacobcraig.stridehearth.analytics.Vo2maxUnavailableReason
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Repository
 import java.sql.Types
@@ -14,7 +18,8 @@ import java.time.ZoneOffset
 
 /**
  * Data access for `activity_derived_metrics`: one row per **Activity**, of every sport, holding its derived data
- * (the **Grade-Adjusted Pace** stream, for a Run its [RunMetrics], and its **Training Load**) and the `algorithm_version` that computed it (ADR-0014). The row is the
+ * (the **Grade-Adjusted Pace** stream, for a Run its [RunMetrics] and **VO2max Estimate**, its **Training Load** and its
+ * [ActivityConditions]) and the `algorithm_version` that computed it (ADR-0014). The row is the
  * ledger of what has been computed, so a column that does not apply to an Activity is NULL rather than the row
  * missing. Raw SQL through [JdbcClient], like `activity_details`: no JPA entity maps it.
  *
@@ -25,24 +30,27 @@ class ActivityDerivedMetricsRepository(
     private val jdbcClient: JdbcClient,
 ) {
     /**
-     * Stores [gapSpeed], [runMetrics] and [trainingLoad] for [activityId] as computed by [version], replacing whatever
-     * is stored.
+     * Stores [gapSpeed], [runMetrics], [thresholdDependent] (the **Training Load** and **VO2max Estimate**) and
+     * [conditions] for [activityId] as computed by [version], replacing whatever is stored.
      */
     fun upsert(
         activityId: Long,
         version: Short,
         gapSpeed: Array<Float?>?,
         runMetrics: RunMetrics? = null,
-        trainingLoad: TrainingLoadResult? = null,
+        thresholdDependent: ThresholdDependentMetrics? = null,
+        conditions: ActivityConditions? = null,
     ) {
         jdbcClient
             .sql(
                 """
                 INSERT INTO activity_derived_metrics (activity_id, algorithm_version, gap_speed, moving_seconds, ngp_mps,
                     efficiency_factor, aerobic_decoupling_pct, decoupling_unavailable_reason, training_load,
-                    training_load_method, training_load_unavailable_reason, computed_at)
+                    training_load_method, training_load_unavailable_reason, device_temperature_c, ambient_temperature_c,
+                    mean_altitude_m, vo2max_raw, vo2max_unavailable_reason, computed_at)
                 VALUES (:activityId, :version, :gapSpeed::real[], :movingSeconds, :ngpMps, :efficiencyFactor,
-                    :aerobicDecouplingPct, :reason, :trainingLoad, :trainingLoadMethod, :trainingLoadReason, now())
+                    :aerobicDecouplingPct, :reason, :trainingLoad, :trainingLoadMethod, :trainingLoadReason,
+                    :deviceTemperatureC, :ambientTemperatureC, :meanAltitudeM, :vo2maxRaw, :vo2maxReason, now())
                 ON CONFLICT (activity_id) DO UPDATE
                 SET algorithm_version = EXCLUDED.algorithm_version,
                     gap_speed = EXCLUDED.gap_speed,
@@ -54,6 +62,11 @@ class ActivityDerivedMetricsRepository(
                     training_load = EXCLUDED.training_load,
                     training_load_method = EXCLUDED.training_load_method,
                     training_load_unavailable_reason = EXCLUDED.training_load_unavailable_reason,
+                    device_temperature_c = EXCLUDED.device_temperature_c,
+                    ambient_temperature_c = EXCLUDED.ambient_temperature_c,
+                    mean_altitude_m = EXCLUDED.mean_altitude_m,
+                    vo2max_raw = EXCLUDED.vo2max_raw,
+                    vo2max_unavailable_reason = EXCLUDED.vo2max_unavailable_reason,
                     computed_at = EXCLUDED.computed_at
                 """.trimIndent(),
             ).param("activityId", activityId)
@@ -64,20 +77,24 @@ class ActivityDerivedMetricsRepository(
             .param("efficiencyFactor", runMetrics?.efficiencyFactor, Types.DOUBLE)
             .param("aerobicDecouplingPct", runMetrics?.aerobicDecouplingPct, Types.DOUBLE)
             .param("reason", runMetrics?.decouplingUnavailableReason?.name, Types.VARCHAR)
-            .trainingLoadParams(trainingLoad)
+            .thresholdDependentParams(thresholdDependent)
+            .param("deviceTemperatureC", conditions?.deviceTemperatureC, Types.REAL)
+            .param("ambientTemperatureC", conditions?.ambientTemperatureC, Types.REAL)
+            .param("meanAltitudeM", conditions?.meanAltitudeM, Types.REAL)
             .update()
     }
 
     /**
-     * Replaces only the **Training Load** of [activityId]'s row if [version] computed it, as a recompute after a
-     * Threshold or time-zone change does; returns whether it replaced one. The other derived data and the row's version
+     * Replaces only the Threshold-dependent derived data (the **Training Load** and **VO2max Estimate**) of
+     * [activityId]'s row if [version] computed it, as a recompute after a Threshold or time-zone change does; returns
+     * whether it replaced one. The other derived data and the row's version
      * are left as they are: an Activity without a row, or with a row of another version, is left to the version
      * Backfill or Recompute, which computes it in full.
      */
-    fun updateTrainingLoad(
+    fun updateThresholdDependent(
         activityId: Long,
         version: Short,
-        trainingLoad: TrainingLoadResult,
+        metrics: ThresholdDependentMetrics,
     ): Boolean =
         jdbcClient
             .sql(
@@ -86,13 +103,20 @@ class ActivityDerivedMetricsRepository(
                 SET training_load = :trainingLoad,
                     training_load_method = :trainingLoadMethod,
                     training_load_unavailable_reason = :trainingLoadReason,
+                    vo2max_raw = :vo2maxRaw,
+                    vo2max_unavailable_reason = :vo2maxReason,
                     computed_at = now()
                 WHERE activity_id = :activityId AND algorithm_version = :version
                 """.trimIndent(),
             ).param("activityId", activityId)
             .param("version", version)
-            .trainingLoadParams(trainingLoad)
+            .thresholdDependentParams(metrics)
             .update() > 0
+
+    private fun JdbcClient.StatementSpec.thresholdDependentParams(metrics: ThresholdDependentMetrics?): JdbcClient.StatementSpec =
+        trainingLoadParams(metrics?.trainingLoad)
+            .param("vo2maxRaw", (metrics?.vo2max as? Vo2maxResult.Estimate)?.raw, Types.DOUBLE)
+            .param("vo2maxReason", (metrics?.vo2max as? Vo2maxResult.Unavailable)?.reason?.name, Types.VARCHAR)
 
     private fun JdbcClient.StatementSpec.trainingLoadParams(trainingLoad: TrainingLoadResult?): JdbcClient.StatementSpec {
         val scored = trainingLoad as? TrainingLoadResult.Scored
@@ -137,6 +161,54 @@ class ActivityDerivedMetricsRepository(
             .orElse(null)
 
     /**
+     * The stored uncorrected **VO2max Estimate** of [activityId] or why it has none, or null when it has no row, is not
+     * a Run, or the row holds neither (written by a version before VO2max). A reason a later version no longer has
+     * reads as null. The estimate's segment count is not stored and reads as 0.
+     */
+    fun findVo2max(activityId: Long): Vo2maxResult? =
+        jdbcClient
+            .sql(
+                """
+                SELECT m.vo2max_raw, m.vo2max_unavailable_reason, m.moving_seconds
+                FROM activity_derived_metrics m WHERE m.activity_id = :activityId
+                """.trimIndent(),
+            ).param("activityId", activityId)
+            .query { rs, _ ->
+                val raw = rs.getObject("vo2max_raw") as Double?
+                val reason =
+                    rs.getString("vo2max_unavailable_reason")?.let { stored ->
+                        Vo2maxUnavailableReason.entries.firstOrNull { it.name == stored }
+                    }
+                when {
+                    raw != null -> Vo2maxResult.Estimate(raw, segments = 0, movingSeconds = rs.getInt("moving_seconds"))
+                    reason != null -> Vo2maxResult.Unavailable(reason)
+                    else -> null
+                }
+            }.optional()
+            .orElse(null)
+
+    /**
+     * The stored [ActivityConditions] of [activityId], or null when it has no row. A row an older version wrote holds
+     * no conditions (every value null) until the recompute worker replaces it.
+     */
+    fun findConditions(activityId: Long): ActivityConditions? =
+        jdbcClient
+            .sql(
+                """
+                SELECT device_temperature_c, ambient_temperature_c, mean_altitude_m
+                FROM activity_derived_metrics WHERE activity_id = :activityId
+                """.trimIndent(),
+            ).param("activityId", activityId)
+            .query { rs, _ ->
+                ActivityConditions(
+                    deviceTemperatureC = (rs.getObject("device_temperature_c") as Number?)?.toDouble(),
+                    ambientTemperatureC = (rs.getObject("ambient_temperature_c") as Number?)?.toDouble(),
+                    meanAltitudeM = (rs.getObject("mean_altitude_m") as Number?)?.toDouble(),
+                )
+            }.optional()
+            .orElse(null)
+
+    /**
      * The stored [RunMetrics] of [activityId], or null when it has no row or the row holds none (not a Run). A stored
      * unavailable reason that [DecouplingUnavailableReason] no longer has is read as null, so a row an older version
      * wrote still reads until the recompute worker replaces it.
@@ -161,6 +233,35 @@ class ActivityDerivedMetricsRepository(
                         rs.getString("decoupling_unavailable_reason")?.let { stored ->
                             DecouplingUnavailableReason.entries.firstOrNull { it.name == stored }
                         },
+                )
+            }.optional()
+            .orElse(null)
+
+    /**
+     * What **Stamina** is integrated from for [activityId]: its start, its sample times and its stored Grade-Adjusted
+     * speed. Null unless [userId] owns it, it is a Run, and its GAP stream is stored parallel to its Activity Details.
+     */
+    fun findStaminaInputs(
+        activityId: Long,
+        userId: Long,
+    ): StaminaInputs? =
+        jdbcClient
+            .sql(
+                """
+                SELECT a.started_at, d.t, m.gap_speed
+                FROM activity a
+                JOIN activity_details d ON d.activity_id = a.id
+                JOIN activity_derived_metrics m ON m.activity_id = a.id
+                WHERE a.id = :activityId AND a.user_id = :userId AND a.sport = 'RUN'
+                  AND cardinality(m.gap_speed) = cardinality(d.t)
+                """.trimIndent(),
+            ).param("activityId", activityId)
+            .param("userId", userId)
+            .query { rs, _ ->
+                StaminaInputs(
+                    startedAt = rs.getTimestamp("started_at").toInstant(),
+                    t = (rs.getArray("t").array as Array<*>).map { (it as Number).toInt() }.toIntArray(),
+                    gapSpeed = (rs.getArray("gap_speed").array as Array<*>).map { (it as? Number)?.toFloat() }.toTypedArray(),
                 )
             }.optional()
             .orElse(null)

@@ -61,6 +61,7 @@ const fakeUplot = vi.hoisted(() => {
       ) => number[][];
     }>;
     height: number;
+    scales: { x: { time: boolean }; y?: { range?: [number, number] } };
   }
 
   class FakeUplot {
@@ -305,6 +306,28 @@ describe('uPlot chart adapter', () => {
     expect(u.redraw).toHaveBeenCalledWith(false);
     expect(u.destroy).not.toHaveBeenCalled();
     expect(readout.textContent).toBe('00:03 · 160 bpm');
+  });
+
+  it('fixes the value axis to the series range when it has one, such as Stamina at 0-100 %', () => {
+    const stamina = { x: [0, 1, 2], y: [100, 50, 62.5] };
+    const { u, readout, handle } = chart({
+      series: {
+        label: 'Stamina',
+        unit: '%',
+        color: { light: '#4f46e5', dark: '#818cf8' },
+        yRange: [0, 100],
+      },
+      data: stamina,
+      samples: stamina,
+    });
+
+    expect(u.opts.scales.y?.range).toEqual([0, 100]);
+    handle.setCursorTime(2);
+    expect(readout.textContent).toBe('00:02 · 62.5 %');
+  });
+
+  it('auto-ranges the value axis of a series without a fixed range', () => {
+    expect(chart().u.opts.scales.y).toBeUndefined();
   });
 });
 

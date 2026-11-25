@@ -36,6 +36,11 @@ const KIND_LABELS: Readonly<Record<ThresholdKind, string>> = {
   CRITICAL_POWER: 'Critical power',
 };
 
+/** What a suggestion's `source` code reads as; an unknown code is shown as sent. */
+const SOURCE_LABELS: Readonly<Record<string, string>> = {
+  CRITICAL_SPEED: 'Critical Speed',
+};
+
 const VALUE_LABELS: Readonly<Record<ThresholdKind, string>> = {
   MAX_HR: 'Value (bpm)',
   RESTING_HR: 'Value (bpm)',
@@ -163,7 +168,10 @@ function SuggestedUpdates({
               <span className="font-medium">{KIND_LABELS[proposal.kind]}</span>{' '}
               {formatThreshold(proposal.kind, proposal.value)} from{' '}
               {formatDate(proposal.effectiveDate)}
-              <span className="text-slate-500 dark:text-slate-400"> · {proposal.source}</span>
+              <span className="text-slate-500 dark:text-slate-400">
+                {' '}
+                · {SOURCE_LABELS[proposal.source] ?? proposal.source}
+              </span>
             </span>
             <span className="flex gap-2">
               <button

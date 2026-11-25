@@ -65,11 +65,25 @@ object GradeAdjustedPace {
      */
     fun gapSpeed(cleaned: CleanedTelemetry): Array<Float?>? {
         if (cleaned.speed.none { it != null }) return null
-        val grade = grades(cleaned)
+        val cost = costs(cleaned)
         return Array(cleaned.t.size) { k ->
             val speed = cleaned.speed.getOrNull(k) ?: return@Array null
-            (speed * minettiCost(grade[k].coerceIn(-MAX_GRADE, MAX_GRADE)) / FLAT_COST).toFloat()
+            (speed * cost[k] / FLAT_COST).toFloat()
         }
+    }
+
+    /**
+     * Each sample's **cost ratio**, parallel to the `t` of [cleaned]: Minetti's cost at its clamped grade over the
+     * flat cost, so that `gapSpeed = speed x ratio`. It is 1.0 wherever the grade is 0, so everywhere in an Activity
+     * without a GPS fix. Running a stretch at even Grade-Adjusted effort takes time in proportion to distance times
+     * this ratio, which is how a **Race Split Plan** is laid out.
+     */
+    fun costRatios(cleaned: CleanedTelemetry): DoubleArray = costs(cleaned).also { for (k in it.indices) it[k] /= FLAT_COST }
+
+    /** Minetti's cost at each sample's grade, clamped to [MAX_GRADE] either way. */
+    private fun costs(cleaned: CleanedTelemetry): DoubleArray {
+        val grade = grades(cleaned)
+        return DoubleArray(grade.size) { minettiCost(grade[it].coerceIn(-MAX_GRADE, MAX_GRADE)) }
     }
 
     private fun grades(cleaned: CleanedTelemetry): DoubleArray {
