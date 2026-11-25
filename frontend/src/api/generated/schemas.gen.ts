@@ -109,7 +109,7 @@ export const ActivityUpdateRequestDTOSchema = {
             ],
             format: 'double',
             description: 'Distance in kilometers',
-            minimum: 0
+            exclusiveMinimum: 0
         },
         timeTakenSeconds: {
             type: [
@@ -117,7 +117,7 @@ export const ActivityUpdateRequestDTOSchema = {
                 'null'
             ],
             format: 'int32',
-            minimum: 0
+            exclusiveMinimum: 0
         },
         averagePaceKmh: {
             type: [
@@ -126,7 +126,7 @@ export const ActivityUpdateRequestDTOSchema = {
             ],
             format: 'double',
             description: 'Average speed in km/h',
-            minimum: 0
+            exclusiveMinimum: 0
         },
         averageHeartRate: {
             type: [
@@ -134,7 +134,7 @@ export const ActivityUpdateRequestDTOSchema = {
                 'null'
             ],
             format: 'int32',
-            minimum: 0
+            exclusiveMinimum: 0
         },
         calories: {
             type: [
@@ -268,6 +268,7 @@ export const UserFormDTOSchema = {
     properties: {
         email: {
             type: 'string',
+            format: 'email',
             minLength: 1
         },
         password: {
@@ -284,7 +285,12 @@ export const UserFormDTOSchema = {
         lastName: {
             type: 'string'
         }
-    }
+    },
+    required: [
+        'email',
+        'password',
+        'username'
+    ]
 } as const;
 
 export const LoginRequestDTOSchema = {
@@ -386,12 +392,12 @@ export const ActivityCreateRequestDTOSchema = {
             type: 'number',
             format: 'double',
             description: 'Distance in kilometers',
-            minimum: 0
+            exclusiveMinimum: 0
         },
         timeTakenSeconds: {
             type: 'integer',
             format: 'int32',
-            minimum: 0
+            exclusiveMinimum: 0
         },
         averagePaceKmh: {
             type: [
@@ -400,7 +406,7 @@ export const ActivityCreateRequestDTOSchema = {
             ],
             format: 'double',
             description: 'Average speed in km/h',
-            minimum: 0
+            exclusiveMinimum: 0
         },
         averageHeartRate: {
             type: [
@@ -408,7 +414,7 @@ export const ActivityCreateRequestDTOSchema = {
                 'null'
             ],
             format: 'int32',
-            minimum: 0
+            exclusiveMinimum: 0
         },
         calories: {
             type: [
@@ -3301,7 +3307,8 @@ export const ActivityDerivedStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         staminaPct: {
@@ -3311,7 +3318,8 @@ export const ActivityDerivedStreamsDTOSchema = {
             ],
             description: 'Stamina: the D′ balance as a percentage of D′ (0-100, one decimal), against the Critical Speed model in effect on the Run\'s date; null unless the Activity is a Run with Grade-Adjusted Pace and that model exists',
             items: {
-                type: 'number'
+                type: 'number',
+                format: 'double'
             }
         }
     },
@@ -3447,7 +3455,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         heartRate: {
@@ -3459,7 +3468,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         power: {
@@ -3471,7 +3481,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         cadence: {
@@ -3483,7 +3494,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         altitude: {
@@ -3495,7 +3507,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         speed: {
@@ -3507,7 +3520,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         distance: {
@@ -3519,7 +3533,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         verticalOscillation: {
@@ -3531,7 +3546,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         stanceTime: {
@@ -3543,7 +3559,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         stanceTimePercent: {
@@ -3555,7 +3572,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         stanceTimeBalance: {
@@ -3567,7 +3585,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         stepLength: {
@@ -3579,7 +3598,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         verticalRatio: {
@@ -3591,7 +3611,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         enhancedSpeed: {
@@ -3603,7 +3624,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         enhancedAltitude: {
@@ -3615,7 +3637,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         enhancedRespirationRate: {
@@ -3627,7 +3650,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         respirationRate: {
@@ -3639,7 +3663,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         temperature: {
@@ -3651,7 +3676,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         coreTemperature: {
@@ -3663,7 +3689,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         fractionalCadence: {
@@ -3675,7 +3702,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         calories: {
@@ -3687,7 +3715,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         currentStress: {
@@ -3699,7 +3728,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         batterySoc: {
@@ -3711,7 +3741,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         gpsAccuracy: {
@@ -3723,7 +3754,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         verticalSpeed: {
@@ -3735,7 +3767,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         grade: {
@@ -3747,7 +3780,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         resistance: {
@@ -3759,7 +3793,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         timeFromCourse: {
@@ -3771,7 +3806,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         cycleLength: {
@@ -3783,7 +3819,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         cycles: {
@@ -3795,7 +3832,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         totalCycles: {
@@ -3807,7 +3845,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int64'
             }
         },
         accumulatedPower: {
@@ -3819,7 +3858,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int64'
             }
         },
         leftRightBalance: {
@@ -3831,7 +3871,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         leftTorqueEffectiveness: {
@@ -3843,7 +3884,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         rightTorqueEffectiveness: {
@@ -3855,7 +3897,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         leftPedalSmoothness: {
@@ -3867,7 +3910,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         rightPedalSmoothness: {
@@ -3879,7 +3923,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         combinedPedalSmoothness: {
@@ -3891,7 +3936,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         time128: {
@@ -3903,7 +3949,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         zone: {
@@ -3915,7 +3962,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         ballSpeed: {
@@ -3927,7 +3975,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         cadence256: {
@@ -3939,7 +3988,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         deviceIndex: {
@@ -3951,7 +4001,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         leftPco: {
@@ -3963,7 +4014,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         rightPco: {
@@ -3975,7 +4027,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         motorPower: {
@@ -3987,7 +4040,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         cycleLength16: {
@@ -3999,7 +4053,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         strokeType: {
@@ -4011,7 +4066,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         absolutePressure: {
@@ -4023,7 +4079,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int64'
             }
         },
         depth: {
@@ -4035,7 +4092,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         nextStopDepth: {
@@ -4047,7 +4105,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         nextStopTime: {
@@ -4059,7 +4118,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         timeToSurface: {
@@ -4071,7 +4131,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         ndlTime: {
@@ -4083,7 +4144,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         cnsLoad: {
@@ -4095,7 +4157,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         n2Load: {
@@ -4107,7 +4170,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         airTimeRemaining: {
@@ -4119,7 +4183,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         pressureSac: {
@@ -4131,7 +4196,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         volumeSac: {
@@ -4143,7 +4209,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         rmv: {
@@ -4155,7 +4222,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         ascentRate: {
@@ -4167,7 +4235,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         po2: {
@@ -4179,7 +4248,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         grit: {
@@ -4191,7 +4261,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         flow: {
@@ -4203,7 +4274,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         ebikeTravelRange: {
@@ -4215,7 +4287,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         ebikeBatteryLevel: {
@@ -4227,7 +4300,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         ebikeAssistMode: {
@@ -4239,7 +4313,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         ebikeAssistLevelPercent: {
@@ -4251,7 +4326,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'integer',
                     'null'
-                ]
+                ],
+                format: 'int32'
             }
         },
         totalHemoglobinConc: {
@@ -4263,7 +4339,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         totalHemoglobinConcMin: {
@@ -4275,7 +4352,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         totalHemoglobinConcMax: {
@@ -4287,7 +4365,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         saturatedHemoglobinPercent: {
@@ -4299,7 +4378,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         saturatedHemoglobinPercentMin: {
@@ -4311,7 +4391,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         },
         saturatedHemoglobinPercentMax: {
@@ -4323,7 +4404,8 @@ export const ActivityTelemetryStreamsDTOSchema = {
                 type: [
                     'number',
                     'null'
-                ]
+                ],
+                format: 'double'
             }
         }
     },

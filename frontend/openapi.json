@@ -2129,7 +2129,7 @@
         "type" : "object",
         "properties" : {
           "timeZone" : {
-            "type" : [ "string", "null" ],
+            "type" : "string",
             "example" : "Europe/London"
           }
         },
@@ -2146,7 +2146,7 @@
             "type" : "string"
           },
           "fieldErrors" : {
-            "type" : [ "object", "null" ],
+            "type" : "object",
             "additionalProperties" : {
               "type" : "string"
             }
@@ -2157,7 +2157,7 @@
         "type" : "object",
         "properties" : {
           "id" : {
-            "type" : [ "integer", "null" ],
+            "type" : "integer",
             "format" : "int64"
           },
           "username" : {
@@ -2167,10 +2167,10 @@
             "type" : "string"
           },
           "firstName" : {
-            "type" : [ "string", "null" ]
+            "type" : "string"
           },
           "lastName" : {
-            "type" : [ "string", "null" ]
+            "type" : "string"
           },
           "administrator" : {
             "type" : "boolean"
@@ -2184,12 +2184,12 @@
         "type" : "object",
         "properties" : {
           "title" : {
-            "type" : [ "string", "null" ],
+            "type" : "string",
             "maxLength" : 255,
             "minLength" : 1
           },
           "sport" : {
-            "type" : [ "string", "null" ],
+            "type" : "string",
             "enum" : [ "RUN", "WALK", "HIKE", "RIDE", "SWIM", "WORKOUT" ]
           },
           "startedAt" : {
@@ -2302,23 +2302,23 @@
         "type" : "object",
         "properties" : {
           "email" : {
-            "type" : [ "string", "null" ],
+            "type" : "string",
             "format" : "email",
             "minLength" : 1
           },
           "password" : {
-            "type" : [ "string", "null" ],
+            "type" : "string",
             "minLength" : 1
           },
           "username" : {
-            "type" : [ "string", "null" ],
+            "type" : "string",
             "minLength" : 1
           },
           "firstName" : {
-            "type" : [ "string", "null" ]
+            "type" : "string"
           },
           "lastName" : {
-            "type" : [ "string", "null" ]
+            "type" : "string"
           }
         },
         "required" : [ "email", "password", "username" ]
@@ -2338,18 +2338,14 @@
         "type" : "object",
         "properties" : {
           "kind" : {
-            "oneOf" : [ {
-              "$ref" : "#/components/schemas/ThresholdKind"
-            }, {
-              "type" : "null"
-            } ]
+            "$ref" : "#/components/schemas/ThresholdKind"
           },
           "effectiveDate" : {
-            "type" : [ "string", "null" ],
+            "type" : "string",
             "format" : "date"
           },
           "value" : {
-            "type" : [ "number", "null" ],
+            "type" : "number",
             "format" : "double"
           }
         },
@@ -2384,26 +2380,26 @@
         "type" : "object",
         "properties" : {
           "title" : {
-            "type" : [ "string", "null" ],
+            "type" : "string",
             "maxLength" : 255,
             "minLength" : 1
           },
           "sport" : {
-            "type" : [ "string", "null" ],
+            "type" : "string",
             "enum" : [ "RUN", "WALK", "HIKE", "RIDE", "SWIM", "WORKOUT" ]
           },
           "startedAt" : {
-            "type" : [ "string", "null" ],
+            "type" : "string",
             "format" : "date-time"
           },
           "distance" : {
-            "type" : [ "number", "null" ],
+            "type" : "number",
             "format" : "double",
             "description" : "Distance in kilometers",
             "exclusiveMinimum" : 0
           },
           "timeTakenSeconds" : {
-            "type" : [ "integer", "null" ],
+            "type" : "integer",
             "format" : "int32",
             "exclusiveMinimum" : 0
           },
@@ -3021,18 +3017,12 @@
         "type" : "object",
         "properties" : {
           "details" : {
-            "oneOf" : [ {
-              "$ref" : "#/components/schemas/DetailsUpgradeDTO"
-            }, {
-              "type" : "null"
-            } ]
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/DetailsUpgradeDTO"
           },
           "laps" : {
-            "oneOf" : [ {
-              "$ref" : "#/components/schemas/LapsUpgradeDTO"
-            }, {
-              "type" : "null"
-            } ]
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/LapsUpgradeDTO"
           },
           "kind" : {
             "type" : "string",
@@ -3045,7 +3035,7 @@
         "type" : "object",
         "properties" : {
           "activityIds" : {
-            "type" : [ "array", "null" ],
+            "type" : "array",
             "items" : {
               "type" : "integer",
               "format" : "int64"
@@ -3087,7 +3077,7 @@
         "type" : "object",
         "properties" : {
           "activityIds" : {
-            "type" : [ "array", "null" ],
+            "type" : "array",
             "items" : {
               "type" : "integer",
               "format" : "int64"
@@ -3164,11 +3154,8 @@
         "type" : "object",
         "properties" : {
           "bounds" : {
-            "oneOf" : [ {
-              "$ref" : "#/components/schemas/GeoBoundsDTO"
-            }, {
-              "type" : "null"
-            } ]
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/GeoBoundsDTO"
           }
         },
         "required" : [ "bounds" ]
@@ -3254,11 +3241,8 @@
             "format" : "double"
           },
           "personalRecord" : {
-            "oneOf" : [ {
-              "$ref" : "#/components/schemas/PersonalRecordDTO"
-            }, {
-              "type" : "null"
-            } ]
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/PersonalRecordDTO"
           }
         },
         "required" : [ "benchmarkDistance", "benchmarkName", "distanceMeters", "personalRecord" ]
@@ -3318,12 +3302,9 @@
             "description" : "Between 0.8 and 1.2; 1.0 without a calibrating race"
           },
           "correctionSource" : {
-            "description" : "The Best Effort the Correction Factor came from; null when it is 1.0 for want of one",
-            "oneOf" : [ {
-              "$ref" : "#/components/schemas/CorrectionSourceDTO"
-            }, {
-              "type" : "null"
-            } ]
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/CorrectionSourceDTO",
+            "description" : "The Best Effort the Correction Factor came from; null when it is 1.0 for want of one"
           }
         },
         "required" : [ "correctionFactor", "correctionSource", "day", "effectiveVo2max" ]
@@ -3351,12 +3332,9 @@
         "type" : "object",
         "properties" : {
           "current" : {
-            "description" : "Effective VO2max on the athlete's today; null before their first VO2max Estimate",
-            "oneOf" : [ {
-              "$ref" : "#/components/schemas/Vo2maxCurrentDTO"
-            }, {
-              "type" : "null"
-            } ]
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/Vo2maxCurrentDTO",
+            "description" : "Effective VO2max on the athlete's today; null before their first VO2max Estimate"
           },
           "days" : {
             "type" : "array",
@@ -3623,12 +3601,9 @@
         "type" : "object",
         "properties" : {
           "current" : {
-            "description" : "The prognosis on the athlete's today; null when they have no Effective VO2max today",
-            "oneOf" : [ {
-              "$ref" : "#/components/schemas/RacePrognosisCurrentDTO"
-            }, {
-              "type" : "null"
-            } ]
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/RacePrognosisCurrentDTO",
+            "description" : "The prognosis on the athlete's today; null when they have no Effective VO2max today"
           },
           "days" : {
             "type" : "array",
@@ -3805,18 +3780,12 @@
             "format" : "int32"
           },
           "recent" : {
-            "oneOf" : [ {
-              "$ref" : "#/components/schemas/PeakEffortDTO"
-            }, {
-              "type" : "null"
-            } ]
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/PeakEffortDTO"
           },
           "allTime" : {
-            "oneOf" : [ {
-              "$ref" : "#/components/schemas/PeakEffortDTO"
-            }, {
-              "type" : "null"
-            } ]
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/PeakEffortDTO"
           }
         },
         "required" : [ "allTime", "benchmarkDuration", "durationSeconds", "recent" ]
@@ -3902,12 +3871,9 @@
         "type" : "object",
         "properties" : {
           "current" : {
-            "description" : "Marathon Shape on the athlete's today; null when they have no Effective VO2max today",
-            "oneOf" : [ {
-              "$ref" : "#/components/schemas/MarathonShapeCurrentDTO"
-            }, {
-              "type" : "null"
-            } ]
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/MarathonShapeCurrentDTO",
+            "description" : "Marathon Shape on the athlete's today; null when they have no Effective VO2max today"
           },
           "days" : {
             "type" : "array",
@@ -3988,11 +3954,8 @@
             "$ref" : "#/components/schemas/CriticalSpeedFitDTO"
           },
           "power" : {
-            "oneOf" : [ {
-              "$ref" : "#/components/schemas/CriticalSpeedFitDTO"
-            }, {
-              "type" : "null"
-            } ]
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/CriticalSpeedFitDTO"
           }
         },
         "required" : [ "asOf", "pace", "power", "windowDays" ]
@@ -4045,12 +4008,9 @@
         "type" : "object",
         "properties" : {
           "current" : {
-            "description" : "Acclimation on the athlete's today; null before their first exposed day",
-            "oneOf" : [ {
-              "$ref" : "#/components/schemas/AcclimationCurrentDTO"
-            }, {
-              "type" : "null"
-            } ]
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/AcclimationCurrentDTO",
+            "description" : "Acclimation on the athlete's today; null before their first exposed day"
           },
           "days" : {
             "type" : "array",
@@ -4233,28 +4193,19 @@
             }
           },
           "runMetrics" : {
-            "description" : "Derived Run metrics; null for any sport but Run and for a Run whose derived data is not computed yet",
-            "oneOf" : [ {
-              "$ref" : "#/components/schemas/RunMetricsDTO"
-            }, {
-              "type" : "null"
-            } ]
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/RunMetricsDTO",
+            "description" : "Derived Run metrics; null for any sport but Run and for a Run whose derived data is not computed yet"
           },
           "trainingLoad" : {
-            "description" : "Training Load and the method that computed it; null when it is unavailable or not computed yet",
-            "oneOf" : [ {
-              "$ref" : "#/components/schemas/TrainingLoadDTO"
-            }, {
-              "type" : "null"
-            } ]
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/TrainingLoadDTO",
+            "description" : "Training Load and the method that computed it; null when it is unavailable or not computed yet"
           },
           "trainingLoadUnavailableReason" : {
-            "description" : "Why the Activity has no Training Load; null when it has one or it is not computed yet",
-            "oneOf" : [ {
-              "$ref" : "#/components/schemas/TrainingLoadUnavailableReason"
-            }, {
-              "type" : "null"
-            } ]
+            "type" : [ "string", "null" ],
+            "$ref" : "#/components/schemas/TrainingLoadUnavailableReason",
+            "description" : "Why the Activity has no Training Load; null when it has one or it is not computed yet"
           },
           "minStaminaPct" : {
             "type" : [ "number", "null" ],
@@ -4262,12 +4213,9 @@
             "description" : "The lowest Stamina the Run reaches, in percent; null when it has no Stamina stream"
           },
           "conditions" : {
-            "description" : "The temperature, altitude and acclimation the Activity was done in; null until its derived data is computed",
-            "oneOf" : [ {
-              "$ref" : "#/components/schemas/ActivityConditionsDTO"
-            }, {
-              "type" : "null"
-            } ]
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/ActivityConditionsDTO",
+            "description" : "The temperature, altitude and acclimation the Activity was done in; null until its derived data is computed"
           }
         },
         "required" : [ "averageHeartRate", "averagePaceKmh", "bestEfforts", "calories", "conditions", "distance", "hasProtectedMetrics", "history", "id", "laps", "minStaminaPct", "ownerUsername", "runMetrics", "source", "sport", "startedAt", "timeTakenSeconds", "title", "trainingLoad", "trainingLoadUnavailableReason" ]
@@ -4383,11 +4331,8 @@
             "description" : "Aerobic Decoupling in percent; positive when heart rate rose relative to pace"
           },
           "decouplingUnavailableReason" : {
-            "oneOf" : [ {
-              "$ref" : "#/components/schemas/DecouplingUnavailableReason"
-            }, {
-              "type" : "null"
-            } ]
+            "type" : [ "string", "null" ],
+            "$ref" : "#/components/schemas/DecouplingUnavailableReason"
           },
           "vo2maxEstimateRaw" : {
             "type" : [ "number", "null" ],
@@ -4400,12 +4345,9 @@
             "description" : "VO2max Estimate in ml/kg/min times the Correction Factor of the Run's day"
           },
           "vo2maxUnavailableReason" : {
-            "description" : "Why the Run has no VO2max Estimate; null when it has one or it has not been computed",
-            "oneOf" : [ {
-              "$ref" : "#/components/schemas/Vo2maxUnavailableReason"
-            }, {
-              "type" : "null"
-            } ]
+            "type" : [ "string", "null" ],
+            "$ref" : "#/components/schemas/Vo2maxUnavailableReason",
+            "description" : "Why the Run has no VO2max Estimate; null when it has one or it has not been computed"
           }
         },
         "required" : [ "aerobicDecouplingPercent", "decouplingUnavailableReason", "efficiencyFactor", "movingSeconds", "ngpMetersPerSecond", "vo2maxEstimate", "vo2maxEstimateRaw", "vo2maxUnavailableReason" ]
@@ -4507,12 +4449,9 @@
             "enum" : [ "RUN", "WALK", "HIKE", "RIDE", "SWIM", "WORKOUT" ]
           },
           "route" : {
-            "description" : "Every recorded GPS fix in order, or null when fewer than two were recorded",
-            "oneOf" : [ {
-              "$ref" : "#/components/schemas/GeoJsonLineStringDTO"
-            }, {
-              "type" : "null"
-            } ]
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/GeoJsonLineStringDTO",
+            "description" : "Every recorded GPS fix in order, or null when fewer than two were recorded"
           },
           "bestEfforts" : {
             "type" : "array",
