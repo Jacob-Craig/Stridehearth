@@ -53,6 +53,15 @@ data class ActivityDerivedStreamsDTO(
     )
     @field:ArraySchema(schema = Schema(types = [NUMBER, NULL]))
     val gapSpeed: List<Double?>?,
+    @field:Schema(
+        types = [ARRAY, NULL],
+        requiredMode = REQUIRED,
+        description =
+            "Stamina: the D′ balance as a percentage of D′ (0-100, one decimal), against the Critical Speed model in " +
+                "effect on the Run's date; null unless the Activity is a Run with Grade-Adjusted Pace and that model exists",
+    )
+    @field:ArraySchema(schema = Schema(types = [NUMBER]))
+    val staminaPct: List<Double>?,
 )
 
 /** A GeoJSON `LineString` (RFC 7946) of `[longitude, latitude]` positions. */

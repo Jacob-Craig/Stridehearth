@@ -165,6 +165,35 @@ class ActivityDerivedMetricsRepository(
             }.optional()
             .orElse(null)
 
+    /**
+     * What **Stamina** is integrated from for [activityId]: its start, its sample times and its stored Grade-Adjusted
+     * speed. Null unless [userId] owns it, it is a Run, and its GAP stream is stored parallel to its Activity Details.
+     */
+    fun findStaminaInputs(
+        activityId: Long,
+        userId: Long,
+    ): StaminaInputs? =
+        jdbcClient
+            .sql(
+                """
+                SELECT a.started_at, d.t, m.gap_speed
+                FROM activity a
+                JOIN activity_details d ON d.activity_id = a.id
+                JOIN activity_derived_metrics m ON m.activity_id = a.id
+                WHERE a.id = :activityId AND a.user_id = :userId AND a.sport = 'RUN'
+                  AND cardinality(m.gap_speed) = cardinality(d.t)
+                """.trimIndent(),
+            ).param("activityId", activityId)
+            .param("userId", userId)
+            .query { rs, _ ->
+                StaminaInputs(
+                    startedAt = rs.getTimestamp("started_at").toInstant(),
+                    t = (rs.getArray("t").array as Array<*>).map { (it as Number).toInt() }.toIntArray(),
+                    gapSpeed = (rs.getArray("gap_speed").array as Array<*>).map { (it as? Number)?.toFloat() }.toTypedArray(),
+                )
+            }.optional()
+            .orElse(null)
+
     /** Which of [activityIds] still exist as Activities. */
     fun findExistingActivityIds(activityIds: Collection<Long>): Set<Long> =
         activityIds.distinct().chunkedForIdLookup().flatMapTo(mutableSetOf()) { chunk ->

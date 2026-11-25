@@ -12,8 +12,9 @@ import java.time.Instant
  * an athlete's stale rollups alone (ADR-0016).
  *
  * - 1: Daily Load and the Performance Management Chart (#36).
+ * - 2: Critical Speed and Critical Power models (#39).
  */
-const val ROLLUP_VERSION = 1
+const val ROLLUP_VERSION = 2
 
 /**
  * What one transaction marked for one athlete: the earliest moment from which their daily rollups must be rebuilt
@@ -34,7 +35,8 @@ data class RollupMarks(
  * single [TransactionSynchronization], so many marks in one transaction cost one rollup per athlete.
  *
  * The before-commit pass flushes the caller's pending changes, then, for each athlete in ascending id order, takes
- * their rollup lock, always the last lock a transaction takes (ADR-0016), and rebuilds their **Daily Load** and
+ * their rollup lock, always the last lock a transaction takes (ADR-0016), refits their **Critical Speed** models
+ * within 90 days of each day their peaks changed ([CriticalSpeedRollup]), and rebuilds their **Daily Load** and
  * **Performance Management Chart** from the earliest marked day ([DailyLoadRollup]). An athlete without a state row
  * gets a full rebuild, and their row is created current; an athlete whose rollups are stale ([ROLLUP_VERSION]) is left
  * to the recompute worker's full rebuild.
@@ -44,6 +46,7 @@ class AthleteRollups(
     private val entityManager: EntityManager,
     private val stateRepository: AthleteAnalyticsStateRepository,
     private val dailyLoadRollup: DailyLoadRollup,
+    private val criticalSpeedRollup: CriticalSpeedRollup,
 ) {
     /** Marks that [userId]'s daily rollups must be rebuilt from the day containing [startedAt] onwards. */
     fun markDailyLoad(
@@ -110,11 +113,15 @@ class AthleteRollups(
         val version = stateRepository.findRollupVersion(userId)
         when {
             version == null -> {
+                criticalSpeedRollup.refit(userId, changedAt = null)
                 dailyLoadRollup.recomputeFrom(userId, from = null)
                 stateRepository.insertRollupVersionIfAbsent(userId)
             }
             version < ROLLUP_VERSION -> return
-            else -> marks.dailyLoadFrom?.let { dailyLoadRollup.recomputeFrom(userId, it) }
+            else -> {
+                if (marks.peaksChangedAt.isNotEmpty()) criticalSpeedRollup.refit(userId, marks.peaksChangedAt)
+                marks.dailyLoadFrom?.let { dailyLoadRollup.recomputeFrom(userId, it) }
+            }
         }
     }
 
@@ -131,6 +138,7 @@ class AthleteRollups(
         stateRepository.lockRollups(userId)
         val version = stateRepository.findRollupVersion(userId, forUpdate = true)
         if (version != null && version >= ROLLUP_VERSION) return false
+        criticalSpeedRollup.refit(userId, changedAt = null)
         dailyLoadRollup.recomputeFrom(userId, from = null)
         if (version == null) stateRepository.insertRollupVersionIfAbsent(userId) else stateRepository.setRollupVersion(userId)
         return true

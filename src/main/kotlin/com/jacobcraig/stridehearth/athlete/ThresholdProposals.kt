@@ -1,6 +1,8 @@
 package com.jacobcraig.stridehearth.athlete
 
 import org.springframework.context.event.EventListener
+import org.springframework.core.Ordered
+import org.springframework.core.annotation.Order
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -77,6 +79,28 @@ class ThresholdProposals(
             .single()
     }
 
+    /**
+     * Withdraws [source]'s pending proposal for [userId]'s [kind], if there is one, because it no longer suggests a
+     * change. A dismissed one stays, so the athlete is still not offered that value again.
+     */
+    @Transactional
+    fun withdraw(
+        userId: Long,
+        kind: ThresholdKind,
+        source: String,
+    ) {
+        jdbcClient
+            .sql(
+                """
+                DELETE FROM athlete_threshold_proposal
+                WHERE user_id = :userId AND kind = :kind AND source = :source AND status = 'PENDING'
+                """.trimIndent(),
+            ).param("userId", userId)
+            .param("kind", kind.name)
+            .param("source", source)
+            .update()
+    }
+
     /** [userId]'s proposals awaiting a decision, oldest first. */
     @Transactional(readOnly = true)
     fun pending(userId: Long): List<ThresholdProposal> =
@@ -131,9 +155,12 @@ class ThresholdProposals(
 
     /**
      * When an athlete's Threshold changes, withdraws their pending proposals of that kind that the value now in force
-     * on the proposal's date already matches, within [SAME_VALUE_TOLERANCE]: there is nothing left to suggest.
+     * on the proposal's date already matches, within [SAME_VALUE_TOLERANCE]: there is nothing left to suggest. Runs
+     * after [RecomputeRequestListener] has taken the exclusive scoring lock, so it never holds a proposal row while
+     * waiting for that lock (ADR-0016).
      */
     @EventListener
+    @Order(Ordered.LOWEST_PRECEDENCE)
     fun onThresholdsChanged(event: ThresholdsChanged) {
         val history = athleteThresholds.history(event.userId)
         pending(event.userId)

@@ -110,6 +110,32 @@ The highest average Grade-Adjusted speed, or power, over one continuous window o
 It is not a Best Effort and never sets a Personal Record. Derived, so recomputed, never edited.
 _Avoid_: Duration best effort, peak, power PR, mean-maximal
 
+**Critical Speed (CS)**:
+The highest running speed an athlete can sustain without steadily using up their D′, in m/s: the slope of the 2-parameter model `D(t) = CS·t + D′`, fitted by least squares to the distances of their best Grade-Adjusted Peak Efforts at the 2, 3, 5, 10 and 20 minute Benchmark Durations from Runs on the 90 days up to a date (that day included, in their Athlete Time Zone).
+No model is published (it records why instead) with fewer than 3 such Peak Efforts, an R² below 0.9, a non-positive CS, or a D′ under 100 m (which comes from sub-maximal efforts, such as one steady easy run, whose near-straight distance-time line fits with a high R² anyway). A model is kept for every day the athlete has a Run and refitted whenever a Peak Effort in its window changes. When it differs from the threshold pace in force by more than 3% (of the threshold, as a speed) it makes a Threshold Proposal; it never changes a Threshold itself. Derived, so recomputed, never edited.
+_Avoid_: Threshold pace (that is the Threshold the athlete records), FTP, critical pace
+
+**D′ (D prime)**:
+The distance, in metres, an athlete can cover above Critical Speed before they must slow down: the intercept of the same fit. It is spent while running faster than CS and recovers below it.
+_Avoid_: Anaerobic capacity, W′ (for running speed), reserve
+
+**Stamina**:
+How much of their D′ an athlete has left at each moment of a Run, as a percentage of D′ (100% full, 0% empty), by Skiba's D′ balance (D′bal). Above Critical Speed (on Grade-Adjusted speed) it is spent metre for metre; at or below CS it recovers towards full, faster the further below CS, with time constant `τ = D′ / (CS − speed)`. A recording pause or a missing speed recovers as standing still.
+It is measured against the Critical Speed model in effect on the Run's own date (its own Peak Efforts included), and a Run has none when there is no model on that date. Computed on every read, never stored or edited. Its lowest value is the Run's **Min Stamina**.
+_Avoid_: D′bal (the balance in metres), W′bal (for power), fatigue, energy
+
+**Critical Power (CP)**:
+Critical Speed's counterpart for running power, in watts, fitted the same way from power Peak Efforts (work `P·t` against time) when the athlete has any in the window. No model is published with a W′ under 5 kJ, D′'s 100 m floor for power. It proposes the critical power Threshold the same way.
+_Avoid_: FTP, threshold power
+
+**W′ (W prime)**:
+D′'s counterpart for power: the work, in joules, an athlete can do above Critical Power, the intercept of the power fit.
+_Avoid_: Anaerobic work capacity, D′ (for power)
+
+**Pace-Duration Curve**:
+An athlete's best Peak Efforts plotted against their Benchmark Durations (5 s to 60 minutes, on a log scale): one curve for the last 90 days and one for all time, with their current Critical Speed model `CS + D′/t` drawn from 2 minutes up. When they have power Peak Efforts it can show power instead, with the Critical Power model. Each point opens the Activity that set it. Worked out from the stored Peak Efforts whenever it is read.
+_Avoid_: Power-duration curve (for pace), mean-maximal curve, PDC (in the UI)
+
 **Telemetry Cleaning**:
 The pass that produces Cleaned Activity Details from an Activity's Activity Details and sport: it rejects GPS spikes (speeds above the sport's ceiling and distance jumps), treats heart rate as missing during dropouts and cadence-lock, interpolates gaps of up to 10 seconds, and smooths altitude over a 15 m distance window.
 It never changes the stored Activity Details, and an Activity with no GPS fix keeps its speed, distance and altitude exactly as recorded.

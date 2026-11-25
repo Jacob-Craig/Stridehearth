@@ -545,6 +545,29 @@ export type PeakEffortsResponseDto = {
     power: Array<PeakEffortSlotDto>;
 };
 
+export type CriticalSpeedFitDto = {
+    status: 'MODEL' | 'INSUFFICIENT_POINTS' | 'POOR_FIT' | 'NON_PHYSICAL';
+    criticalValue: number | null;
+    reserveCapacity: number | null;
+    pointCount: number;
+    points: Array<CriticalSpeedPointDto>;
+    rSquared: number | null;
+};
+
+export type CriticalSpeedPointDto = {
+    benchmarkDuration: 'FIVE_SECONDS' | 'FIFTEEN_SECONDS' | 'THIRTY_SECONDS' | 'ONE_MINUTE' | 'TWO_MINUTES' | 'THREE_MINUTES' | 'FIVE_MINUTES' | 'TEN_MINUTES' | 'TWENTY_MINUTES' | 'THIRTY_MINUTES' | 'SIXTY_MINUTES';
+    durationSeconds: number;
+    value: number;
+    activityId: number;
+};
+
+export type CriticalSpeedResponseDto = {
+    asOf: string;
+    windowDays: number;
+    pace: CriticalSpeedFitDto;
+    power: CriticalSpeedFitDto | null;
+};
+
 export type PagedResponseDtoActivitySummaryDto = {
     items: Array<ActivitySummaryDto>;
     page: number;
@@ -610,6 +633,10 @@ export type ActivityDetailDto = {
      * Why the Activity has no Training Load; null when it has one or it is not computed yet
      */
     trainingLoadUnavailableReason: TrainingLoadUnavailableReason | null;
+    /**
+     * The lowest Stamina the Run reaches, in percent; null when it has no Stamina stream
+     */
+    minStaminaPct: number | null;
 };
 
 export type ActivityHistoryEntryDto = {
@@ -679,6 +706,10 @@ export type ActivityDerivedStreamsDto = {
      * Grade-Adjusted Pace as a speed in metres per second; null for sports without it. An element is null where cleaned speed is missing
      */
     gapSpeed: Array<number | null> | null;
+    /**
+     * Stamina: the D′ balance as a percentage of D′ (0-100, one decimal), against the Critical Speed model in effect on the Run's date; null unless the Activity is a Run with Grade-Adjusted Pace and that model exists
+     */
+    staminaPct: Array<number> | null;
 };
 
 export type ActivityTelemetryBestEffortDto = {
@@ -1809,6 +1840,31 @@ export type GetPeakEffortsResponses = {
 };
 
 export type GetPeakEffortsResponse = GetPeakEffortsResponses[keyof GetPeakEffortsResponses];
+
+export type GetCriticalSpeedData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/athlete/critical-speed';
+};
+
+export type GetCriticalSpeedErrors = {
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type GetCriticalSpeedError = GetCriticalSpeedErrors[keyof GetCriticalSpeedErrors];
+
+export type GetCriticalSpeedResponses = {
+    /**
+     * The authenticated athlete's models, or why there is none
+     */
+    200: CriticalSpeedResponseDto;
+};
+
+export type GetCriticalSpeedResponse = GetCriticalSpeedResponses[keyof GetCriticalSpeedResponses];
 
 export type GetActivityTelemetryData = {
     body?: never;

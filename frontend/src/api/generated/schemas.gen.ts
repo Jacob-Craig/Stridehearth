@@ -2138,6 +2138,130 @@ export const PeakEffortsResponseDTOSchema = {
     ]
 } as const;
 
+export const CriticalSpeedFitDTOSchema = {
+    type: 'object',
+    properties: {
+        status: {
+            type: 'string',
+            enum: [
+                'MODEL',
+                'INSUFFICIENT_POINTS',
+                'POOR_FIT',
+                'NON_PHYSICAL'
+            ]
+        },
+        criticalValue: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double'
+        },
+        reserveCapacity: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double'
+        },
+        pointCount: {
+            type: 'integer',
+            format: 'int32'
+        },
+        points: {
+            type: 'array',
+            items: {
+                $ref: '#/components/schemas/CriticalSpeedPointDTO'
+            }
+        },
+        rSquared: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double'
+        }
+    },
+    required: [
+        'criticalValue',
+        'pointCount',
+        'points',
+        'rSquared',
+        'reserveCapacity',
+        'status'
+    ]
+} as const;
+
+export const CriticalSpeedPointDTOSchema = {
+    type: 'object',
+    properties: {
+        benchmarkDuration: {
+            type: 'string',
+            enum: [
+                'FIVE_SECONDS',
+                'FIFTEEN_SECONDS',
+                'THIRTY_SECONDS',
+                'ONE_MINUTE',
+                'TWO_MINUTES',
+                'THREE_MINUTES',
+                'FIVE_MINUTES',
+                'TEN_MINUTES',
+                'TWENTY_MINUTES',
+                'THIRTY_MINUTES',
+                'SIXTY_MINUTES'
+            ]
+        },
+        durationSeconds: {
+            type: 'integer',
+            format: 'int32'
+        },
+        value: {
+            type: 'number',
+            format: 'double'
+        },
+        activityId: {
+            type: 'integer',
+            format: 'int64'
+        }
+    },
+    required: [
+        'activityId',
+        'benchmarkDuration',
+        'durationSeconds',
+        'value'
+    ]
+} as const;
+
+export const CriticalSpeedResponseDTOSchema = {
+    type: 'object',
+    properties: {
+        asOf: {
+            type: 'string',
+            format: 'date'
+        },
+        windowDays: {
+            type: 'integer',
+            format: 'int32'
+        },
+        pace: {
+            $ref: '#/components/schemas/CriticalSpeedFitDTO'
+        },
+        power: {
+            type: [
+                'object',
+                'null'
+            ],
+            $ref: '#/components/schemas/CriticalSpeedFitDTO'
+        }
+    },
+    required: [
+        'asOf',
+        'pace',
+        'power',
+        'windowDays'
+    ]
+} as const;
+
 export const PagedResponseDTOActivitySummaryDTOSchema = {
     type: 'object',
     properties: {
@@ -2340,6 +2464,14 @@ export const ActivityDetailDTOSchema = {
             ],
             $ref: '#/components/schemas/TrainingLoadUnavailableReason',
             description: 'Why the Activity has no Training Load; null when it has one or it is not computed yet'
+        },
+        minStaminaPct: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'The lowest Stamina the Run reaches, in percent; null when it has no Stamina stream'
         }
     },
     required: [
@@ -2352,6 +2484,7 @@ export const ActivityDetailDTOSchema = {
         'history',
         'id',
         'laps',
+        'minStaminaPct',
         'ownerUsername',
         'runMetrics',
         'source',
@@ -2589,10 +2722,21 @@ export const ActivityDerivedStreamsDTOSchema = {
                     'null'
                 ]
             }
+        },
+        staminaPct: {
+            type: [
+                'array',
+                'null'
+            ],
+            description: 'Stamina: the D′ balance as a percentage of D′ (0-100, one decimal), against the Critical Speed model in effect on the Run\'s date; null unless the Activity is a Run with Grade-Adjusted Pace and that model exists',
+            items: {
+                type: 'number'
+            }
         }
     },
     required: [
-        'gapSpeed'
+        'gapSpeed',
+        'staminaPct'
     ]
 } as const;
 

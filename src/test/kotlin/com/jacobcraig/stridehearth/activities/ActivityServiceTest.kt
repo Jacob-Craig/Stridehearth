@@ -38,6 +38,7 @@ class ActivityServiceTest {
     private val derivedDataRefresh: DerivedDataRefresh = mock()
     private val heatmapRouteRepository: HeatmapRouteRepository = mock()
     private val derivedMetricsRepository: ActivityDerivedMetricsRepository = mock()
+    private val staminaService: StaminaService = mock()
     private val activityService =
         ActivityService(
             activityRepository,
@@ -50,6 +51,7 @@ class ActivityServiceTest {
             derivedDataRefresh,
             heatmapRouteRepository,
             derivedMetricsRepository,
+            staminaService,
         )
     private val owner = User(id = 7L, email = "a@b.com", passwordHash = "x", username = "alice")
 

@@ -127,6 +127,9 @@ export const dashboardRoute = createRoute({
       context.queryClient.prefetchQuery(queries.pmc),
       // The progression is fetched alongside but never fails the route: its card shows its own error.
       context.queryClient.prefetchQuery(queries.progression),
+      // So is the Pace-Duration Curve, whose section shows its own error.
+      context.queryClient.prefetchQuery(queries.peakEfforts),
+      context.queryClient.prefetchQuery(queries.criticalSpeed),
     ]);
   },
   component: DashboardRoute,

@@ -29,7 +29,7 @@ export interface TelemetryChartOptions {
   readonly container: HTMLElement;
   /** The live reading under the cursor is written here directly, without a React render. */
   readonly readout: HTMLElement;
-  readonly series: Pick<ChartSeries, 'label' | 'unit' | 'color'>;
+  readonly series: Pick<ChartSeries, 'label' | 'unit' | 'color' | 'yRange'>;
   /** `(elapsed seconds, value)` points to plot, possibly downsampled. */
   readonly data: XySeries;
   /** The full-resolution `(elapsed seconds, value)` samples, read out at the scrubbed time. */
@@ -153,7 +153,11 @@ export function createTelemetryChart(options: TelemetryChartOptions): TelemetryC
       height: CHART_PLOT_HEIGHT_PX,
       legend: { show: false },
       cursor: { drag: { x: false, y: false }, y: false },
-      scales: { x: { time: false } },
+      // A fixed range (Stamina's 0-100 %) keeps the axis comparable between Activities; others auto-range.
+      scales: {
+        x: { time: false },
+        ...(series.yRange && { y: { range: [series.yRange[0], series.yRange[1]] } }),
+      },
       axes: [
         { ...axis, values: (_u, ticks) => ticks.map((tick) => formatDuration(tick)) },
         { ...axis, size: 50 },

@@ -15,6 +15,7 @@ import {
   formatElevationGain,
   formatNgpPerKm,
   formatPacePerKm,
+  formatStaminaPercent,
   formatTrainingLoad,
 } from '../src/lib/format';
 
@@ -203,5 +204,13 @@ describe('formatTrainingLoad', () => {
     expect(formatTrainingLoad({ value: 87.4, method: 'RTSS' })).toBe('87 · rTSS');
     expect(formatTrainingLoad({ value: 99.5, method: 'RSS' })).toBe('100 · RSS');
     expect(formatTrainingLoad({ value: 0.2, method: 'HRSS' })).toBe('0 · HRSS');
+  });
+});
+
+describe('formatStaminaPercent', () => {
+  it('rounds Stamina to a whole percentage', () => {
+    expect(formatStaminaPercent(24.6)).toBe('25%');
+    expect(formatStaminaPercent(0)).toBe('0%');
+    expect(formatStaminaPercent(100)).toBe('100%');
   });
 });

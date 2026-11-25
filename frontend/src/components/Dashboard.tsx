@@ -1,5 +1,11 @@
 import { Link } from '@tanstack/react-router';
-import type { PersonalRecordDto, PersonalRecordSlotDto } from '../api/generated/types.gen';
+import type {
+  CriticalSpeedResponseDto,
+  PeakEffortsResponseDto,
+  PersonalRecordDto,
+  PersonalRecordSlotDto,
+} from '../api/generated/types.gen';
+import { PaceDurationCurve, type QueryState } from '../features/pace-duration/PaceDurationCurve';
 import { PmcPanel, type PmcQueryState } from '../features/pmc/PmcPanel';
 import {
   PersonalRecordProgression,
@@ -17,9 +23,17 @@ interface DashboardProps {
   personalRecordSlots: readonly PersonalRecordSlotDto[];
   pmc: PmcQueryState;
   progression: ProgressionState;
+  peakEfforts: QueryState<PeakEffortsResponseDto>;
+  criticalSpeed: QueryState<CriticalSpeedResponseDto>;
 }
 
-export function Dashboard({ personalRecordSlots, pmc, progression }: DashboardProps) {
+export function Dashboard({
+  personalRecordSlots,
+  pmc,
+  progression,
+  peakEfforts,
+  criticalSpeed,
+}: DashboardProps) {
   return (
     <div className="space-y-8">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
@@ -69,6 +83,8 @@ export function Dashboard({ personalRecordSlots, pmc, progression }: DashboardPr
       </section>
 
       <PmcPanel pmc={pmc} />
+
+      <PaceDurationCurve peakEfforts={peakEfforts} criticalSpeed={criticalSpeed} />
 
       <section aria-label="Training summaries">
         <div className="grid gap-4 md:grid-cols-2">

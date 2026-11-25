@@ -24,6 +24,7 @@ class ActivityService(
     private val derivedDataRefresh: DerivedDataRefresh,
     private val heatmapRouteRepository: HeatmapRouteRepository,
     private val derivedMetricsRepository: ActivityDerivedMetricsRepository,
+    private val staminaService: StaminaService,
 ) {
     /** Logs a `MANUAL` **Activity** for [userId], recording its creation as an **Activity History Entry**. */
     @Transactional
@@ -75,6 +76,7 @@ class ActivityService(
             bestEfforts = activityBestEffortRepository.findByActivityId(id).sortedBy { it.benchmarkDistance.distanceMeters },
             runMetrics = if (activity.sport == ActivitySport.RUN) derivedMetricsRepository.findRunMetrics(id) else null,
             trainingLoad = derivedMetricsRepository.findTrainingLoad(id),
+            minStaminaPct = staminaService.stamina(id, userId)?.min,
         )
     }
 

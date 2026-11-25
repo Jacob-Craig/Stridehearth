@@ -87,6 +87,9 @@ const SENSOR_CHARTS: readonly SensorChart[] = [
   },
 ];
 
+/** Where Speed sits in the display order; **Stamina** is charted directly after it. */
+const SPEED_POSITION = SENSOR_CHARTS.findIndex((chart) => chart.id === 'speed');
+
 /**
  * A derived stream drawn over a chart's own series, in the same unit, which the athlete can toggle:
  * **Grade-Adjusted Pace** over Speed.
@@ -107,9 +110,12 @@ export interface ChartSeries {
   /** Parallel to the elapsed-time stream `t`; `null` where the sensor recorded nothing. */
   readonly values: readonly (number | null)[];
   readonly overlay?: ChartOverlay;
+  /** A fixed `[min, max]` value axis, such as 0-100 for a percentage; auto-ranged when absent. */
+  readonly yRange?: readonly [number, number];
 }
 
 const GAP_COLOR: Readonly<Record<ColorScheme, string>> = { light: '#c026d3', dark: '#e879f9' };
+const STAMINA_COLOR: Readonly<Record<ColorScheme, string>> = { light: '#4f46e5', dark: '#818cf8' };
 
 const isRecorded = (
   values: readonly (number | null)[] | null | undefined,
@@ -137,10 +143,31 @@ function gapOverlay(
 }
 
 /**
+ * The **Stamina** chart (the D′ balance as a percentage of D′, on a fixed 0-100 % axis), or `null`
+ * when the Activity has no Stamina stream parallel to `t`: it is not a Run with Grade-Adjusted Pace,
+ * or there was no Critical Speed model on its date.
+ */
+function staminaSeries(
+  derived: ActivityDerivedStreamsDto | null | undefined,
+  length: number,
+): ChartSeries | null {
+  const staminaPct = derived?.staminaPct;
+  if (!isRecorded(staminaPct, length)) return null;
+  return {
+    id: 'stamina',
+    label: 'Stamina',
+    unit: '%',
+    color: STAMINA_COLOR,
+    values: staminaPct,
+    yRange: [0, 100],
+  };
+}
+
+/**
  * The sensor streams of the **Activity Details** worth charting: every one of the nine sensors with a
  * stream parallel to `t` that recorded at least one value, in display order. The Speed chart carries
  * the **Grade-Adjusted Pace** overlay when `derived` has a GAP stream and both elevation and a GPS
- * fix were recorded.
+ * fix were recorded. **Stamina**, when `derived` has it, is charted directly after Speed.
  */
 export function selectChartSeries(
   streams: ActivityTelemetryStreamsDto,
@@ -169,6 +196,12 @@ export function selectChartSeries(
         : recorded,
       ...(overlay && { overlay }),
     });
+  }
+  const stamina = staminaSeries(derived, length);
+  if (stamina) {
+    const afterSpeed = SENSOR_CHARTS.slice(0, SPEED_POSITION + 1).map((chart) => chart.id);
+    const position = series.filter((s) => afterSpeed.includes(s.id)).length;
+    series.splice(position, 0, stamina);
   }
   return series;
 }

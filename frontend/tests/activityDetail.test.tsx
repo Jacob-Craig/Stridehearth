@@ -93,6 +93,7 @@ function detail(overrides: Partial<ActivityDetailDto> = {}): ActivityDetailDto {
     runMetrics: null,
     trainingLoad: null,
     trainingLoadUnavailableReason: null,
+    minStaminaPct: null,
     ...overrides,
   };
 }
@@ -116,7 +117,7 @@ function telemetry(): ActivityTelemetryResponseDto {
       ],
     },
     bestEfforts: [],
-    derivedStreams: { gapSpeed: null },
+    derivedStreams: { gapSpeed: null, staminaPct: null },
     telemetry: {
       ...unrecorded,
       t: [0, 1, 2],
@@ -548,6 +549,27 @@ describe('/activities/$activityId summary', () => {
 
       const list = await screen.findByRole('list', { name: /summary metrics/i });
       expect(within(list).queryByText('Training Load')).toBeNull();
+    });
+  });
+
+  describe('Min Stamina', () => {
+    it('shows the lowest Stamina the Run reached as a whole percentage, after the other tiles', async () => {
+      stubActivity(detail({ minStaminaPct: 24.6 }));
+      renderApp('/activities/42');
+
+      const list = await screen.findByRole('list', { name: /summary metrics/i });
+      const tiles = within(list).getAllByRole('listitem');
+      expect(tiles).toHaveLength(6);
+      expect(tiles.at(-1)).toHaveTextContent('Min Stamina');
+      expect(tiles.at(-1)).toHaveTextContent('25%');
+    });
+
+    it('adds no tile when the Run has no Stamina stream', async () => {
+      stubActivity(detail({ minStaminaPct: null }));
+      renderApp('/activities/42');
+
+      const list = await screen.findByRole('list', { name: /summary metrics/i });
+      expect(within(list).queryByText('Min Stamina')).toBeNull();
     });
   });
 

@@ -70,6 +70,12 @@ data class ActivityDetailDTO(
         description = "Why the Activity has no Training Load; null when it has one or it is not computed yet",
     )
     val trainingLoadUnavailableReason: TrainingLoadUnavailableReason?,
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
+        types = ["number", "null"],
+        description = "The lowest Stamina the Run reaches, in percent; null when it has no Stamina stream",
+    )
+    val minStaminaPct: Double?,
 )
 
 /** An Activity's **Training Load**, unrounded, scaled so one hour at threshold is 100, and its **Training Load Method**. */
@@ -184,6 +190,7 @@ fun Activity.toDetailDto(
     bestEfforts: List<ActivityBestEffort>,
     runMetrics: RunMetrics? = null,
     trainingLoad: TrainingLoadResult? = null,
+    minStaminaPct: Float? = null,
 ): ActivityDetailDTO =
     toSummaryDto(hasActivityDetails).let { summary ->
         ActivityDetailDTO(
@@ -205,6 +212,7 @@ fun Activity.toDetailDto(
             runMetrics = runMetrics?.takeIf { sport == ActivitySport.RUN }?.toDto(),
             trainingLoad = (trainingLoad as? TrainingLoadResult.Scored)?.let { TrainingLoadDTO(it.value, it.method) },
             trainingLoadUnavailableReason = (trainingLoad as? TrainingLoadResult.Unavailable)?.reason,
+            minStaminaPct = minStaminaPct?.let { Math.round(it * 10.0) / 10.0 },
         )
     }
 

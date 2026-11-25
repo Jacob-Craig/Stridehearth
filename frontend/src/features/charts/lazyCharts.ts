@@ -17,3 +17,8 @@ export function sharedImport<T>(load: () => Promise<T>): () => Promise<T> {
 
 /** The **Performance Management Chart** adapter, with uPlot. */
 export const loadPmcChart = sharedImport(() => import('../pmc/pmcChart'));
+
+/** The **Pace-Duration Curve** adapter, with uPlot. */
+export const loadPaceDurationChart = sharedImport(
+  () => import('../pace-duration/paceDurationChart'),
+);
