@@ -298,6 +298,18 @@ _Avoid_: Race predictor, race time estimate
 How much slower race-day conditions make a Race Prognosis: its time multiplied by the Heat Derating of the race-day temperature, and by 1 + 4 × the course's total climb / its distance (on gentle grades a metre of climb costs about 6 m of flat running and a metre of descent gives back about 2, for a course that finishes where it starts). Applied to today's prognosis only when the athlete enters conditions, never to the daily trend.
 _Avoid_: Course adjustment, course correction
 
+**Race Split Plan**:
+A target time for every Split (each km or mile from the start, the last one partial) over an existing Activity's route that holds Grade-Adjusted effort even and sums exactly to a Goal Time. Each stretch of the Cleaned Activity Details takes time in proportion to its distance times Minetti's cost ratio at its grade (the inverse of Grade-Adjusted Pace), so climbs are slower; a descent is never planned more than 15% faster than the flat (a cost ratio of at least 0.85, which binds on anything steeper than about −3%). A Split Bias then tilts it. Only for a Run, Walk or Hike with a GPS route. Computed whenever it is asked for, never stored.
+_Avoid_: PacePro, pace plan, pacing strategy
+
+**Goal Time**:
+The finish time a Race Split Plan's Splits add up to, from one minute to a day. It starts at the Activity's own time; "Use predicted time" takes the Race Prognosis of the race distance within 10% of the course's length, Course Derated for the course's climb and scaled to its length by Riegel's formula (time × (course / race distance)^1.06).
+_Avoid_: Target time, race goal
+
+**Split Bias**:
+How much longer, in percent from −5 to +5, a Race Split Plan's second half takes than its first on even ground: positive is a positive split (slowing down), negative a negative split. The effort ramps evenly over the course, and the Goal Time is unchanged.
+_Avoid_: Pacing bias, fade
+
 **Dashboard**:
 The athlete's primary landing view summarizing Personal Records, aggregate training volume, and performance trends across recorded Activities.
 _Avoid_: Statistics page, homepage, stats hub
