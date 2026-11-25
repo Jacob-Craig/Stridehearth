@@ -396,6 +396,61 @@ export type PendingInviteDto = {
     expiresAt: string;
 };
 
+export type CorrectionSourceDto = {
+    activityId: number;
+    benchmarkDistance: 'FOUR_HUNDRED_METERS' | 'ONE_KILOMETER' | 'ONE_MILE' | 'FIVE_KILOMETERS' | 'TEN_KILOMETERS' | 'HALF_MARATHON';
+    vdot: number;
+};
+
+export type Vo2MaxCurrentDto = {
+    day: string;
+    /**
+     * Null when no Run of the last 30 days has a VO2max Estimate
+     */
+    effectiveVo2max: number | null;
+    /**
+     * Between 0.8 and 1.2; 1.0 without a calibrating race
+     */
+    correctionFactor: number;
+    /**
+     * The Best Effort the Correction Factor came from; null when it is 1.0 for want of one
+     */
+    correctionSource: CorrectionSourceDto | null;
+};
+
+export type Vo2MaxDayDto = {
+    day: string;
+    /**
+     * Null when no Run of the 30 days ending that day has a VO2max Estimate
+     */
+    effectiveVo2max: number | null;
+    correctionFactor: number;
+};
+
+export type Vo2MaxResponseDto = {
+    /**
+     * Effective VO2max on the athlete's today; null before their first VO2max Estimate
+     */
+    current: Vo2MaxCurrentDto | null;
+    /**
+     * Every day in range, never before the first VO2max Estimate nor after today; empty before it
+     */
+    days: Array<Vo2MaxDayDto>;
+    /**
+     * The Runs in range with a VO2max Estimate, oldest first
+     */
+    runs: Array<Vo2MaxRunDto>;
+};
+
+export type Vo2MaxRunDto = {
+    activityId: number;
+    /**
+     * The Run's day in the athlete's time zone
+     */
+    day: string;
+    vo2maxEstimate: number;
+};
+
 export type AthleteThresholdsResponseDto = {
     /**
      * Every entry, newest effective date first
@@ -752,6 +807,18 @@ export type RunMetricsDto = {
      */
     aerobicDecouplingPercent: number | null;
     decouplingUnavailableReason: DecouplingUnavailableReason | null;
+    /**
+     * VO2max Estimate in ml/kg/min before the Correction Factor
+     */
+    vo2maxEstimateRaw: number | null;
+    /**
+     * VO2max Estimate in ml/kg/min times the Correction Factor of the Run's day
+     */
+    vo2maxEstimate: number | null;
+    /**
+     * Why the Run has no VO2max Estimate; null when it has one or it has not been computed
+     */
+    vo2maxUnavailableReason: Vo2MaxUnavailableReason | null;
 };
 
 export type TrainingLoadDto = {
@@ -762,6 +829,8 @@ export type TrainingLoadDto = {
 export type TrainingLoadMethod = 'RSS' | 'RTSS' | 'HRSS';
 
 export type TrainingLoadUnavailableReason = 'NO_ACTIVITY_DETAILS' | 'NO_THRESHOLDS' | 'INCONSISTENT_THRESHOLDS' | 'NO_USABLE_STREAM';
+
+export type Vo2MaxUnavailableReason = 'NO_PACE_DATA' | 'NO_HEART_RATE_THRESHOLDS' | 'NO_HEART_RATE' | 'TOO_SHORT' | 'TOO_HILLY' | 'NOT_STEADY' | 'INTENSITY_TOO_LOW' | 'TOO_FEW_SEGMENTS' | 'OUT_OF_RANGE';
 
 export type ActivityDerivedStreamsDto = {
     /**
@@ -1814,6 +1883,44 @@ export type InviteStatusResponses = {
 };
 
 export type InviteStatusResponse = InviteStatusResponses[keyof InviteStatusResponses];
+
+export type GetVo2MaxData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * First day (YYYY-MM-DD); defaults to, and never precedes, the first VO2max Estimate
+         */
+        from?: string;
+        /**
+         * Last day (YYYY-MM-DD); defaults to, and is capped at, today in the athlete's time zone
+         */
+        to?: string;
+    };
+    url: '/api/athlete/vo2max';
+};
+
+export type GetVo2MaxErrors = {
+    /**
+     * A malformed date, or from after to
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type GetVo2MaxError = GetVo2MaxErrors[keyof GetVo2MaxErrors];
+
+export type GetVo2MaxResponses = {
+    /**
+     * Today's Effective VO2max, one entry per day, and the Runs in range
+     */
+    200: Vo2MaxResponseDto;
+};
+
+export type GetVo2MaxResponse = GetVo2MaxResponses[keyof GetVo2MaxResponses];
 
 export type GetPerformanceManagementChartData = {
     body?: never;

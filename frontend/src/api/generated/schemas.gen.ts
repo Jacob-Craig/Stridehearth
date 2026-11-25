@@ -1655,6 +1655,157 @@ export const PendingInviteDTOSchema = {
     ]
 } as const;
 
+export const CorrectionSourceDTOSchema = {
+    type: 'object',
+    properties: {
+        activityId: {
+            type: 'integer',
+            format: 'int64'
+        },
+        benchmarkDistance: {
+            type: 'string',
+            enum: [
+                'FOUR_HUNDRED_METERS',
+                'ONE_KILOMETER',
+                'ONE_MILE',
+                'FIVE_KILOMETERS',
+                'TEN_KILOMETERS',
+                'HALF_MARATHON'
+            ]
+        },
+        vdot: {
+            type: 'number',
+            format: 'double'
+        }
+    },
+    required: [
+        'activityId',
+        'benchmarkDistance',
+        'vdot'
+    ]
+} as const;
+
+export const Vo2maxCurrentDTOSchema = {
+    type: 'object',
+    properties: {
+        day: {
+            type: 'string',
+            format: 'date'
+        },
+        effectiveVo2max: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Null when no Run of the last 30 days has a VO2max Estimate'
+        },
+        correctionFactor: {
+            type: 'number',
+            format: 'double',
+            description: 'Between 0.8 and 1.2; 1.0 without a calibrating race'
+        },
+        correctionSource: {
+            type: [
+                'object',
+                'null'
+            ],
+            $ref: '#/components/schemas/CorrectionSourceDTO',
+            description: 'The Best Effort the Correction Factor came from; null when it is 1.0 for want of one'
+        }
+    },
+    required: [
+        'correctionFactor',
+        'correctionSource',
+        'day',
+        'effectiveVo2max'
+    ]
+} as const;
+
+export const Vo2maxDayDTOSchema = {
+    type: 'object',
+    properties: {
+        day: {
+            type: 'string',
+            format: 'date'
+        },
+        effectiveVo2max: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Null when no Run of the 30 days ending that day has a VO2max Estimate'
+        },
+        correctionFactor: {
+            type: 'number',
+            format: 'double'
+        }
+    },
+    required: [
+        'correctionFactor',
+        'day',
+        'effectiveVo2max'
+    ]
+} as const;
+
+export const Vo2maxResponseDTOSchema = {
+    type: 'object',
+    properties: {
+        current: {
+            type: [
+                'object',
+                'null'
+            ],
+            $ref: '#/components/schemas/Vo2maxCurrentDTO',
+            description: 'Effective VO2max on the athlete\'s today; null before their first VO2max Estimate'
+        },
+        days: {
+            type: 'array',
+            description: 'Every day in range, never before the first VO2max Estimate nor after today; empty before it',
+            items: {
+                $ref: '#/components/schemas/Vo2maxDayDTO'
+            }
+        },
+        runs: {
+            type: 'array',
+            description: 'The Runs in range with a VO2max Estimate, oldest first',
+            items: {
+                $ref: '#/components/schemas/Vo2maxRunDTO'
+            }
+        }
+    },
+    required: [
+        'current',
+        'days',
+        'runs'
+    ]
+} as const;
+
+export const Vo2maxRunDTOSchema = {
+    type: 'object',
+    properties: {
+        activityId: {
+            type: 'integer',
+            format: 'int64'
+        },
+        day: {
+            type: 'string',
+            format: 'date',
+            description: 'The Run\'s day in the athlete\'s time zone'
+        },
+        vo2maxEstimate: {
+            type: 'number',
+            format: 'double'
+        }
+    },
+    required: [
+        'activityId',
+        'day',
+        'vo2maxEstimate'
+    ]
+} as const;
+
 export const AthleteThresholdsResponseDTOSchema = {
     type: 'object',
     properties: {
@@ -2809,6 +2960,30 @@ export const RunMetricsDTOSchema = {
                 'null'
             ],
             $ref: '#/components/schemas/DecouplingUnavailableReason'
+        },
+        vo2maxEstimateRaw: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'VO2max Estimate in ml/kg/min before the Correction Factor'
+        },
+        vo2maxEstimate: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'VO2max Estimate in ml/kg/min times the Correction Factor of the Run\'s day'
+        },
+        vo2maxUnavailableReason: {
+            type: [
+                'string',
+                'null'
+            ],
+            $ref: '#/components/schemas/Vo2maxUnavailableReason',
+            description: 'Why the Run has no VO2max Estimate; null when it has one or it has not been computed'
         }
     },
     required: [
@@ -2816,7 +2991,10 @@ export const RunMetricsDTOSchema = {
         'decouplingUnavailableReason',
         'efficiencyFactor',
         'movingSeconds',
-        'ngpMetersPerSecond'
+        'ngpMetersPerSecond',
+        'vo2maxEstimate',
+        'vo2maxEstimateRaw',
+        'vo2maxUnavailableReason'
     ]
 } as const;
 
@@ -2853,6 +3031,21 @@ export const TrainingLoadUnavailableReasonSchema = {
         'NO_THRESHOLDS',
         'INCONSISTENT_THRESHOLDS',
         'NO_USABLE_STREAM'
+    ]
+} as const;
+
+export const Vo2maxUnavailableReasonSchema = {
+    type: 'string',
+    enum: [
+        'NO_PACE_DATA',
+        'NO_HEART_RATE_THRESHOLDS',
+        'NO_HEART_RATE',
+        'TOO_SHORT',
+        'TOO_HILLY',
+        'NOT_STEADY',
+        'INTENSITY_TOO_LOW',
+        'TOO_FEW_SEGMENTS',
+        'OUT_OF_RANGE'
     ]
 } as const;
 

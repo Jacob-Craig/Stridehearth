@@ -9,6 +9,8 @@ import com.jacobcraig.stridehearth.analytics.RunMetrics
 import com.jacobcraig.stridehearth.analytics.TrainingLoadMethod
 import com.jacobcraig.stridehearth.analytics.TrainingLoadResult
 import com.jacobcraig.stridehearth.analytics.TrainingLoadUnavailableReason
+import com.jacobcraig.stridehearth.analytics.Vo2maxResult
+import com.jacobcraig.stridehearth.analytics.Vo2maxUnavailableReason
 import com.jacobcraig.stridehearth.athlete.AcclimationRow
 import com.jacobcraig.stridehearth.system.ActivitySport
 import io.swagger.v3.oas.annotations.media.Schema
@@ -171,16 +173,46 @@ data class RunMetricsDTO(
     val aerobicDecouplingPercent: Double?,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = ["string", "null"])
     val decouplingUnavailableReason: DecouplingUnavailableReason?,
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
+        types = ["number", "null"],
+        description = "VO2max Estimate in ml/kg/min before the Correction Factor",
+    )
+    val vo2maxEstimateRaw: Double? = null,
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
+        types = ["number", "null"],
+        description = "VO2max Estimate in ml/kg/min times the Correction Factor of the Run's day",
+    )
+    val vo2maxEstimate: Double? = null,
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
+        types = ["string", "null"],
+        description = "Why the Run has no VO2max Estimate; null when it has one or it has not been computed",
+    )
+    val vo2maxUnavailableReason: Vo2maxUnavailableReason? = null,
 )
 
-fun RunMetrics.toDto(): RunMetricsDTO =
-    RunMetricsDTO(
+/**
+ * [vo2max] is the Run's stored **VO2max Estimate** or why it has none, and [correctionFactor] the **Correction Factor**
+ * of its day: the corrected estimate is null until the athlete's rollups cover that day.
+ */
+fun RunMetrics.toDto(
+    vo2max: Vo2maxResult? = null,
+    correctionFactor: Double? = null,
+): RunMetricsDTO {
+    val raw = (vo2max as? Vo2maxResult.Estimate)?.raw
+    return RunMetricsDTO(
         movingSeconds = movingSeconds,
         ngpMetersPerSecond = ngpMps,
         efficiencyFactor = efficiencyFactor,
         aerobicDecouplingPercent = aerobicDecouplingPct,
         decouplingUnavailableReason = decouplingUnavailableReason,
+        vo2maxEstimateRaw = raw,
+        vo2maxEstimate = raw?.let { r -> correctionFactor?.let { r * it } },
+        vo2maxUnavailableReason = (vo2max as? Vo2maxResult.Unavailable)?.reason,
     )
+}
 
 /** One device-recorded **Lap**. Distance is in kilometers and average speed in km/h. */
 data class ActivityLapDTO(
@@ -250,6 +282,8 @@ fun Activity.toDetailDto(
     trainingLoad: TrainingLoadResult? = null,
     minStaminaPct: Float? = null,
     conditions: ActivityConditionsDTO? = null,
+    vo2max: Vo2maxResult? = null,
+    correctionFactor: Double? = null,
 ): ActivityDetailDTO =
     toSummaryDto(hasActivityDetails).let { summary ->
         ActivityDetailDTO(
@@ -268,7 +302,7 @@ fun Activity.toDetailDto(
             laps = laps.map { it.toDto() },
             history = history.map { it.toDto() },
             bestEfforts = bestEfforts.map { it.toDto() },
-            runMetrics = runMetrics?.takeIf { sport == ActivitySport.RUN }?.toDto(),
+            runMetrics = runMetrics?.takeIf { sport == ActivitySport.RUN }?.toDto(vo2max, correctionFactor),
             trainingLoad = (trainingLoad as? TrainingLoadResult.Scored)?.let { TrainingLoadDTO(it.value, it.method) },
             trainingLoadUnavailableReason = (trainingLoad as? TrainingLoadResult.Unavailable)?.reason,
             minStaminaPct = minStaminaPct?.let { Math.round(it * 10.0) / 10.0 },

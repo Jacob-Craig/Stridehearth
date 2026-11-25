@@ -1431,6 +1431,64 @@
         }
       }
     },
+    "/api/athlete/vo2max" : {
+      "get" : {
+        "tags" : [ "vo-2max-api-controller" ],
+        "summary" : "The athlete's daily Effective VO2max, continued to today, and their Runs' VO2max Estimates",
+        "operationId" : "getVo2max",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "description" : "First day (YYYY-MM-DD); defaults to, and never precedes, the first VO2max Estimate",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "description" : "Last day (YYYY-MM-DD); defaults to, and is capped at, today in the athlete's time zone",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Today's Effective VO2max, one entry per day, and the Runs in range",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Vo2maxResponseDTO"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "A malformed date, or from after to",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/athlete/pmc" : {
       "get" : {
         "tags" : [ "pmc-api-controller" ],
@@ -2983,6 +3041,112 @@
         },
         "required" : [ "expiresAt" ]
       },
+      "CorrectionSourceDTO" : {
+        "type" : "object",
+        "properties" : {
+          "activityId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "benchmarkDistance" : {
+            "type" : "string",
+            "enum" : [ "FOUR_HUNDRED_METERS", "ONE_KILOMETER", "ONE_MILE", "FIVE_KILOMETERS", "TEN_KILOMETERS", "HALF_MARATHON" ]
+          },
+          "vdot" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        },
+        "required" : [ "activityId", "benchmarkDistance", "vdot" ]
+      },
+      "Vo2maxCurrentDTO" : {
+        "type" : "object",
+        "properties" : {
+          "day" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "effectiveVo2max" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Null when no Run of the last 30 days has a VO2max Estimate"
+          },
+          "correctionFactor" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "Between 0.8 and 1.2; 1.0 without a calibrating race"
+          },
+          "correctionSource" : {
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/CorrectionSourceDTO",
+            "description" : "The Best Effort the Correction Factor came from; null when it is 1.0 for want of one"
+          }
+        },
+        "required" : [ "correctionFactor", "correctionSource", "day", "effectiveVo2max" ]
+      },
+      "Vo2maxDayDTO" : {
+        "type" : "object",
+        "properties" : {
+          "day" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "effectiveVo2max" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Null when no Run of the 30 days ending that day has a VO2max Estimate"
+          },
+          "correctionFactor" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        },
+        "required" : [ "correctionFactor", "day", "effectiveVo2max" ]
+      },
+      "Vo2maxResponseDTO" : {
+        "type" : "object",
+        "properties" : {
+          "current" : {
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/Vo2maxCurrentDTO",
+            "description" : "Effective VO2max on the athlete's today; null before their first VO2max Estimate"
+          },
+          "days" : {
+            "type" : "array",
+            "description" : "Every day in range, never before the first VO2max Estimate nor after today; empty before it",
+            "items" : {
+              "$ref" : "#/components/schemas/Vo2maxDayDTO"
+            }
+          },
+          "runs" : {
+            "type" : "array",
+            "description" : "The Runs in range with a VO2max Estimate, oldest first",
+            "items" : {
+              "$ref" : "#/components/schemas/Vo2maxRunDTO"
+            }
+          }
+        },
+        "required" : [ "current", "days", "runs" ]
+      },
+      "Vo2maxRunDTO" : {
+        "type" : "object",
+        "properties" : {
+          "activityId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "day" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "The Run's day in the athlete's time zone"
+          },
+          "vo2maxEstimate" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        },
+        "required" : [ "activityId", "day", "vo2maxEstimate" ]
+      },
       "AthleteThresholdsResponseDTO" : {
         "type" : "object",
         "properties" : {
@@ -3762,9 +3926,24 @@
           "decouplingUnavailableReason" : {
             "type" : [ "string", "null" ],
             "$ref" : "#/components/schemas/DecouplingUnavailableReason"
+          },
+          "vo2maxEstimateRaw" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "VO2max Estimate in ml/kg/min before the Correction Factor"
+          },
+          "vo2maxEstimate" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "VO2max Estimate in ml/kg/min times the Correction Factor of the Run's day"
+          },
+          "vo2maxUnavailableReason" : {
+            "type" : [ "string", "null" ],
+            "$ref" : "#/components/schemas/Vo2maxUnavailableReason",
+            "description" : "Why the Run has no VO2max Estimate; null when it has one or it has not been computed"
           }
         },
-        "required" : [ "aerobicDecouplingPercent", "decouplingUnavailableReason", "efficiencyFactor", "movingSeconds", "ngpMetersPerSecond" ]
+        "required" : [ "aerobicDecouplingPercent", "decouplingUnavailableReason", "efficiencyFactor", "movingSeconds", "ngpMetersPerSecond", "vo2maxEstimate", "vo2maxEstimateRaw", "vo2maxUnavailableReason" ]
       },
       "TrainingLoadDTO" : {
         "type" : "object",
@@ -3786,6 +3965,10 @@
       "TrainingLoadUnavailableReason" : {
         "type" : "string",
         "enum" : [ "NO_ACTIVITY_DETAILS", "NO_THRESHOLDS", "INCONSISTENT_THRESHOLDS", "NO_USABLE_STREAM" ]
+      },
+      "Vo2maxUnavailableReason" : {
+        "type" : "string",
+        "enum" : [ "NO_PACE_DATA", "NO_HEART_RATE_THRESHOLDS", "NO_HEART_RATE", "TOO_SHORT", "TOO_HILLY", "NOT_STEADY", "INTENSITY_TOO_LOW", "TOO_FEW_SEGMENTS", "OUT_OF_RANGE" ]
       },
       "ActivityDerivedStreamsDTO" : {
         "type" : "object",

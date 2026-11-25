@@ -5,6 +5,7 @@ import com.jacobcraig.stridehearth.activities.history.ActivityHistory
 import com.jacobcraig.stridehearth.activities.history.FieldChange
 import com.jacobcraig.stridehearth.api.RequestValidationException
 import com.jacobcraig.stridehearth.athlete.AcclimationRollup
+import com.jacobcraig.stridehearth.athlete.AthleteFitnessService
 import com.jacobcraig.stridehearth.athlete.AthleteTimeZone
 import com.jacobcraig.stridehearth.heatmap.HeatmapRouteRepository
 import com.jacobcraig.stridehearth.system.ActivitySport
@@ -29,6 +30,7 @@ class ActivityService(
     private val staminaService: StaminaService,
     private val acclimationRollup: AcclimationRollup,
     private val athleteTimeZone: AthleteTimeZone,
+    private val athleteFitnessService: AthleteFitnessService,
 ) {
     /** Logs a `MANUAL` **Activity** for [userId], recording its creation as an **Activity History Entry**. */
     @Transactional
@@ -74,18 +76,22 @@ class ActivityService(
         userId: Long,
     ): ActivityDetailDTO? {
         val activity = activityRepository.findByIdAndUserId(id, userId) ?: return null
+        val localDate = athleteTimeZone.localDate(userId, activity.startedAt)
+        val isRun = activity.sport == ActivitySport.RUN
         return activity.toDetailDto(
             hasActivityDetails = hasActivityDetails(id),
             laps = activityLapRepository.findByActivityIdOrderByLapNumberAsc(id),
             history = activityHistory.entriesFor(id),
             bestEfforts = activityBestEffortRepository.findByActivityId(id).sortedBy { it.benchmarkDistance.distanceMeters },
-            runMetrics = if (activity.sport == ActivitySport.RUN) derivedMetricsRepository.findRunMetrics(id) else null,
+            runMetrics = if (isRun) derivedMetricsRepository.findRunMetrics(id) else null,
             trainingLoad = derivedMetricsRepository.findTrainingLoad(id),
             minStaminaPct = staminaService.stamina(id, userId)?.min,
             conditions =
                 derivedMetricsRepository.findConditions(id)?.toDto(
-                    acclimationRollup.findDay(userId, athleteTimeZone.localDate(userId, activity.startedAt)),
+                    acclimationRollup.findDay(userId, localDate),
                 ),
+            vo2max = if (isRun) derivedMetricsRepository.findVo2max(id) else null,
+            correctionFactor = if (isRun) athleteFitnessService.correctionFactorOn(userId, localDate) else null,
         )
     }
 

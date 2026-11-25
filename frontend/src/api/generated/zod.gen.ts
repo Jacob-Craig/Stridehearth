@@ -470,6 +470,44 @@ export const zPendingInviteDto = z.object({
     expiresAt: z.string().datetime()
 });
 
+export const zCorrectionSourceDto = z.object({
+    activityId: z.coerce.bigint().min(BigInt('-9223372036854775808'), { message: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { message: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    benchmarkDistance: z.enum([
+        'FOUR_HUNDRED_METERS',
+        'ONE_KILOMETER',
+        'ONE_MILE',
+        'FIVE_KILOMETERS',
+        'TEN_KILOMETERS',
+        'HALF_MARATHON'
+    ]),
+    vdot: z.number()
+});
+
+export const zVo2MaxCurrentDto = z.object({
+    day: z.string().date(),
+    effectiveVo2max: z.number().nullable(),
+    correctionFactor: z.number(),
+    correctionSource: zCorrectionSourceDto.nullable()
+});
+
+export const zVo2MaxDayDto = z.object({
+    day: z.string().date(),
+    effectiveVo2max: z.number().nullable(),
+    correctionFactor: z.number()
+});
+
+export const zVo2MaxRunDto = z.object({
+    activityId: z.coerce.bigint().min(BigInt('-9223372036854775808'), { message: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { message: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
+    day: z.string().date(),
+    vo2maxEstimate: z.number()
+});
+
+export const zVo2MaxResponseDto = z.object({
+    current: zVo2MaxCurrentDto.nullable(),
+    days: z.array(zVo2MaxDayDto),
+    runs: z.array(zVo2MaxRunDto)
+});
+
 export const zCurrentThresholdsDto = z.object({
     maxHr: z.number().nullable(),
     restingHr: z.number().nullable(),
@@ -711,14 +749,6 @@ export const zActivityBestEffortDto = z.object({
     window: zEffortWindowDto
 });
 
-export const zRunMetricsDto = z.object({
-    movingSeconds: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }),
-    ngpMetersPerSecond: z.number().nullable(),
-    efficiencyFactor: z.number().nullable(),
-    aerobicDecouplingPercent: z.number().nullable(),
-    decouplingUnavailableReason: zDecouplingUnavailableReason.nullable()
-});
-
 export const zTrainingLoadMethod = z.enum([
     'RSS',
     'RTSS',
@@ -736,6 +766,29 @@ export const zTrainingLoadUnavailableReason = z.enum([
     'INCONSISTENT_THRESHOLDS',
     'NO_USABLE_STREAM'
 ]);
+
+export const zVo2MaxUnavailableReason = z.enum([
+    'NO_PACE_DATA',
+    'NO_HEART_RATE_THRESHOLDS',
+    'NO_HEART_RATE',
+    'TOO_SHORT',
+    'TOO_HILLY',
+    'NOT_STEADY',
+    'INTENSITY_TOO_LOW',
+    'TOO_FEW_SEGMENTS',
+    'OUT_OF_RANGE'
+]);
+
+export const zRunMetricsDto = z.object({
+    movingSeconds: z.number().int().min(-2147483648, { message: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { message: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    ngpMetersPerSecond: z.number().nullable(),
+    efficiencyFactor: z.number().nullable(),
+    aerobicDecouplingPercent: z.number().nullable(),
+    decouplingUnavailableReason: zDecouplingUnavailableReason.nullable(),
+    vo2maxEstimateRaw: z.number().nullable(),
+    vo2maxEstimate: z.number().nullable(),
+    vo2maxUnavailableReason: zVo2MaxUnavailableReason.nullable()
+});
 
 export const zActivityDetailDto = z.object({
     id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { message: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { message: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
@@ -1159,6 +1212,16 @@ export const zInviteStatusPath = z.object({
  * The Invite is pending
  */
 export const zInviteStatusResponse = zPendingInviteDto;
+
+export const zGetVo2MaxQuery = z.object({
+    from: z.string().date().optional(),
+    to: z.string().date().optional()
+});
+
+/**
+ * Today's Effective VO2max, one entry per day, and the Runs in range
+ */
+export const zGetVo2MaxResponse = zVo2MaxResponseDto;
 
 export const zGetPerformanceManagementChartQuery = z.object({
     from: z.string().date().optional(),
