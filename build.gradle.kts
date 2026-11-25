@@ -16,6 +16,19 @@ ktlint {
     }
 }
 
+// The Spring dependency-management plugin aligns every org.jetbrains.kotlin artifact
+// to the project's Kotlin version, including the compiler ktlint embeds. ktlint
+// cannot run on a newer compiler than it was built for ("Extensions storage is not
+// registered" under Kotlin 2.4), so let ktlint's own configurations keep the
+// versions ktlint asks for.
+configurations.matching { it.name.startsWith("ktlint") }.configureEach {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.jetbrains.kotlin") {
+            requested.version?.let { useVersion(it) }
+        }
+    }
+}
+
 group = "com.jacobcraig"
 version = "0.0.1-SNAPSHOT"
 description = "Stridehearth"
