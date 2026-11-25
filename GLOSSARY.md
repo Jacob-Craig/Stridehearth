@@ -22,11 +22,11 @@ Replacing an Activity's stored Activity Details and Laps with ones decoded from 
 _Avoid_: Re-parse, migration
 
 **Backfill**:
-Filling in something an Activity lacks (Activity Details, their distance, Laps, Best Efforts, or derived data such as Grade-Adjusted Pace, Normalized Graded Pace, Peak Efforts, Training Load or Ambient Temperature) without replacing anything it already has. Replacing derived data that is out of date is a Recompute.
+Filling in something an Activity lacks (Activity Details, their distance, Laps, Best Efforts, or derived data such as Grade-Adjusted Pace, Normalized Graded Pace, Peak Efforts, Training Load, VO2max Estimate or Ambient Temperature) without replacing anything it already has. Replacing derived data that is out of date is a Recompute.
 _Avoid_: Repair, fix-up
 
 **Recompute (derived data)**:
-Replacing an Activity's stored derived data (such as its Grade-Adjusted Pace, Run metrics like Normalized Graded Pace, Peak Efforts, Training Load, or Ambient Temperature and Mean Altitude) because something it was computed from changed: its Activity Details, its sport or start time, the athlete's Thresholds or Athlete Time Zone, or the version of the algorithm that computed it. It never changes the Activity itself, so it leaves no Activity History Entry.
+Replacing an Activity's stored derived data (such as its Grade-Adjusted Pace, Run metrics like Normalized Graded Pace, Peak Efforts, Training Load, VO2max Estimate, or Ambient Temperature and Mean Altitude) because something it was computed from changed: its Activity Details, its sport or start time, the athlete's Thresholds or Athlete Time Zone, or the version of the algorithm that computed it. It never changes the Activity itself, so it leaves no Activity History Entry.
 _Avoid_: Reprocess, regenerate, migration
 
 **Activity Source**:
@@ -260,6 +260,23 @@ _Avoid_: Altitude adaptation
 **Heat Derating**:
 How much slower the same effort runs in the heat: running time multiplied by 1 + 0.003 per °C of Ambient Temperature above 20 °C (1.5% per 5 °C). It uses temperature only, and acclimation does not change it yet. Predictions such as Race Prognosis and VO2max apply it.
 _Avoid_: Heat penalty, heat adjustment
+
+**VDOT**:
+Jack Daniels' measure of running ability in ml/kg/min: the oxygen cost of a race pace (Daniels-Gilbert equation) divided by the share of VO2max sustainable for the race's duration. A 19:57 5K is VDOT 50. Read from a race result, or from it to a predicted time.
+_Avoid_: VO2max (for a race's VDOT), running index
+
+**VO2max Estimate**:
+A Run's estimate of the VO2max it reflects, in ml/kg/min: over the steady part of its Moving Time (as for Aerobic Decoupling), each minute's Grade-Adjusted Pace is turned into its oxygen cost on Daniels' curve (slowed by the Heat Derating of its Ambient Temperature) and set against its share of heart-rate reserve from the resting and max heart-rate Thresholds; the line through rest at 3.5 is extended to 100 %, and raised to its sea-level value for the Run's Mean Altitude. Because it uses Daniels' curve, it is on the VDOT scale. Stored uncorrected; shown times its day's Correction Factor.
+A Run has none, and records why, without Grade-Adjusted Pace, without both heart-rate Thresholds (or under 20 bpm apart), with heart rate on less than 80% of its Moving Time, under 20 minutes, with more than 20 m of climb per km, when its pace is not steady, below 50% of heart-rate reserve, with fewer than 10 usable minutes, or outside 20-90. Depends on the Thresholds, so recomputed with the Training Load, never edited.
+_Avoid_: VO2max score, fitness level
+
+**Correction Factor**:
+What an athlete's VO2max Estimates are multiplied by so they agree with their racing: the VDOT of their best race of the last 365 days divided by their uncorrected 30-day VO2max mean on that race's day, kept between 0.8 and 1.2; 1.0 without a race. A race is a Run whose 5K, 10K or Half-Marathon Best Effort covers at least 90% of its distance, so it needs no estimate of its own. Calibrated automatically; it cannot be set by hand yet.
+_Avoid_: Calibration factor, adjustment
+
+**Effective VO2max**:
+An athlete's VO2max on one of their days: the mean of the VO2max Estimates of their Runs on the 30 days ending that day, weighted by Moving Time, times that day's Correction Factor. Absent when none of those Runs has an estimate. Derived and rebuilt from the earliest affected day, never edited.
+_Avoid_: VO2max score, fitness level, current VO2max
 
 **Dashboard**:
 The athlete's primary landing view summarizing Personal Records, aggregate training volume, and performance trends across recorded Activities.

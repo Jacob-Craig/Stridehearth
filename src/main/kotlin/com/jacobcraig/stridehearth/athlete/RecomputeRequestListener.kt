@@ -7,7 +7,8 @@ import org.springframework.stereotype.Component
 
 /**
  * Turns a change to an athlete's **Thresholds** or **Athlete Time Zone** into a durable request to recompute their
- * **Training Load** (and, for a time zone, a full rebuild of their rollups), which [DerivedDataRecomputeWorker] serves in the background (ADR-0014). A plain listener, so the
+ * threshold-dependent derived data, the **Training Load** and **VO2max Estimate** (and, for a time zone, a full rebuild
+ * of their rollups), which [DerivedDataRecomputeWorker] serves in the background (ADR-0014). A plain listener, so the
  * request commits or rolls back with the change itself.
  */
 @Component
