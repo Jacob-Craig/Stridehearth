@@ -94,6 +94,15 @@ class AcclimationRollup(
         day: LocalDate,
     ): AcclimationRow? = latestBefore(userId, day.plusDays(1))
 
+    /** [userId]'s first stored day, or null when they have none. */
+    fun findFirstDay(userId: Long): LocalDate? =
+        jdbcClient
+            .sql("SELECT min(day) AS first_day FROM athlete_acclimation_daily WHERE user_id = :u")
+            .param("u", userId)
+            .query { rs, _ -> rs.getObject("first_day", LocalDate::class.java) }
+            .optional()
+            .orElse(null)
+
     /** [userId]'s stored day [day], or null when it has no row. */
     fun findDay(
         userId: Long,

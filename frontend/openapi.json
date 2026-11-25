@@ -1576,6 +1576,64 @@
         }
       }
     },
+    "/api/athlete/acclimation" : {
+      "get" : {
+        "tags" : [ "acclimation-api-controller" ],
+        "summary" : "The athlete's daily Heat and Altitude Acclimation, decayed to today",
+        "operationId" : "getAcclimation",
+        "parameters" : [ {
+          "name" : "from",
+          "in" : "query",
+          "description" : "First day (YYYY-MM-DD); defaults to, and never precedes, the first exposed day",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "description" : "Last day (YYYY-MM-DD); defaults to, and is capped at, today in the athlete's time zone",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "Today's acclimation and one entry per day",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AcclimationResponseDTO"
+                }
+              }
+            }
+          },
+          "400" : {
+            "description" : "A malformed date, or from after to",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "401" : {
+            "description" : "Unauthenticated",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/activities/{id}/telemetry" : {
       "get" : {
         "tags" : [ "activity-telemetry-controller" ],
@@ -3331,6 +3389,68 @@
         },
         "required" : [ "asOf", "pace", "power", "windowDays" ]
       },
+      "AcclimationCurrentDTO" : {
+        "type" : "object",
+        "properties" : {
+          "day" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "heatPct" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "altitudePct" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        },
+        "required" : [ "altitudePct", "day", "heatPct" ]
+      },
+      "AcclimationDayDTO" : {
+        "type" : "object",
+        "properties" : {
+          "day" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "heatPct" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "altitudePct" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "heatExposed" : {
+            "type" : "boolean",
+            "description" : "Whether an Activity of at least 20 minutes that day was above 22 °C Ambient Temperature"
+          },
+          "altitudeExposed" : {
+            "type" : "boolean",
+            "description" : "Whether an Activity of at least 20 minutes that day was above 800 m Mean Altitude"
+          }
+        },
+        "required" : [ "altitudeExposed", "altitudePct", "day", "heatExposed", "heatPct" ]
+      },
+      "AcclimationResponseDTO" : {
+        "type" : "object",
+        "properties" : {
+          "current" : {
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/AcclimationCurrentDTO",
+            "description" : "Acclimation on the athlete's today; null before their first exposed day"
+          },
+          "days" : {
+            "type" : "array",
+            "description" : "Every day in range, never before the first exposed day nor after today; empty before it",
+            "items" : {
+              "$ref" : "#/components/schemas/AcclimationDayDTO"
+            }
+          }
+        },
+        "required" : [ "current", "days" ]
+      },
       "PagedResponseDTOActivitySummaryDTO" : {
         "type" : "object",
         "properties" : {
@@ -3392,6 +3512,42 @@
           }
         },
         "required" : [ "benchmarkDistance", "benchmarkName", "distanceMeters", "elapsedTimeSeconds", "id", "window" ]
+      },
+      "ActivityConditionsDTO" : {
+        "type" : "object",
+        "properties" : {
+          "deviceTemperatureC" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "The median temperature the device recorded, in °C"
+          },
+          "ambientTemperatureC" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Ambient Temperature in °C: the device temperature less the Wrist-Heat Correction"
+          },
+          "wristHeatCorrectionC" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "The Wrist-Heat Correction subtracted, in °C"
+          },
+          "meanAltitudeM" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Mean Altitude in metres: the mean of the cleaned altitude"
+          },
+          "heatAcclimationPct" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Heat Acclimation (0-100 %) at the end of the Activity's day; null before the athlete's first exposed day"
+          },
+          "altitudeAcclimationPct" : {
+            "type" : [ "number", "null" ],
+            "format" : "double",
+            "description" : "Altitude Acclimation (0-100 %) at the end of the Activity's day; null before the athlete's first exposed day"
+          }
+        },
+        "required" : [ "altitudeAcclimationPct", "ambientTemperatureC", "deviceTemperatureC", "heatAcclimationPct", "meanAltitudeM", "wristHeatCorrectionC" ]
       },
       "ActivityDetailDTO" : {
         "type" : "object",
@@ -3484,9 +3640,14 @@
             "type" : [ "number", "null" ],
             "format" : "double",
             "description" : "The lowest Stamina the Run reaches, in percent; null when it has no Stamina stream"
+          },
+          "conditions" : {
+            "type" : [ "object", "null" ],
+            "$ref" : "#/components/schemas/ActivityConditionsDTO",
+            "description" : "The temperature, altitude and acclimation the Activity was done in; null until its derived data is computed"
           }
         },
-        "required" : [ "averageHeartRate", "averagePaceKmh", "bestEfforts", "calories", "distance", "hasProtectedMetrics", "history", "id", "laps", "minStaminaPct", "ownerUsername", "runMetrics", "source", "sport", "startedAt", "timeTakenSeconds", "title", "trainingLoad", "trainingLoadUnavailableReason" ]
+        "required" : [ "averageHeartRate", "averagePaceKmh", "bestEfforts", "calories", "conditions", "distance", "hasProtectedMetrics", "history", "id", "laps", "minStaminaPct", "ownerUsername", "runMetrics", "source", "sport", "startedAt", "timeTakenSeconds", "title", "trainingLoad", "trainingLoadUnavailableReason" ]
       },
       "ActivityHistoryEntryDTO" : {
         "type" : "object",

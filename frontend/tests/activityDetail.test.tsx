@@ -94,6 +94,7 @@ function detail(overrides: Partial<ActivityDetailDto> = {}): ActivityDetailDto {
     trainingLoad: null,
     trainingLoadUnavailableReason: null,
     minStaminaPct: null,
+    conditions: null,
     ...overrides,
   };
 }

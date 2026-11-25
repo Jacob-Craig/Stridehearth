@@ -568,6 +568,37 @@ export type CriticalSpeedResponseDto = {
     power: CriticalSpeedFitDto | null;
 };
 
+export type AcclimationCurrentDto = {
+    day: string;
+    heatPct: number;
+    altitudePct: number;
+};
+
+export type AcclimationDayDto = {
+    day: string;
+    heatPct: number;
+    altitudePct: number;
+    /**
+     * Whether an Activity of at least 20 minutes that day was above 22 °C Ambient Temperature
+     */
+    heatExposed: boolean;
+    /**
+     * Whether an Activity of at least 20 minutes that day was above 800 m Mean Altitude
+     */
+    altitudeExposed: boolean;
+};
+
+export type AcclimationResponseDto = {
+    /**
+     * Acclimation on the athlete's today; null before their first exposed day
+     */
+    current: AcclimationCurrentDto | null;
+    /**
+     * Every day in range, never before the first exposed day nor after today; empty before it
+     */
+    days: Array<AcclimationDayDto>;
+};
+
 export type PagedResponseDtoActivitySummaryDto = {
     items: Array<ActivitySummaryDto>;
     page: number;
@@ -585,6 +616,33 @@ export type ActivityBestEffortDto = {
     distanceMeters: number;
     elapsedTimeSeconds: number;
     window: EffortWindowDto;
+};
+
+export type ActivityConditionsDto = {
+    /**
+     * The median temperature the device recorded, in °C
+     */
+    deviceTemperatureC: number | null;
+    /**
+     * Ambient Temperature in °C: the device temperature less the Wrist-Heat Correction
+     */
+    ambientTemperatureC: number | null;
+    /**
+     * The Wrist-Heat Correction subtracted, in °C
+     */
+    wristHeatCorrectionC: number;
+    /**
+     * Mean Altitude in metres: the mean of the cleaned altitude
+     */
+    meanAltitudeM: number | null;
+    /**
+     * Heat Acclimation (0-100 %) at the end of the Activity's day; null before the athlete's first exposed day
+     */
+    heatAcclimationPct: number | null;
+    /**
+     * Altitude Acclimation (0-100 %) at the end of the Activity's day; null before the athlete's first exposed day
+     */
+    altitudeAcclimationPct: number | null;
 };
 
 export type ActivityDetailDto = {
@@ -637,6 +695,10 @@ export type ActivityDetailDto = {
      * The lowest Stamina the Run reaches, in percent; null when it has no Stamina stream
      */
     minStaminaPct: number | null;
+    /**
+     * The temperature, altitude and acclimation the Activity was done in; null until its derived data is computed
+     */
+    conditions: ActivityConditionsDto | null;
 };
 
 export type ActivityHistoryEntryDto = {
@@ -1865,6 +1927,44 @@ export type GetCriticalSpeedResponses = {
 };
 
 export type GetCriticalSpeedResponse = GetCriticalSpeedResponses[keyof GetCriticalSpeedResponses];
+
+export type GetAcclimationData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * First day (YYYY-MM-DD); defaults to, and never precedes, the first exposed day
+         */
+        from?: string;
+        /**
+         * Last day (YYYY-MM-DD); defaults to, and is capped at, today in the athlete's time zone
+         */
+        to?: string;
+    };
+    url: '/api/athlete/acclimation';
+};
+
+export type GetAcclimationErrors = {
+    /**
+     * A malformed date, or from after to
+     */
+    400: ApiErrorResponse;
+    /**
+     * Unauthenticated
+     */
+    401: ApiErrorResponse;
+};
+
+export type GetAcclimationError = GetAcclimationErrors[keyof GetAcclimationErrors];
+
+export type GetAcclimationResponses = {
+    /**
+     * Today's acclimation and one entry per day
+     */
+    200: AcclimationResponseDto;
+};
+
+export type GetAcclimationResponse = GetAcclimationResponses[keyof GetAcclimationResponses];
 
 export type GetActivityTelemetryData = {
     body?: never;

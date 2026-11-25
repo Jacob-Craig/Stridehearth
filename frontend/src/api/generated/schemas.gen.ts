@@ -2262,6 +2262,87 @@ export const CriticalSpeedResponseDTOSchema = {
     ]
 } as const;
 
+export const AcclimationCurrentDTOSchema = {
+    type: 'object',
+    properties: {
+        day: {
+            type: 'string',
+            format: 'date'
+        },
+        heatPct: {
+            type: 'number',
+            format: 'double'
+        },
+        altitudePct: {
+            type: 'number',
+            format: 'double'
+        }
+    },
+    required: [
+        'altitudePct',
+        'day',
+        'heatPct'
+    ]
+} as const;
+
+export const AcclimationDayDTOSchema = {
+    type: 'object',
+    properties: {
+        day: {
+            type: 'string',
+            format: 'date'
+        },
+        heatPct: {
+            type: 'number',
+            format: 'double'
+        },
+        altitudePct: {
+            type: 'number',
+            format: 'double'
+        },
+        heatExposed: {
+            type: 'boolean',
+            description: 'Whether an Activity of at least 20 minutes that day was above 22 °C Ambient Temperature'
+        },
+        altitudeExposed: {
+            type: 'boolean',
+            description: 'Whether an Activity of at least 20 minutes that day was above 800 m Mean Altitude'
+        }
+    },
+    required: [
+        'altitudeExposed',
+        'altitudePct',
+        'day',
+        'heatExposed',
+        'heatPct'
+    ]
+} as const;
+
+export const AcclimationResponseDTOSchema = {
+    type: 'object',
+    properties: {
+        current: {
+            type: [
+                'object',
+                'null'
+            ],
+            $ref: '#/components/schemas/AcclimationCurrentDTO',
+            description: 'Acclimation on the athlete\'s today; null before their first exposed day'
+        },
+        days: {
+            type: 'array',
+            description: 'Every day in range, never before the first exposed day nor after today; empty before it',
+            items: {
+                $ref: '#/components/schemas/AcclimationDayDTO'
+            }
+        }
+    },
+    required: [
+        'current',
+        'days'
+    ]
+} as const;
+
 export const PagedResponseDTOActivitySummaryDTOSchema = {
     type: 'object',
     properties: {
@@ -2345,6 +2426,65 @@ export const ActivityBestEffortDTOSchema = {
         'elapsedTimeSeconds',
         'id',
         'window'
+    ]
+} as const;
+
+export const ActivityConditionsDTOSchema = {
+    type: 'object',
+    properties: {
+        deviceTemperatureC: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'The median temperature the device recorded, in °C'
+        },
+        ambientTemperatureC: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Ambient Temperature in °C: the device temperature less the Wrist-Heat Correction'
+        },
+        wristHeatCorrectionC: {
+            type: 'number',
+            format: 'double',
+            description: 'The Wrist-Heat Correction subtracted, in °C'
+        },
+        meanAltitudeM: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Mean Altitude in metres: the mean of the cleaned altitude'
+        },
+        heatAcclimationPct: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Heat Acclimation (0-100 %) at the end of the Activity\'s day; null before the athlete\'s first exposed day'
+        },
+        altitudeAcclimationPct: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Altitude Acclimation (0-100 %) at the end of the Activity\'s day; null before the athlete\'s first exposed day'
+        }
+    },
+    required: [
+        'altitudeAcclimationPct',
+        'ambientTemperatureC',
+        'deviceTemperatureC',
+        'heatAcclimationPct',
+        'meanAltitudeM',
+        'wristHeatCorrectionC'
     ]
 } as const;
 
@@ -2472,6 +2612,14 @@ export const ActivityDetailDTOSchema = {
             ],
             format: 'double',
             description: 'The lowest Stamina the Run reaches, in percent; null when it has no Stamina stream'
+        },
+        conditions: {
+            type: [
+                'object',
+                'null'
+            ],
+            $ref: '#/components/schemas/ActivityConditionsDTO',
+            description: 'The temperature, altitude and acclimation the Activity was done in; null until its derived data is computed'
         }
     },
     required: [
@@ -2479,6 +2627,7 @@ export const ActivityDetailDTOSchema = {
         'averagePaceKmh',
         'bestEfforts',
         'calories',
+        'conditions',
         'distance',
         'hasProtectedMetrics',
         'history',

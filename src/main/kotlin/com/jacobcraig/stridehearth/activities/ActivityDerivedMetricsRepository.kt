@@ -147,6 +147,27 @@ class ActivityDerivedMetricsRepository(
             .orElse(null)
 
     /**
+     * The stored [ActivityConditions] of [activityId], or null when it has no row. A row an older version wrote holds
+     * no conditions (every value null) until the recompute worker replaces it.
+     */
+    fun findConditions(activityId: Long): ActivityConditions? =
+        jdbcClient
+            .sql(
+                """
+                SELECT device_temperature_c, ambient_temperature_c, mean_altitude_m
+                FROM activity_derived_metrics WHERE activity_id = :activityId
+                """.trimIndent(),
+            ).param("activityId", activityId)
+            .query { rs, _ ->
+                ActivityConditions(
+                    deviceTemperatureC = (rs.getObject("device_temperature_c") as Number?)?.toDouble(),
+                    ambientTemperatureC = (rs.getObject("ambient_temperature_c") as Number?)?.toDouble(),
+                    meanAltitudeM = (rs.getObject("mean_altitude_m") as Number?)?.toDouble(),
+                )
+            }.optional()
+            .orElse(null)
+
+    /**
      * The stored [RunMetrics] of [activityId], or null when it has no row or the row holds none (not a Run). A stored
      * unavailable reason that [DecouplingUnavailableReason] no longer has is read as null, so a row an older version
      * wrote still reads until the recompute worker replaces it.

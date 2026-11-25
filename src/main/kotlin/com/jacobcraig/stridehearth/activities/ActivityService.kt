@@ -4,6 +4,8 @@ import com.jacobcraig.stridehearth.activities.history.ActivityChange
 import com.jacobcraig.stridehearth.activities.history.ActivityHistory
 import com.jacobcraig.stridehearth.activities.history.FieldChange
 import com.jacobcraig.stridehearth.api.RequestValidationException
+import com.jacobcraig.stridehearth.athlete.AcclimationRollup
+import com.jacobcraig.stridehearth.athlete.AthleteTimeZone
 import com.jacobcraig.stridehearth.heatmap.HeatmapRouteRepository
 import com.jacobcraig.stridehearth.system.ActivitySport
 import com.jacobcraig.stridehearth.users.UserRepository
@@ -25,6 +27,8 @@ class ActivityService(
     private val heatmapRouteRepository: HeatmapRouteRepository,
     private val derivedMetricsRepository: ActivityDerivedMetricsRepository,
     private val staminaService: StaminaService,
+    private val acclimationRollup: AcclimationRollup,
+    private val athleteTimeZone: AthleteTimeZone,
 ) {
     /** Logs a `MANUAL` **Activity** for [userId], recording its creation as an **Activity History Entry**. */
     @Transactional
@@ -61,7 +65,8 @@ class ActivityService(
 
     /**
      * The **Activity** with its **Laps** (in lap order), **Activity History Entries** (oldest first) and
-     * **Best Efforts** (shortest **Benchmark Distance** first), or null if it doesn't exist for this user.
+     * **Best Efforts** (shortest **Benchmark Distance** first), its derived data and the conditions it was done in,
+     * or null if it doesn't exist for this user.
      */
     @Transactional(readOnly = true)
     fun getActivityDetail(
@@ -77,6 +82,10 @@ class ActivityService(
             runMetrics = if (activity.sport == ActivitySport.RUN) derivedMetricsRepository.findRunMetrics(id) else null,
             trainingLoad = derivedMetricsRepository.findTrainingLoad(id),
             minStaminaPct = staminaService.stamina(id, userId)?.min,
+            conditions =
+                derivedMetricsRepository.findConditions(id)?.toDto(
+                    acclimationRollup.findDay(userId, athleteTimeZone.localDate(userId, activity.startedAt)),
+                ),
         )
     }
 

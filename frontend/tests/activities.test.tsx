@@ -49,6 +49,7 @@ function detailOf(summary: ActivitySummaryDto): ActivityDetailDto {
     trainingLoad: null,
     trainingLoadUnavailableReason: null,
     minStaminaPct: null,
+    conditions: null,
   };
 }
 
