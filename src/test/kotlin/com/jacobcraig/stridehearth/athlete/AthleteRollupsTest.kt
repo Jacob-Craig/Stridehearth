@@ -164,8 +164,8 @@ class AthleteRollupsTest {
     }
 
     @Test
-    fun `the rollup version is 4 since Effective VO2max joined the rollups`() {
-        assertEquals(4, ROLLUP_VERSION)
+    fun `the rollup version is 5 since Marathon Shape joined the rollups`() {
+        assertEquals(5, ROLLUP_VERSION)
     }
 
     @Test
