@@ -26,7 +26,7 @@ Filling in something an Activity lacks (Activity Details, their distance, Laps, 
 _Avoid_: Repair, fix-up
 
 **Recompute (derived data)**:
-Replacing an Activity's stored derived data (such as its Grade-Adjusted Pace, Run metrics like Normalized Graded Pace, Peak Efforts, Training Load, VO2max Estimate, or Ambient Temperature and Mean Altitude) because something it was computed from changed: its Activity Details, its sport or start time, for a manual Activity its Protected Metrics, the athlete's Thresholds or Athlete Time Zone, or the version of the algorithm that computed it. It never changes the Activity itself, so it leaves no Activity History Entry.
+Replacing an Activity's stored derived data (such as its Grade-Adjusted Pace, Run metrics like Normalized Graded Pace, Peak Efforts, Detected Intervals, Workout Type, Training Load, VO2max Estimate, or Ambient Temperature and Mean Altitude) because something it was computed from changed: its Activity Details, its sport or start time, for a manual Activity its Protected Metrics, the athlete's Thresholds or Athlete Time Zone, or the version of the algorithm that computed it. It never changes the Activity itself, so it leaves no Activity History Entry.
 _Avoid_: Reprocess, regenerate, migration
 
 **Activity Source**:
@@ -57,6 +57,10 @@ _Avoid_: Auto-lap, lap interval
 A stretch of a Run's Moving Time that Stridehearth itself judges to be work (hard) or recovery (easy), found without any lap press: a step-change and hysteresis detector over the smoothed Grade-Adjusted speed, or over power when most of the Run has it. Stops standing still (a traffic stop) are not Moving Time, so they never make a Detected Interval, and a steady Run has none. The intervals tile the Run's Moving Time in order, each carrying its own average pace, heart rate, power and Aerobic Decoupling. Derived, so recomputed, never edited.
 It is neither a Lap (recorded by the device, so it exists only if the athlete or a workout made one) nor a Split (a uniform slice that ignores how hard the athlete was going).
 _Avoid_: Auto-interval, rep, segment, lap
+
+**Workout Type**:
+The kind of session a Run was, by fixed rules, first match wins: **Race** (its distance is within 5% of 5K, 10K, half marathon or marathon at a high enough average intensity over the athlete's threshold, higher for the shorter distances), **Intervals** (at least 3 Detected Intervals of work at or above threshold), **Long Run** (at least 90 minutes, or 1.5 times the median Moving Time of the athlete's Runs in the 28 days before it, at mostly easy intensity), **Tempo** (at least 15 minutes in Seiler's zone 2, Friel Z3-Z4) or **Easy** (anything else). Derived from the Run's Detected Intervals, Zones and Thresholds, so recomputed when its Activity Details or the athlete's Thresholds change, and reclassified when a Run in the 28 days before it is added, deleted or changes; never edited (an override is a follow-up). Closeness to a Personal Record or Race Prognosis is not part of the Race rule yet (#84). A Run without Grade-Adjusted Pace, and any other sport, has none.
+_Avoid_: Run type, session type, workout category
 
 **Import Batch**:
 A grouped collection of activity files submitted together for asynchronous ingestion, tracked through its lifecycle.

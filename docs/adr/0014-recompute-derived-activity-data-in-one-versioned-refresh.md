@@ -61,3 +61,11 @@ Compare-and-clear alone does not cover an Activity write that is still in flight
 A version bump is for values computed from the same Activity Details. Manual Runs recording `Vo2maxUnavailableReason.NO_ACTIVITY_DETAILS` (#89) is a deliberate exception: no algorithm changed, only the reason stored when there are no Activity Details. Stored rows are left as they are, so an existing manual Run keeps a NULL VO2max with no reason until its next refresh (an edit, an Upgrade, or a Threshold or time zone recompute). The reason is display text, and no value or rollup reads it.
 
 - **Rejected: bumping `DERIVED_DATA_VERSION`.** It would recompute every Activity on every Server, re-reading all Activity Details, to fill in a label. The next derived-data change that bumps the version fills them in anyway.
+
+## A Run's Workout Type depends on its neighbours, so they are reclassified by request (#48)
+
+The Long Run rule compares a Run with the median Moving Time of the athlete's Runs in the 28 days before it, so adding, deleting or changing a Run can change the type of the Runs after it. The refresh classifies the Run it computes (it only reads the neighbours' stored Moving Times, and stores the Run's evidence next to its type), but it never writes another Activity's row, for the reason ADR-0016 gives for rollups. Instead it appends a `workout_type_request` row for the 28 days after the Activity's start, and the recompute worker, after the Training Load requests and the version Recompute, reclassifies those Runs from their stored evidence under their row locks and deletes the requests it served. The table is append-only, so writers never wait on each other for it.
+
+- **Rejected: reclassifying the neighbours in the refresh.** A concurrent import or delete of a neighbour can then deadlock on their derived rows.
+- **Rejected: computing the median when reading.** The filter would run a correlated median per Activity, and the type would not be stored per Activity.
+
