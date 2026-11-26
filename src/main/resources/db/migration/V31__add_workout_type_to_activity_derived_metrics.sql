@@ -1,4 +1,4 @@
--- V29: the Workout Type of a Run (#48), classified by rules from derived data (ADR-0014).
+-- V31: the Workout Type of a Run (#48), classified by rules from derived data (ADR-0014).
 -- workout_type is the Run's type (EASY, LONG_RUN, TEMPO, INTERVALS or RACE); NULL for other sports, for a Run without
 -- Grade-Adjusted Pace, and on rows written before DERIVED_DATA_VERSION 10, which the recompute worker replaces.
 -- The wt_* columns are the Run's own evidence for it (WorkoutEvidence), which depends on the Thresholds in force on its
