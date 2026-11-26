@@ -163,10 +163,12 @@ class DerivedDataRefresh(
      * An Activity without Activity Details: no Training Load and, for a Run, no VO2max Estimate, each with that reason.
      * Other sports never have a VO2max Estimate, so they get no reason for it.
      */
+    private val noActivityDetailsVo2max = Vo2maxResult.Unavailable(Vo2maxUnavailableReason.NO_ACTIVITY_DETAILS)
+
     private fun noActivityDetails(activity: Activity): ThresholdDependentMetrics =
         ThresholdDependentMetrics(
             TrainingLoadResult.Unavailable(TrainingLoadUnavailableReason.NO_ACTIVITY_DETAILS),
-            vo2max = if (activity.sport == ActivitySport.RUN) Vo2maxResult.Unavailable(Vo2maxUnavailableReason.NO_ACTIVITY_DETAILS) else null,
+            vo2max = noActivityDetailsVo2max.takeIf { activity.sport == ActivitySport.RUN },
         )
 
     /**
