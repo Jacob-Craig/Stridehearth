@@ -58,12 +58,18 @@ class AthleteFitnessService(
         val lastStored = stored?.endInclusive ?: first.minusDays(1)
         val start = maxOf(from ?: first, first)
         val end = minOf(to ?: today, today)
-        val continued = continuation(userId, lastStored, maxOf(end, today))
-        val current = if (today <= lastStored) fitnessRollup.findDays(userId, today, today).single() else continued.getValue(today)
+        // Days after the stored rows are computed, but only the ones this response shows: the requested days and
+        // today. Each day reads only its own lookback, so a long history awaiting its rollup rebuild is not replayed.
+        val continued = continuation(userId, maxOf(lastStored.plusDays(1), start), end)
+        val current =
+            when {
+                today <= lastStored -> fitnessRollup.findDays(userId, today, today).single()
+                else -> continued[today] ?: continuation(userId, today, today).getValue(today)
+            }
         if (start > end) return FitnessSeries(today, current, emptyList(), emptyList())
 
         val storedDays = if (start <= minOf(end, lastStored)) fitnessRollup.findDays(userId, start, minOf(end, lastStored)) else emptyList()
-        val days = storedDays + continued.values.filter { it.day in start..end }
+        val days = storedDays + continued.values
         val correctionOn = days.associate { it.day to it.correctionFactor }
         val runs =
             fitnessRollup
@@ -84,16 +90,15 @@ class AthleteFitnessService(
     ): Double? = fitnessRollup.findDays(userId, day, day).singleOrNull()?.correctionFactor
 
     /**
-     * The days after [lastStored] up to [until], computed from the inputs up to [until]; empty when there are none.
-     * The inputs reach past [lastStored] because Runs dated after the rollup's today are stored without rows (#64);
-     * each day still reads only the inputs on or before it.
+     * The days [first] to [until] that have no stored row, computed from the inputs up to [until]; empty when the
+     * range is. Runs dated after the rollup's today are stored without rows (#64), so the inputs reach past the last
+     * stored day; each day still reads only the inputs on or before it, and no further back than its lookback.
      */
     private fun continuation(
         userId: Long,
-        lastStored: LocalDate,
+        first: LocalDate,
         until: LocalDate,
     ): Map<LocalDate, FitnessDay> {
-        val first = lastStored.plusDays(1)
         if (first > until) return emptyMap()
         val zone = fitnessRollup.zoneOf(userId)
         val readFrom = first.minusDays(EffectiveVo2maxCalculator.LOOKBACK_DAYS)
