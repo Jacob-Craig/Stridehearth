@@ -38,11 +38,15 @@ LABEL org.opencontainers.image.title="Stridehearth" \
 # migrations (ADR-0010). pg_dump refuses a server newer than itself, so this must be at least the major version of the
 # PostgreSQL in deploy/compose.yaml; a newer client dumps older servers fine. Ubuntu's own repository stops at 16, so
 # the client comes from the PostgreSQL project's apt repository.
+# `noble-pgdg` below is tied to this base image's Ubuntu codename (eclipse-temurin:17-jre-noble); change both together.
 ARG POSTGRES_CLIENT_MAJOR=18
+ARG PGDG_FINGERPRINT=B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
-    && curl --fail --silent --show-error --location https://www.postgresql.org/media/keys/ACCC4CF8.asc \
-        | gpg --dearmor --output /usr/share/keyrings/postgresql.gpg \
+    && curl --fail --silent --show-error --location --output /tmp/pgdg.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    && gpg --show-keys --with-colons /tmp/pgdg.asc | awk -F: '$1 == "fpr" { print $10 }' | grep -qx "${PGDG_FINGERPRINT}" \
+    && gpg --dearmor --output /usr/share/keyrings/postgresql.gpg /tmp/pgdg.asc \
+    && rm /tmp/pgdg.asc \
     && echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" \
         > /etc/apt/sources.list.d/pgdg.list \
     && apt-get update \

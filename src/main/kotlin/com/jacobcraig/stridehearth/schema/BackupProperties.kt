@@ -11,4 +11,8 @@ data class BackupProperties(
     val pgDumpCommand: String = "pg_dump",
     /** How many backups to keep; older ones are deleted after a new one succeeds. */
     val keep: Int = 3,
-)
+) {
+    init {
+        require(keep >= 1) { "stridehearth.backup.keep must be at least 1, was $keep" }
+    }
+}
