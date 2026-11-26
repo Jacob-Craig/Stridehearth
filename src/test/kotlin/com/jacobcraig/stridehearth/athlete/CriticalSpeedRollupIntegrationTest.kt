@@ -589,6 +589,16 @@ class CriticalSpeedRollupIntegrationTest {
     }
 
     @Test
+    fun `a model exactly 90 days before today is stale, and one 89 days before is current`() {
+        // Today is day 89: day 0 is the oldest model whose window still overlaps today's; day -1 is one day too old.
+        storedRun(-1, critical = 4.0)
+        assertEquals(emptyList(), pending(), "day -1 is 90 days before today")
+
+        storedRun(0, critical = 4.0)
+        assertEquals(day(0), pending().single().effectiveDate, "day 0 is 89 days before today")
+    }
+
+    @Test
     fun `a stale power model never proposes, even on a full rebuild`() {
         athleteThresholds.record(runner.id!!, ThresholdKind.CRITICAL_POWER, day(-200), 280.0)
         storedRun(-100, power = 300.0 to 20_000.0)
