@@ -13,6 +13,10 @@ Flyway migrations only run forward, so a Server cannot step back from a One-way 
 ## Consequences
 
 - Flyway's default of ignoring "future" migrations (applied in the database but unknown to the running code) is overridden, so an older image fails fast with a clear message instead of running against a schema it does not understand.
-- The app image bundles a PostgreSQL client whose major version matches the supported PostGIS server (16). A server major-version upgrade becomes an Operator-visible event, called out in release notes.
+- The app image bundles a PostgreSQL client whose major version follows the PostGIS major pinned in the sample compose file (currently 18; the Dockerfile `POSTGRES_CLIENT_MAJOR` build argument). A newer `pg_dump` can dump older servers but not the reverse. A server major-version upgrade becomes an Operator-visible event, called out in release notes.
 - Release notes flag every One-way Release, and the sample compose file pins an exact version (see ADR-0009).
 - Normal restarts with no pending migrations take no backup and cost nothing.
+
+## Amendments
+
+- 2026-11-26: This ADR originally said to bundle the PostgreSQL 16 client. The sample compose file pins PostGIS 18, and `pg_dump` 16 cannot dump a v18 server, so the client major now follows the compose-pinned PostGIS major (18).

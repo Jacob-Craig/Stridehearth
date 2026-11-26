@@ -1,4 +1,5 @@
 org.springframework.boot.diagnostics.FailureAnalyzer=\
 com.jacobcraig.stridehearth.server.MissingConnectionSettingsFailureAnalyzer,\
 com.jacobcraig.stridehearth.schema.NewerSchemaFailureAnalyzer,\
+com.jacobcraig.stridehearth.schema.BackupFailureAnalyzer,\
 com.jacobcraig.stridehearth.users.UnknownRegistrationModeFailureAnalyzer

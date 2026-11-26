@@ -35,17 +35,69 @@ a row (30 seconds apart) turn the container `unhealthy`. `docker compose ps` sho
 | `@sha256:…` | One exact image, whatever tags later point at. |
 
 Pin an exact version or digest. A floating tag combined with an auto-updater can apply a One-way Release (one with
-irreversible migrations) without anyone choosing to (ADR-0010). Back up PostgreSQL before every upgrade, because
-downgrading means restoring that backup.
+irreversible migrations) without anyone choosing to (ADR-0010).
 
 The sample pins every image by digest. Upgrading means editing the pin yourself:
 
-- **Stridehearth.** Change the digest or version to the Release you want, after reading its notes. A One-way
-  Release cannot be undone without a backup.
+- **Stridehearth.** Replace the digest, or switch the reference to a version tag such as `:X.Y.Z`, to move to the
+  Release you want, after reading its notes. A One-way Release cannot be undone without a backup, and the Server
+  takes one for you: see [Backups and going back](#backups-and-going-back).
 - **PostgreSQL (PostGIS) and Redis.** Update the tag and digest when you choose to. You can copy them from the
-  latest `deploy/compose.yaml` in this repository, which is kept current. Back up PostgreSQL before pulling a new
-  PostGIS image. A major PostgreSQL version (for example 18 to 19) cannot read the old data directory without a
-  dump and restore.
+  latest `deploy/compose.yaml` in this repository, which is kept current. Before copying, compare the PostgreSQL
+  major version in the tag (for example `18` in `18-3.6`) with the one your Server runs, and copy only within the
+  same major, unless you mean to do the dump and restore below. The Server's automatic backup covers only its own
+  schema upgrades, not a PostGIS image change, so take a manual backup first (`docker compose exec -T postgres
+  pg_dumpall -U "$POSTGRES_USER" > backup.sql`) before pulling a new PostGIS image. A major PostgreSQL version (for
+  example 18 to 19) cannot read the old data directory without a dump and restore.
+
+## Backups and going back
+
+When a Stridehearth upgrade has pending database migrations, the Server first writes a `pg_dump` of its database to
+`/app/backups` (the `backups` volume in the sample), named like
+`stridehearth-v26-to-v28-20260304T050607Z.dump`: the schema versions it was taken between, then a UTC timestamp. It
+keeps the latest three. If the dump fails, for example because the directory is not writable, the Server logs why,
+applies no migration and does not start. A restart with nothing to migrate, and a first start on an empty database,
+write no backup. The image bundles the PostgreSQL 18 client for this, which can dump PostgreSQL 18 and older
+servers. A host directory mounted at `/app/backups` must be writable by uid 10001 (`chown 10001:10001 <dir>`).
+
+To go back to the Release you ran before a One-way Release, restore the dump taken at that upgrade, then run the old
+Release. The dump replaces the whole database, so anything recorded since the upgrade is lost. Redis is not backed up
+or restored: its state (sessions and rate-limit counters) starts over, so people may have to sign in again.
+
+`POSTGRES_USER` and `POSTGRES_DB` default to `stridehearth` in the sample compose file. Run these from the directory
+holding your compose file, with the variables set in your shell (or typed in place):
+
+```sh
+# 1. List the dumps, and pick the one named for the upgrade you are undoing.
+docker compose exec stridehearth ls -l /app/backups
+
+# 2. Stop the Server and copy that dump out.
+docker compose stop stridehearth
+docker compose cp stridehearth:/app/backups/stridehearth-v26-to-v28-20260304T050607Z.dump ./restore.dump
+
+# 3. Replace the database with it.
+docker compose exec -T postgres dropdb -U "$POSTGRES_USER" --force "$POSTGRES_DB"
+docker compose exec -T postgres createdb -U "$POSTGRES_USER" --template=template0 "$POSTGRES_DB"
+docker compose exec -T postgres pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --exit-on-error < restore.dump
+```
+
+Create the database from `template0` so it is empty: the dump creates the PostGIS extension itself, and a template
+that already has it would make `pg_restore --exit-on-error` stop. Then pin the Stridehearth image in your compose file
+to the previous Release (the one you ran before the upgrade), and only then run `docker compose up -d`. Starting the
+new image again would migrate the restored database forward once more.
+
+If the Server container is gone (after `docker compose down`, for example), the dumps are still in the `backups`
+volume, named `<project>_backups` (the project is the compose directory's name; `docker volume ls` shows it). Start
+PostgreSQL with `docker compose up -d postgres`, replace steps 1 and 2 with the following, and carry on with step 3:
+
+```sh
+docker run --rm -v <project>_backups:/b:ro alpine ls -l /b
+docker run --rm -v <project>_backups:/b:ro -v "$PWD":/out alpine cp /b/<dump-file-name> /out/restore.dump
+```
+
+Use your own dump's file name. The dumps are unencrypted copies of every athlete's data, kept on the same disk as the
+database, so they do not protect against losing that disk. Copy them off the host (to a backup you trust) on a
+schedule you choose.
 
 ## Environment variables
 
@@ -97,8 +149,10 @@ untrusted network without TLS.
   it, every athlete shares one budget. With it, `X-Forwarded-For` is believed from any private-network address, so
   leave it unset when clients can reach the Server directly, or they can choose their own address.
 - **Uploads volume.** The app runs as uid 10001 and writes only to `/app/temp-batches`, where import uploads are
-  staged. A named volume mounted there takes the right owner automatically. A host directory mounted there must be
-  writable by uid 10001 (`chown 10001:10001 <dir>`).
+  staged, and to `/app/backups` (below). A named volume mounted at either takes the right owner automatically. A host
+  directory mounted there must be writable by uid 10001 (`chown 10001:10001 <dir>`).
+- **Backups volume.** `/app/backups` holds the pre-migration `pg_dump`s; see
+  [Backups and going back](#backups-and-going-back). Keep it on a volume, or the dumps go with the container.
 - **Apple Silicon and other arm64 hosts.** The Stridehearth image runs natively. The sample uses
   `imresamu/postgis`, a multi-architecture PostGIS build, because `postgis/postgis` publishes only amd64. That image
   would run under emulation on arm64.
