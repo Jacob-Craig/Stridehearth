@@ -36,7 +36,8 @@ data class DetectedInterval(
  *
  * 1. The signal is the Run's moving series ([MovingSeries]): seconds standing still (cleaned speed below
  *    [RunMetrics.MOVING_SPEED_MPS], a traffic stop) or without GAP are dropped, so a stop never makes a recovery.
- * 2. It is smoothed with a centred mean of [SMOOTHING_SECONDS].
+ * 2. It is smoothed with a centred mean of [SMOOTHING_SECONDS], each stretch between two dropped stops on its own, so a
+ *    stop never blurs the edge next to it.
  * 3. The two levels (hard and easy) are the classes of the best two-class split of the smoothed values (Otsu's
  *    method). When the class means differ by less than [MIN_CONTRAST] of the harder one the Run is steady and has no
  *    Detected Intervals, so a warm-up or drift is not an interval.
@@ -79,7 +80,7 @@ object IntervalDetector {
         val n = series.size
         if (n < MIN_MOVING_SECONDS) return emptyList()
         val signal = if (series.powerCovers(0, n)) series.power.map { it ?: 0.0 }.toDoubleArray() else series.gap
-        val smoothed = smooth(signal)
+        val smoothed = smooth(signal, series.time)
         val (easy, hard) = levels(smoothed) ?: return emptyList()
         if ((hard - easy) / hard < MIN_CONTRAST) return emptyList()
         val segments = absorbShort(comparator(smoothed, easy, hard))
@@ -96,13 +97,29 @@ object IntervalDetector {
         val length get() = to - from
     }
 
-    private fun smooth(signal: DoubleArray): DoubleArray {
+    /** [signal] smoothed within each stretch of consecutive elapsed seconds in [time]: a jump in [time] is a dropped stop. */
+    private fun smooth(
+        signal: DoubleArray,
+        time: IntArray,
+    ): DoubleArray {
         val half = SMOOTHING_SECONDS / 2
         val prefix = DoubleArray(signal.size + 1)
         for (i in signal.indices) prefix[i + 1] = prefix[i] + signal[i]
+        val stretchStart = IntArray(signal.size)
+        val stretchEnd = IntArray(signal.size)
+        var start = 0
+        for (i in signal.indices) {
+            if (i > 0 && time[i] - time[i - 1] > 1) start = i
+            stretchStart[i] = start
+        }
+        var end = signal.size
+        for (i in signal.indices.reversed()) {
+            if (i < signal.lastIndex && time[i + 1] - time[i] > 1) end = i + 1
+            stretchEnd[i] = end
+        }
         return DoubleArray(signal.size) { i ->
-            val from = maxOf(0, i - half)
-            val to = minOf(signal.size, i + half + 1)
+            val from = maxOf(stretchStart[i], i - half)
+            val to = minOf(stretchEnd[i], i + half + 1)
             (prefix[to] - prefix[from]) / (to - from)
         }
     }

@@ -6,6 +6,8 @@ import com.jacobcraig.stridehearth.analytics.TrainingLoadResult
 import com.jacobcraig.stridehearth.analytics.TrainingLoadUnavailableReason
 import com.jacobcraig.stridehearth.analytics.Vo2maxResult
 import com.jacobcraig.stridehearth.analytics.Vo2maxUnavailableReason
+import com.jacobcraig.stridehearth.analytics.WorkoutType
+import com.jacobcraig.stridehearth.analytics.WorkoutTypeClassifier
 import com.jacobcraig.stridehearth.athlete.AthleteAnalyticsStateRepository
 import com.jacobcraig.stridehearth.athlete.AthleteRollups
 import com.jacobcraig.stridehearth.athlete.AthleteThresholdRepository
@@ -35,14 +37,19 @@ import java.time.ZoneId
  * - 7: VO2max Estimate of Runs (#42).
  * - 8: Cadence-lock requires heart rate to follow cadence, so steady true heart rate at step rate is kept (#52).
  * - 9: Detected Intervals of Runs (#47).
+ * - 10: Workout Type of Runs (#48); Detected Intervals smooth each moving stretch on its own (#102).
  */
-const val DERIVED_DATA_VERSION: Short = 9
+const val DERIVED_DATA_VERSION: Short = 10
 
 /**
  * The derived-data module (ADR-0014): the only writer of `activity_derived_metrics`, which holds one row per
  * **Activity** of every sport, computed in one pure pass ([ActivityAnalysis]) from its **Cleaned Activity
  * Details** and stamped with [DERIVED_DATA_VERSION], and of `activity_peak_effort` and `activity_detected_interval`,
- * a Run's **Peak Efforts** and **Detected Intervals** from the same pass. It also marks the athlete's rollups ([AthleteRollups]).
+ * a Run's **Peak Efforts** and **Detected Intervals** from the same pass. A Run's **Workout Type** is stored with its row,
+ * classified from its own evidence and the median Moving Time of the athlete's Runs in the 28 days before it, which it
+ * only reads: when this Activity's start or Moving Time changes, or it is deleted, the Runs of the next 28 days are
+ * reclassified by the recompute worker from a `workout_type_request`, as a refresh never writes another Activity's
+ * derived data. It also marks the athlete's rollups ([AthleteRollups]).
  *
  * Caller contract, as for [BestEffortRefresh]:
  * - Call it in the caller's transaction whenever an input changes: an Activity is created (with or without Activity
@@ -68,6 +75,7 @@ class DerivedDataRefresh(
     private val derivedMetricsRepository: ActivityDerivedMetricsRepository,
     private val peakEffortRepository: ActivityPeakEffortRepository,
     private val detectedIntervalRepository: ActivityDetectedIntervalRepository,
+    private val workoutTypeRepository: WorkoutTypeRepository,
     private val athleteRollups: AthleteRollups,
     private val thresholdRepository: AthleteThresholdRepository,
     private val analyticsStateRepository: AthleteAnalyticsStateRepository,
@@ -87,7 +95,10 @@ class DerivedDataRefresh(
         entityManager.flush()
         val activityId = checkNotNull(activity.id) { "Only a saved Activity has derived data" }
         if (activityId in derivedMetricsRepository.findExistingActivityIds(listOf(activityId))) {
-            recompute(activity, details, Thresholds())
+            recompute(activity, details, Thresholds(), previousStartedAt)
+        } else {
+            // Deleted: the Runs after it no longer have it in their median.
+            workoutTypeRepository.request(checkNotNull(activity.user.id), activity.startedAt)
         }
         markRollups(activity, previousStartedAt, previousSport)
     }
@@ -106,7 +117,11 @@ class DerivedDataRefresh(
         val existing = derivedMetricsRepository.findExistingActivityIds(activities.map { checkNotNull(it.id) })
         val thresholds = Thresholds()
         for (activity in activities) {
-            if (activity.id in existing) recompute(activity, details = null, thresholds)
+            if (activity.id in existing) {
+                recompute(activity, details = null, thresholds, previousStartedAt = null)
+            } else {
+                workoutTypeRepository.request(checkNotNull(activity.user.id), activity.startedAt)
+            }
             markRollups(activity, previousStartedAt = null, previousSport = previousSports[activity.id])
         }
     }
@@ -127,8 +142,11 @@ class DerivedDataRefresh(
         var replaced = 0
         for (activity in activities) {
             if (activity.id !in existing) continue
-            val metrics = analyse(activity, details = null, thresholds)?.thresholdDependent ?: noActivityDetails(activity)
-            if (derivedMetricsRepository.updateThresholdDependent(activity.id!!, DERIVED_DATA_VERSION, metrics)) replaced++
+            val analysis = analyse(activity, details = null, thresholds)
+            val metrics = analysis?.thresholdDependent ?: noActivityDetails(activity)
+            // Thresholds change the evidence, not the Moving Time the neighbours' medians are made of.
+            val type = workoutType(activity, analysis)
+            if (derivedMetricsRepository.updateThresholdDependent(activity.id!!, DERIVED_DATA_VERSION, metrics, type)) replaced++
             athleteRollups.markDailyLoad(checkNotNull(activity.user.id), activity.startedAt)
         }
         return replaced
@@ -138,9 +156,11 @@ class DerivedDataRefresh(
         activity: Activity,
         details: FitTelemetry?,
         thresholds: Thresholds,
+        previousStartedAt: Instant?,
     ) {
         val activityId = activity.id!!
         val analysis = analyse(activity, details, thresholds)
+        val previousMovingSeconds = derivedMetricsRepository.findRunMetrics(activityId)?.movingSeconds
         derivedMetricsRepository.upsert(
             activityId,
             DERIVED_DATA_VERSION,
@@ -148,9 +168,29 @@ class DerivedDataRefresh(
             analysis?.runMetrics,
             analysis?.thresholdDependent ?: noActivityDetails(activity),
             analysis?.conditions,
+            workoutType(activity, analysis),
         )
+        val userId = checkNotNull(activity.user.id)
+        if (previousStartedAt != null) workoutTypeRepository.request(userId, previousStartedAt)
+        if (previousStartedAt != null || previousMovingSeconds != analysis?.runMetrics?.movingSeconds) {
+            workoutTypeRepository.request(userId, activity.startedAt)
+        }
         peakEffortRepository.replace(activityId, analysis?.peakEfforts.orEmpty())
         detectedIntervalRepository.replace(activityId, analysis?.detectedIntervals.orEmpty())
+    }
+
+    /**
+     * [activity]'s **Workout Type** from its [analysis]'s evidence and the median Moving Time of the athlete's Runs in the
+     * 28 days before it, or null without evidence (not a Run, or a Run without Grade-Adjusted Pace).
+     */
+    private fun workoutType(
+        activity: Activity,
+        analysis: ActivityAnalysis?,
+    ): WorkoutType? {
+        val evidence = analysis?.workoutEvidence ?: return null
+        val movingSeconds = analysis.runMetrics?.movingSeconds ?: return null
+        val (median, runs) = workoutTypeRepository.findMedianMovingSeconds(checkNotNull(activity.user.id), activity.startedAt)
+        return WorkoutTypeClassifier.classify(evidence, movingSeconds, median, runs)
     }
 
     /** [activity]'s analysis from [details] or its stored Activity Details, or null when it has none. */

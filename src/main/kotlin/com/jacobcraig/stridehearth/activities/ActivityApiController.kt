@@ -3,6 +3,7 @@ package com.jacobcraig.stridehearth.activities
 import com.jacobcraig.stridehearth.api.ApiErrorResponse
 import com.jacobcraig.stridehearth.api.PagedResponseDTO
 import com.jacobcraig.stridehearth.api.toPagedResponse
+import com.jacobcraig.stridehearth.analytics.WorkoutType
 import com.jacobcraig.stridehearth.system.ActivitySport
 import com.jacobcraig.stridehearth.users.AppUserDetails
 import io.swagger.v3.oas.annotations.Parameter
@@ -60,6 +61,7 @@ class ActivityApiController(
         @Parameter(description = "Case-insensitive substring of the Activity title") @RequestParam(required = false) q: String?,
         @Parameter(description = "Only Activities of this sport") @RequestParam(required = false) sport: ActivitySport?,
         @Parameter(description = "Only Activities from this Activity Source") @RequestParam(required = false) source: ActivitySource?,
+        @Parameter(description = "Only Runs of this Workout Type") @RequestParam(required = false) workoutType: WorkoutType?,
         @Parameter(description = "Zero-based page index (ignored when size is 'all')") @RequestParam(defaultValue = "0") @Min(0) page: Int,
         @Parameter(
             description = "Page size from 1 to 100, or 'all' for every matching Activity in one page",
@@ -69,7 +71,7 @@ class ActivityApiController(
         @AuthenticationPrincipal currentUser: AppUserDetails,
     ): PagedResponseDTO<ActivitySummaryDTO> {
         val pageable = ActivityPageSize.parse(size).toPageable(page, NEWEST_FIRST)
-        val filter = ActivityFilter(titleContains = q, sport = sport, source = source)
+        val filter = ActivityFilter(titleContains = q, sport = sport, source = source, workoutType = workoutType)
         return activityService.getActivitySummaries(currentUser.id, filter, pageable).toPagedResponse()
     }
 

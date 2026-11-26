@@ -6,6 +6,8 @@ import com.jacobcraig.stridehearth.activities.ActivityDetailsRepository
 import com.jacobcraig.stridehearth.activities.ActivityRepository
 import com.jacobcraig.stridehearth.activities.DERIVED_DATA_VERSION
 import com.jacobcraig.stridehearth.activities.DerivedDataRefresh
+import com.jacobcraig.stridehearth.activities.WorkoutTypeReclassifier
+import com.jacobcraig.stridehearth.activities.WorkoutTypeRepository
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DataAccessResourceFailureException
 import org.springframework.dao.PessimisticLockingFailureException
@@ -30,6 +32,7 @@ data class RecomputeResult(
     val thresholdDependentRecomputed: Int = 0,
     val rollupsRebuilt: Int = 0,
     val rollupsFailed: Int = 0,
+    val workoutTypesChanged: Int = 0,
 )
 
 /**
@@ -41,6 +44,9 @@ data class RecomputeResult(
  *    meanwhile (compare-and-clear).
  * 2. The **Backfill** of Activities that have no `activity_derived_metrics` row yet (imported before derived data
  *    existed), and the **Recompute** of rows an older algorithm version wrote ([DERIVED_DATA_VERSION]).
+ *    Between 2 and 3, the durable `workout_type_request`s that an Activity's change writes: the **Workout Type** of the
+ *    athlete's Runs in the next 28 days is reclassified from their stored evidence ([WorkoutTypeReclassifier]), and the
+ *    requests served are cleared (those written meanwhile stay pending).
  * 3. The full rebuild of athlete rollups that are stale ([ROLLUP_VERSION]: never built, built by an older version, or
  *    marked stale by a time-zone change), one athlete per transaction under their rollup lock (ADR-0016). It runs
  *    only once the first two stages have caught up within the run; stage 2's Activities that are backed off after
@@ -66,6 +72,8 @@ class DerivedDataRecomputeWorker(
     private val derivedMetricsRepository: ActivityDerivedMetricsRepository,
     private val derivedDataRefresh: DerivedDataRefresh,
     private val stateRepository: AthleteAnalyticsStateRepository,
+    private val workoutTypeRepository: WorkoutTypeRepository,
+    private val workoutTypeReclassifier: WorkoutTypeReclassifier,
     private val athleteRollups: AthleteRollups,
     private val transactionTemplate: TransactionTemplate,
 ) {
@@ -97,6 +105,14 @@ class DerivedDataRecomputeWorker(
      * left; a newer request starts again from the beginning. Kept in memory only: a restart rescans the request.
      */
     private val requestCursors = ConcurrentHashMap<Long, RequestCursor>()
+
+    /** How far a drain got through an athlete's merged workout type requests (up to request id [lastId]). */
+    private data class WorkoutCursor(
+        val lastId: Long,
+        val afterId: Long,
+    )
+
+    private val workoutCursors = ConcurrentHashMap<Long, WorkoutCursor>()
 
     private data class RequestCursor(
         val requestedAt: Instant,
@@ -144,7 +160,9 @@ class DerivedDataRecomputeWorker(
             if (candidates.isEmpty()) {
                 if (wrapped) {
                     resumeAfterId = 0L
-                    rebuildStaleRollups(limit, maxPages, onlyUserIds, now, tally)
+                    if (serveWorkoutTypeRequests(limit, maxPages, onlyUserIds, now, tally)) {
+                        rebuildStaleRollups(limit, maxPages, onlyUserIds, now, tally)
+                    }
                     return tally.result()
                 }
                 wrapped = true
@@ -227,6 +245,38 @@ class DerivedDataRecomputeWorker(
             if (!stateRepository.clearRequest(request)) {
                 logger.info("A newer Training Load recompute request for athlete {} arrived; it is served next run", request.userId)
             }
+        }
+        return true
+    }
+
+    /**
+     * Serves each pending `workout_type_request` in athlete id order, a page at a time from where the last drain left
+     * it, clearing the requests it merged unless an Activity failed: then they stay pending and the next drain scans
+     * again, passing over the Activities still backed off. Returns false when it used up [maxPages] first.
+     */
+    private fun serveWorkoutTypeRequests(
+        limit: Int,
+        maxPages: Int,
+        onlyUserIds: Collection<Long>?,
+        now: Instant,
+        tally: Tally,
+    ): Boolean {
+        for (request in workoutTypeRepository.findPending(onlyUserIds)) {
+            var afterId = workoutCursors[request.userId]?.takeIf { it.lastId == request.lastId }?.afterId ?: 0L
+            val skipped = mutableSetOf<Long>()
+            while (true) {
+                val page = workoutTypeRepository.findRunIdsInRange(request.userId, request.from, request.to, afterId, limit)
+                if (page.isEmpty()) break
+                if (tally.pages >= maxPages) {
+                    workoutCursors[request.userId] = WorkoutCursor(request.lastId, afterId)
+                    return false
+                }
+                tally.workoutTypes += runPage(page, afterId, now, tally, ::reclassifyPage, skipped)
+                afterId = page.last()
+                tally.pages++
+            }
+            workoutCursors.remove(request.userId)
+            if (skipped.isEmpty()) workoutTypeRepository.clear(request)
         }
         return true
     }
@@ -346,6 +396,9 @@ class DerivedDataRecomputeWorker(
     private fun recomputeThresholdDependentPage(activityIds: List<Long>): Int =
         derivedDataRefresh.refreshThresholdDependent(lockAndLoad(activityIds))
 
+    /** Reclassifies the **Workout Type** of [activityIds] from their stored evidence; returns how many changed. */
+    private fun reclassifyPage(activityIds: List<Long>): Int = workoutTypeReclassifier.reclassify(activityDetailsRepository.lockActivities(activityIds))
+
     private fun lockAndLoad(activityIds: List<Long>): List<Activity> {
         // Lock first, then read: under READ COMMITTED the reads below see whatever a concurrent writer committed
         // while this page waited for its lock.
@@ -361,9 +414,10 @@ class DerivedDataRecomputeWorker(
         var trainingLoads = 0
         var rollups = 0
         var rollupsFailed = 0
+        var workoutTypes = 0
         var pages = 0
 
-        fun result() = RecomputeResult(recomputed, failed, trainingLoads, rollups, rollupsFailed)
+        fun result() = RecomputeResult(recomputed, failed, trainingLoads, rollups, rollupsFailed, workoutTypes)
     }
 
     companion object {

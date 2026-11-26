@@ -195,4 +195,39 @@ class IntervalDetectorTest {
         assertEquals(6, intervals.work.size)
         intervals.forEach { assertNull(it.avgHr) }
     }
+
+    @Test
+    fun `a stop right after a rep does not blur the rep's end`() {
+        // 12 min at 3.0 m/s, a 6 min rep at 4.5 m/s, a 30 s stop, then 12 min of jogging at 2.4 m/s.
+        val repEnd = 720 + 360
+        val intervals =
+            detect(repEnd + 30 + 720, { s ->
+                when {
+                    s < 720 -> 3.0
+                    s < repEnd -> 4.5
+                    s < repEnd + 30 -> 0.0
+                    else -> 2.4
+                }
+            })
+
+        val rep = intervals.work.single()
+        assertEquals(720.0, rep.startTimeSeconds, 1.0)
+        // The smoothing stops at the stop, so the edge is not pulled up to 7 s into the jog (#102).
+        assertEquals(repEnd.toDouble(), rep.endTimeSeconds, 1.0)
+    }
+
+    @Test
+    fun `a progression run with a large pace gap has at most one work interval`() {
+        // 25 min easy at 2.8 m/s, then a 25 min fast finish at 4.2 m/s: a 33% gap, but one step, not repeated reps (#102).
+        val intervals = detect(3000, { if (it < 1500) 2.8 else 4.2 })
+
+        assertTrue(intervals.work.size <= 1)
+    }
+
+    @Test
+    fun `a negative-split run whose second half is faster has at most one work interval`() {
+        val intervals = detect(3600, { if (it < 1800) 3.0 else 4.0 })
+
+        assertTrue(intervals.work.size <= 1)
+    }
 }
