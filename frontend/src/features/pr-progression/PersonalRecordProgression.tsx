@@ -142,36 +142,39 @@ function ProgressionFigure({ progression }: { progression: BenchmarkProgressionD
           .with({ kind: 'loading' }, { kind: 'ready' }, () => null)
           .exhaustive()}
       </div>
-      <table className="sr-only">
-        <caption>{title}</caption>
-        <thead>
-          <tr>
-            <th scope="col">Set on</th>
-            <th scope="col">Time</th>
-            <th scope="col">Activity</th>
-          </tr>
-        </thead>
-        <tbody>
-          {records.map((record) => (
-            <tr key={record.activityId}>
-              <td>
-                <time dateTime={record.activityStartedAt}>
-                  {formatDate(record.activityStartedAt)}
-                </time>
-              </td>
-              <td>{formatDuration(record.elapsedTimeSeconds)}</td>
-              <td>
-                <Link
-                  to="/activities/$activityId"
-                  params={{ activityId: String(record.activityId) }}
-                >
-                  {record.activityTitle}
-                </Link>
-              </td>
+      {/* A table ignores sr-only's 1 px width and widens the page on phones, so a div hides it. */}
+      <div className="sr-only">
+        <table>
+          <caption>{title}</caption>
+          <thead>
+            <tr>
+              <th scope="col">Set on</th>
+              <th scope="col">Time</th>
+              <th scope="col">Activity</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {records.map((record) => (
+              <tr key={record.activityId}>
+                <td>
+                  <time dateTime={record.activityStartedAt}>
+                    {formatDate(record.activityStartedAt)}
+                  </time>
+                </td>
+                <td>{formatDuration(record.elapsedTimeSeconds)}</td>
+                <td>
+                  <Link
+                    to="/activities/$activityId"
+                    params={{ activityId: String(record.activityId) }}
+                  >
+                    {record.activityTitle}
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </figure>
   );
 }

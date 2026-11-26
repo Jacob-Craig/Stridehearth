@@ -242,25 +242,28 @@ function PaceDurationFigure({
           .with({ kind: 'loading' }, { kind: 'ready' }, () => null)
           .exhaustive()}
       </div>
-      <table className="sr-only">
-        <caption>Pace-Duration Curve peaks</caption>
-        <thead>
-          <tr>
-            <th scope="col">Duration</th>
-            <th scope="col">{windowLabel}</th>
-            <th scope="col">All-Time</th>
-          </tr>
-        </thead>
-        <tbody>
-          {durations.map((seconds) => (
-            <tr key={seconds}>
-              <th scope="row">{durationTickLabel(seconds)}</th>
-              <PeakCell mode={mode} peak={at(curves.recent, seconds)} />
-              <PeakCell mode={mode} peak={at(curves.allTime, seconds)} />
+      {/* A table ignores sr-only's 1 px width and widens the page on phones, so a div hides it. */}
+      <div className="sr-only">
+        <table>
+          <caption>Pace-Duration Curve peaks</caption>
+          <thead>
+            <tr>
+              <th scope="col">Duration</th>
+              <th scope="col">{windowLabel}</th>
+              <th scope="col">All-Time</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {durations.map((seconds) => (
+              <tr key={seconds}>
+                <th scope="row">{durationTickLabel(seconds)}</th>
+                <PeakCell mode={mode} peak={at(curves.recent, seconds)} />
+                <PeakCell mode={mode} peak={at(curves.allTime, seconds)} />
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </figure>
   );
 }
