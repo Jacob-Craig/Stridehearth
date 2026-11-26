@@ -1,6 +1,6 @@
 # 0017. Weather Comes from the Device; External Weather Is an Operator Opt-In
 
-Status: accepted.
+Status: accepted. External weather: issue #83.
 
 Race Prognosis and VO2max adjust for heat and altitude, so every Activity needs the temperature and altitude it was done in (issue #43). Two sources exist: what the device recorded in the FIT file (`record.temperature`, stored in `activity_details.temperature` since V5, and altitude), and an external weather service looked up at the Activity's start coordinates and time, such as the Open-Meteo historical (ERA5) archive. A lookup sends the athlete's location and the time they were there to a third party, and Stridehearth otherwise makes no outbound call at all.
 
@@ -12,12 +12,20 @@ We take the conditions **from the device only**, and ship **no weather provider*
 - **Heat Derating** (`HeatAltitude.heatPaceFactor`, 1.5% per 5 °C above 20 °C) uses temperature only, because the device records no humidity. Acclimation is shown but does not change it yet.
 - No class in `src/main` refers to an HTTP client, and the application context holds none; `NoOutboundWeatherCallsTest` keeps it that way.
 
-External weather, when it is built (issue #83), is an **Operator opt-in** with this design:
+External weather (issue #83, built after this ADR was first accepted) is an **Operator opt-in** with this design:
 
 - An Operator setting `stridehearth.weather.provider`, default `none`; `open-meteo` uses the ERA5 archive API. Athletes cannot turn it on for themselves, and nothing is sent while it is `none`.
 - Coordinates are rounded to 0.1° (about 11 km) before they leave the Server, and only the start point and hour are sent, never the route.
 - Lookups run in their own background stage **after commit**, never inside `DerivedDataRefresh`'s transaction: network latency, rate limits and ERA5's roughly five-day lag must not hold the athlete's row locks or fail an import.
 - Results are cached per Activity in an `activity_weather` table (temperature, dew point, humidity and wind), so a lookup is made once and a WBGT or temperature-plus-dew-point derating can later replace the temperature-only one. The device values stay the default whenever no lookup exists.
+
+Decisions made building #83:
+
+- A looked-up temperature is the Ambient Temperature **only for Activities without a device temperature**. A device temperature always wins, and the Activities that have one are never looked up (so less leaves the Server). The weather is air temperature, so it takes no Wrist-Heat Correction.
+- Only Activities with a GPS start point and derived data of the current version are looked up, oldest first, up to 100 per minute; the first failure ends the run and the Activity is retried at the next one. An Activity started within `stridehearth.weather.archive-lag` (default 6 days) is not asked for. A lookup the archive answers with no value is still cached, so it is not repeated.
+- The request carries the rounded start point and the UTC date of the start (`start_date` = `end_date`); the start hour is picked from the answer on the Server, so the hour never leaves it.
+- Caching a result refreshes that Activity's derived data in the same short transaction ([DerivedDataRefresh] reads `activity_weather`), which stores the new Ambient Temperature and marks the athlete's rollups, so Heat Derating and Heat Acclimation follow through the ADR-0014 path. `DERIVED_DATA_VERSION` and `ROLLUP_VERSION` are not raised: while the provider is `none` the cache is empty and every stored value is unchanged. An Operator who enables the provider after importing gets the values as the stage caches each Activity.
+- The HTTP client (`RestClient`) lives only in the `weather` package and is a bean only for `open-meteo`; `NoOutboundWeatherCallsTest` asserts that for the default.
 
 ## Considered Options
 
@@ -29,5 +37,5 @@ External weather, when it is built (issue #83), is an **Operator opt-in** with t
 ## Consequences
 
 - A chest strap or a footpod's temperature is corrected as if it were on a wrist: such an Activity's Ambient Temperature reads about 6 °C low.
-- An Activity whose device records no temperature has no Ambient Temperature, counts as no heat exposure, and gets no Heat Derating, until a provider exists.
+- An Activity whose device records no temperature has no Ambient Temperature, counts as no heat exposure, and gets no Heat Derating, unless an Operator enables a provider and its weather is cached (#83).
 - Changing the correction, the median rule or the altitude mean raises `DERIVED_DATA_VERSION` and, because acclimation is built from the stored values, `ROLLUP_VERSION`.

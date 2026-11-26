@@ -212,6 +212,28 @@ The app refuses to start without these.
 Never set `SPRING_PROFILES_ACTIVE=dev` on a Server. That profile has a known database password and opens
 registration.
 
+## External weather (optional)
+
+By default Stridehearth makes no outbound network call. The only temperature it knows for an Activity is the one the
+device recorded. An Activity without one has no Ambient Temperature, so it gets no Heat Derating and counts as no heat
+exposure. As the Operator you can opt in to look it up from the [Open-Meteo](https://open-meteo.com/) historical (ERA5)
+archive. Athletes cannot turn it on for themselves.
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `STRIDEHEARTH_WEATHER_PROVIDER` | `none` | `none` sends nothing. `open-meteo` enables the lookup. |
+
+What it sends, to `archive-api.open-meteo.com`, for each Activity without a device temperature that has a GPS start
+point: its start point rounded to 0.1 degrees (about 11 km) and the UTC date it started. It never sends the route, the
+athlete or anything else about the Activity. The Server's IP address is visible to Open-Meteo, as with any request.
+Check Open-Meteo's terms for your use (the free API is for non-commercial use).
+
+Lookups run in the background after an import has committed, about once a minute and up to 100 Activities at a time,
+so a slow or unreachable provider never delays or fails an import. An Activity is looked up again later until it
+succeeds, and only once after that. The archive trails real time by about five days, so recent Activities wait. The
+result (temperature, dew point, humidity and wind) is kept with the Activity and deleted with it. Switching the setting
+back to `none` stops new lookups and keeps what was cached.
+
 ## Exposing the Server
 
 The app serves plain HTTP. Sign-in passwords and session cookies cross that connection, so don't expose it to an

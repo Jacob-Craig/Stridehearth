@@ -95,12 +95,17 @@ object SampleRunGenerator {
 
     /**
      * The synthetic sample run, as the bytes of a FIT activity file. With [temperatureC], every record also carries
-     * that device temperature; without it (the committed fixture) no record has one.
+     * that device temperature; without it (the committed fixture) no record has one. [startShiftDays] moves the whole
+     * run later by that many days, for a second distinct Activity.
      */
-    fun sampleRun(temperatureC: Int? = null): ByteArray {
+    fun sampleRun(
+        temperatureC: Int? = null,
+        startShiftDays: Long = 0,
+    ): ByteArray {
+        val start = START.plus(startShiftDays, java.time.temporal.ChronoUnit.DAYS)
         val samples = samples()
         val end = samples.last()
-        val endTime = START.plusSeconds(end.elapsedSeconds.toLong())
+        val endTime = start.plusSeconds(end.elapsedSeconds.toLong())
         val duration = end.elapsedSeconds.toFloat()
 
         val encoder = BufferEncoder(Fit.ProtocolVersion.V2_0)
@@ -113,11 +118,11 @@ object SampleRunGenerator {
                 timeCreated = fitTime(endTime)
             },
         )
-        encoder.write(timerEvent(START, EventType.START))
+        encoder.write(timerEvent(start, EventType.START))
         for (sample in samples) {
             encoder.write(
                 RecordMesg().apply {
-                    timestamp = fitTime(START.plusSeconds(sample.elapsedSeconds.toLong()))
+                    timestamp = fitTime(start.plusSeconds(sample.elapsedSeconds.toLong()))
                     positionLat = semicircles(sample.position.lat)
                     positionLong = semicircles(sample.position.lon)
                     distance = sample.distanceMetres.toFloat()
@@ -135,7 +140,7 @@ object SampleRunGenerator {
             LapMesg().apply {
                 event = Event.LAP
                 eventType = EventType.STOP
-                startTime = fitTime(START)
+                startTime = fitTime(start)
                 timestamp = fitTime(endTime)
                 totalElapsedTime = duration
                 totalTimerTime = duration
@@ -162,7 +167,7 @@ object SampleRunGenerator {
                 eventType = EventType.STOP
                 sport = Sport.RUNNING
                 subSport = SubSport.GENERIC
-                startTime = fitTime(START)
+                startTime = fitTime(start)
                 timestamp = fitTime(endTime)
                 totalElapsedTime = duration
                 totalTimerTime = duration
