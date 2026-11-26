@@ -49,6 +49,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("org.springframework.boot:spring-boot-starter-validation")
+    // Only /actuator/health is exposed: the container image's HEALTHCHECK polls it (ADR-0009).
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
     testImplementation("org.mockito.kotlin:mockito-kotlin:6.4.0") // Use latest 5.x version
     implementation("org.flywaydb:flyway-database-postgresql")
     implementation("org.springframework.boot:spring-boot-starter-security")
@@ -97,6 +99,9 @@ tasks.withType<Test> {
         "frontend/package.json",
         ".github/workflows/ci.yml",
         ".githooks/pre-push",
+        "Dockerfile",
+        ".dockerignore",
+        ".github/scripts/image-tag-rules.sh",
     )
 }
 

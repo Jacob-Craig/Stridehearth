@@ -13,7 +13,7 @@ import org.springframework.web.servlet.resource.PathResourceResolver
  * Real files (`/assets/index-*.js`, `/index.html`, …) are served as-is. Every other extension-less GET
  * outside the API, such as `/activities/42` or `/activities/manage?size=all`, is answered with `index.html`
  * and status 200, so TanStack Router owns client-side routing and a new client route needs no backend change.
- * API, OpenAPI and file-like paths that don't exist keep their plain 404.
+ * API, actuator, OpenAPI and file-like paths that don't exist keep their plain 404.
  */
 @Configuration
 class SpaForwardingConfiguration : WebMvcConfigurer {
@@ -42,7 +42,7 @@ private class SpaFallbackResourceResolver : PathResourceResolver() {
             !resourcePath.substringAfterLast('/').contains('.')
 
     private companion object {
-        val NON_CLIENT_PREFIXES = listOf("api", "v3/api-docs", "swagger-ui", "assets")
+        val NON_CLIENT_PREFIXES = listOf("api", "actuator", "v3/api-docs", "swagger-ui", "assets")
     }
 }
 

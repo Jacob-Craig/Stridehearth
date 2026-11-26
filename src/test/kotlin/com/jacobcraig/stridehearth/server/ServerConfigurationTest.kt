@@ -86,6 +86,19 @@ class ServerConfigurationTest {
     }
 
     @Test
+    fun `health is reported without signing in and no other actuator endpoint is exposed`() {
+        // The container image's HEALTHCHECK polls /actuator/health (ADR-0009).
+        run(environmentVariables = databaseVariables() + redisVariables()).use { context ->
+            val health = send(context, "/actuator/health")
+            assertEquals(200, health.statusCode())
+            assertEquals("""{"groups":["liveness","readiness"],"status":"UP"}""", health.body())
+            listOf("/actuator", "/actuator/env", "/actuator/beans", "/actuator/heapdump").forEach { path ->
+                assertEquals(404, get(context, path), "$path must not be exposed")
+            }
+        }
+    }
+
+    @Test
     fun `dev profile serves api docs and logs SQL`() {
         // The environment points `dev` at this test's containers instead of docker-compose's ports.
         run(environmentVariables = databaseVariables() + redisVariables(), profile = "dev").use { context ->
@@ -130,9 +143,14 @@ class ServerConfigurationTest {
     private fun get(
         context: ConfigurableApplicationContext,
         path: String,
-    ): Int {
+    ): Int = send(context, path).statusCode()
+
+    private fun send(
+        context: ConfigurableApplicationContext,
+        path: String,
+    ): HttpResponse<String> {
         val port = context.environment.getProperty("local.server.port")
         val request = HttpRequest.newBuilder(URI.create("http://localhost:$port$path")).GET().build()
-        return http.send(request, HttpResponse.BodyHandlers.discarding()).statusCode()
+        return http.send(request, HttpResponse.BodyHandlers.ofString())
     }
 }
