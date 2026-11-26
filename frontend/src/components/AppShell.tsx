@@ -1,5 +1,5 @@
-import { Link } from '@tanstack/react-router';
-import { type ReactNode, useEffect, useId, useState } from 'react';
+import { Link, useRouterState } from '@tanstack/react-router';
+import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import type { UserResponseDto } from '../api/generated/types.gen';
 
 interface AppShellProps {
@@ -26,6 +26,9 @@ const NAV_ITEMS: readonly NavItem[] = [
   { to: '/invites', label: 'Invites', administratorOnly: true },
 ];
 
+/** The `xl` breakpoint, from which the full nav shows and the Menu is hidden. */
+const FULL_NAV_QUERY = '(min-width: 1280px)';
+
 const LINK_CLASS =
   'whitespace-nowrap px-3 py-2 rounded-md text-sm font-medium hover:bg-slate-100 dark:hover:bg-slate-800 transition';
 const LOGOUT_CLASS =
@@ -35,20 +38,40 @@ const LOGOUT_CLASS =
  * The authenticated page frame. The full nav needs about 1,250 px, so it shows from the `xl` breakpoint;
  * narrower windows get a Menu disclosure with the same links, and on phones the username and Log out move
  * into it too, so no width scrolls sideways and every page stays reachable. Labels never wrap; a long
- * username truncates instead.
+ * username truncates instead. The Menu closes on any page change (a menu link, the logo or Back), on Escape
+ * (focus returns to the Menu button) and when the window widens to the full nav.
  */
 export function AppShell({ user, onLogout, children }: AppShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuId = useId();
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const items = NAV_ITEMS.filter((item) => !item.administratorOnly || user?.administrator === true);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: closing is the reaction to a page change
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!menuOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMenuOpen(false);
+      if (event.key !== 'Escape') return;
+      setMenuOpen(false);
+      menuButtonRef.current?.focus();
     };
     document.addEventListener('keydown', closeOnEscape);
     return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (!menuOpen || typeof window.matchMedia !== 'function') return;
+    const fullNav = window.matchMedia(FULL_NAV_QUERY);
+    const closeWhenWide = (event: MediaQueryListEvent) => {
+      if (event.matches) setMenuOpen(false);
+    };
+    fullNav.addEventListener('change', closeWhenWide);
+    return () => fullNav.removeEventListener('change', closeWhenWide);
   }, [menuOpen]);
 
   return (
@@ -83,6 +106,7 @@ export function AppShell({ user, onLogout, children }: AppShellProps) {
               Log out
             </button>
             <button
+              ref={menuButtonRef}
               type="button"
               aria-expanded={menuOpen}
               aria-controls={menuId}
