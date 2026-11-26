@@ -12,7 +12,7 @@ We take the conditions **from the device only**, and ship **no weather provider*
 - **Heat Derating** (`HeatAltitude.heatPaceFactor`, 1.5% per 5 °C above 20 °C) uses temperature only, because the device records no humidity. Acclimation is shown but does not change it yet.
 - No class in `src/main` refers to an HTTP client, and the application context holds none; `NoOutboundWeatherCallsTest` keeps it that way.
 
-External weather, when it is built (a follow-up issue), is an **Operator opt-in** with this design:
+External weather, when it is built (issue #83), is an **Operator opt-in** with this design:
 
 - An Operator setting `stridehearth.weather.provider`, default `none`; `open-meteo` uses the ERA5 archive API. Athletes cannot turn it on for themselves, and nothing is sent while it is `none`.
 - Coordinates are rounded to 0.1° (about 11 km) before they leave the Server, and only the start point and hour are sent, never the route.

@@ -26,7 +26,7 @@ Filling in something an Activity lacks (Activity Details, their distance, Laps, 
 _Avoid_: Repair, fix-up
 
 **Recompute (derived data)**:
-Replacing an Activity's stored derived data (such as its Grade-Adjusted Pace, Run metrics like Normalized Graded Pace, Peak Efforts, Training Load, VO2max Estimate, or Ambient Temperature and Mean Altitude) because something it was computed from changed: its Activity Details, its sport or start time, the athlete's Thresholds or Athlete Time Zone, or the version of the algorithm that computed it. It never changes the Activity itself, so it leaves no Activity History Entry.
+Replacing an Activity's stored derived data (such as its Grade-Adjusted Pace, Run metrics like Normalized Graded Pace, Peak Efforts, Training Load, VO2max Estimate, or Ambient Temperature and Mean Altitude) because something it was computed from changed: its Activity Details, its sport or start time, for a manual Activity its Protected Metrics, the athlete's Thresholds or Athlete Time Zone, or the version of the algorithm that computed it. It never changes the Activity itself, so it leaves no Activity History Entry.
 _Avoid_: Reprocess, regenerate, migration
 
 **Activity Source**:
@@ -266,7 +266,7 @@ Jack Daniels' measure of running ability in ml/kg/min: the oxygen cost of a race
 _Avoid_: VO2max (for a race's VDOT), running index
 
 **VO2max Estimate**:
-A Run's estimate of the VO2max it reflects, in ml/kg/min: over the steady part of its Moving Time (as for Aerobic Decoupling), each minute's Grade-Adjusted Pace is turned into its oxygen cost on Daniels' curve (slowed by the Heat Derating of its Ambient Temperature) and set against its share of heart-rate reserve from the resting and max heart-rate Thresholds; the line through rest at 3.5 is extended to 100 %, and raised to its sea-level value for the Run's Mean Altitude. Because it uses Daniels' curve, it is on the VDOT scale. Stored uncorrected; shown times its day's Correction Factor.
+A Run's estimate of the VO2max it reflects, in ml/kg/min: over the steady part of its Moving Time (as for Aerobic Decoupling), each minute's Grade-Adjusted Pace, raised to its cool-weather equivalent by the Heat Derating of its Ambient Temperature, is turned into its oxygen cost on Daniels' curve and set against its share of heart-rate reserve from the resting and max heart-rate Thresholds; the line through rest at 3.5 is extended to 100 %, and raised to its sea-level value for the Run's Mean Altitude. Because it uses Daniels' curve, it is on the VDOT scale. Stored uncorrected; shown times its day's Correction Factor.
 A Run has none, and records why, without Grade-Adjusted Pace, without both heart-rate Thresholds (or under 20 bpm apart), with heart rate on less than 80% of its Moving Time, under 20 minutes, with more than 20 m of climb per km, when its pace is not steady, below 50% of heart-rate reserve, with fewer than 10 usable minutes, or outside 20-90. Depends on the Thresholds, so recomputed with the Training Load, never edited.
 _Avoid_: VO2max score, fitness level
 

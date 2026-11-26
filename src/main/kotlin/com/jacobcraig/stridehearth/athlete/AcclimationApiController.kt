@@ -16,7 +16,11 @@ import java.time.Clock
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
 
-/** The signed-in athlete's **Heat Acclimation** and **Altitude Acclimation**; only ever their own. */
+/**
+ * The signed-in athlete's **Heat Acclimation** and **Altitude Acclimation**; only ever their own.
+ *
+ * No SPA screen reads it yet: it serves a future consumer, such as acclimation feeding Heat Derating (ADR-0017).
+ */
 @RestController
 @RequestMapping("/api/athlete/acclimation")
 @ApiErrorResponseDoc(responseCode = "401", description = "Unauthenticated")
