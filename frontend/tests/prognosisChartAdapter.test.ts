@@ -11,7 +11,7 @@ const fakeUplot = vi.hoisted(() => {
   const instances: FakeUplot[] = [];
   interface FakeOptions {
     scales: { y: { dir: number } };
-    axes: Array<{ values?: (u: FakeUplot, ticks: number[]) => string[] }>;
+    axes: Array<{ space?: number; values?: (u: FakeUplot, ticks: number[]) => string[] }>;
     series: Array<{ label?: string; stroke?: () => string }>;
     hooks: { setCursor: Array<(u: FakeUplot) => void> };
   }
@@ -74,6 +74,15 @@ describe('Race Prognosis trend adapter', () => {
     expect(plot.data[3]![0]).toBeCloseTo(260, 9);
     expect(plot.data[4]![0]).toBeCloseTo(300, 9);
     expect(plot.opts.axes[1]!.values!(plot, [240, 300])).toEqual(['4:00 /km', '5:00 /km']);
+  });
+
+  it('labels the date ticks as the rest of the app does, spaced wide enough for a month label', () => {
+    const { plot } = chart();
+    const day = (date: string) => Date.parse(`${date}T00:00:00Z`) / 1000;
+    const values = plot.opts.axes[0]!.values!;
+    expect(values(plot, [day('2026-08-21'), day('2026-08-28')])).toEqual(['21 Aug', '28 Aug']);
+    expect(values(plot, [day('2026-03-01'), day('2026-04-01')])).toEqual(['Mar 2026', 'Apr 2026']);
+    expect(plot.opts.axes[0]!.space).toBeGreaterThanOrEqual(80);
   });
 
   it('reports the day under the cursor, and null when it leaves', () => {

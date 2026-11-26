@@ -118,6 +118,15 @@ class EffectiveVo2maxCalculatorTest {
         }
 
         @Test
+        fun `a candidate whose VDOT is not a number does not calibrate`() {
+            val runs = listOf(run(1, 0, 50.0))
+
+            val result = on(10, runs, listOf(fiveK(1, 5, seconds = Double.NaN), fiveK(2, 6)))
+
+            assertEquals(2, assertNotNull(result.correctionSource).activityId)
+        }
+
+        @Test
         fun `a candidate on a day without a 30-day value does not calibrate`() {
             assertEquals(1.0, on(40, listOf(run(1, 0, 45.0)), listOf(fiveK(9, 40))).correctionFactor)
         }
