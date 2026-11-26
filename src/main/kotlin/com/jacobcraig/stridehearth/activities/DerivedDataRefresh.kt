@@ -4,6 +4,8 @@ import com.jacobcraig.stridehearth.analytics.ActivityAnalysis
 import com.jacobcraig.stridehearth.analytics.ThresholdDependentMetrics
 import com.jacobcraig.stridehearth.analytics.TrainingLoadResult
 import com.jacobcraig.stridehearth.analytics.TrainingLoadUnavailableReason
+import com.jacobcraig.stridehearth.analytics.Vo2maxResult
+import com.jacobcraig.stridehearth.analytics.Vo2maxUnavailableReason
 import com.jacobcraig.stridehearth.athlete.AthleteAnalyticsStateRepository
 import com.jacobcraig.stridehearth.athlete.AthleteRollups
 import com.jacobcraig.stridehearth.athlete.AthleteThresholdRepository
@@ -122,7 +124,7 @@ class DerivedDataRefresh(
         var replaced = 0
         for (activity in activities) {
             if (activity.id !in existing) continue
-            val metrics = analyse(activity, details = null, thresholds)?.thresholdDependent ?: noActivityDetails()
+            val metrics = analyse(activity, details = null, thresholds)?.thresholdDependent ?: noActivityDetails(activity)
             if (derivedMetricsRepository.updateThresholdDependent(activity.id!!, DERIVED_DATA_VERSION, metrics)) replaced++
             athleteRollups.markDailyLoad(checkNotNull(activity.user.id), activity.startedAt)
         }
@@ -141,7 +143,7 @@ class DerivedDataRefresh(
             DERIVED_DATA_VERSION,
             analysis?.gapSpeed,
             analysis?.runMetrics,
-            analysis?.thresholdDependent ?: noActivityDetails(),
+            analysis?.thresholdDependent ?: noActivityDetails(activity),
             analysis?.conditions,
         )
         peakEffortRepository.replace(activityId, analysis?.peakEfforts.orEmpty())
@@ -157,9 +159,15 @@ class DerivedDataRefresh(
         return ActivityAnalysis.analyse(source, activity.sport, thresholds.on(activity))
     }
 
-    /** An Activity without Activity Details: no Training Load and, as nothing can be estimated, no VO2max reason either. */
-    private fun noActivityDetails(): ThresholdDependentMetrics =
-        ThresholdDependentMetrics(TrainingLoadResult.Unavailable(TrainingLoadUnavailableReason.NO_ACTIVITY_DETAILS))
+    /**
+     * An Activity without Activity Details: no Training Load and, for a Run, no VO2max Estimate, each with that reason.
+     * Other sports never have a VO2max Estimate, so they get no reason for it.
+     */
+    private fun noActivityDetails(activity: Activity): ThresholdDependentMetrics =
+        ThresholdDependentMetrics(
+            TrainingLoadResult.Unavailable(TrainingLoadUnavailableReason.NO_ACTIVITY_DETAILS),
+            vo2max = if (activity.sport == ActivitySport.RUN) Vo2maxResult.Unavailable(Vo2maxUnavailableReason.NO_ACTIVITY_DETAILS) else null,
+        )
 
     /**
      * The Thresholds in force on each Activity's athlete-local date, reading each athlete's history and zone once per

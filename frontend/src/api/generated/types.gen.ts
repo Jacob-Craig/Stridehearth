@@ -938,7 +938,7 @@ export type TrainingLoadMethod = 'RSS' | 'RTSS' | 'HRSS';
 
 export type TrainingLoadUnavailableReason = 'NO_ACTIVITY_DETAILS' | 'NO_THRESHOLDS' | 'INCONSISTENT_THRESHOLDS' | 'NO_USABLE_STREAM';
 
-export type Vo2MaxUnavailableReason = 'NO_PACE_DATA' | 'NO_HEART_RATE_THRESHOLDS' | 'NO_HEART_RATE' | 'TOO_SHORT' | 'TOO_HILLY' | 'NOT_STEADY' | 'INTENSITY_TOO_LOW' | 'TOO_FEW_SEGMENTS' | 'OUT_OF_RANGE';
+export type Vo2MaxUnavailableReason = 'NO_ACTIVITY_DETAILS' | 'NO_PACE_DATA' | 'NO_HEART_RATE_THRESHOLDS' | 'NO_HEART_RATE' | 'TOO_SHORT' | 'TOO_HILLY' | 'NOT_STEADY' | 'INTENSITY_TOO_LOW' | 'TOO_FEW_SEGMENTS' | 'OUT_OF_RANGE';
 
 export type ActivityDerivedStreamsDto = {
     /**

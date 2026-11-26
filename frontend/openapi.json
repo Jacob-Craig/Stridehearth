@@ -4375,7 +4375,7 @@
       },
       "Vo2maxUnavailableReason" : {
         "type" : "string",
-        "enum" : [ "NO_PACE_DATA", "NO_HEART_RATE_THRESHOLDS", "NO_HEART_RATE", "TOO_SHORT", "TOO_HILLY", "NOT_STEADY", "INTENSITY_TOO_LOW", "TOO_FEW_SEGMENTS", "OUT_OF_RANGE" ]
+        "enum" : [ "NO_ACTIVITY_DETAILS", "NO_PACE_DATA", "NO_HEART_RATE_THRESHOLDS", "NO_HEART_RATE", "TOO_SHORT", "TOO_HILLY", "NOT_STEADY", "INTENSITY_TOO_LOW", "TOO_FEW_SEGMENTS", "OUT_OF_RANGE" ]
       },
       "ActivityDerivedStreamsDTO" : {
         "type" : "object",

@@ -19,6 +19,7 @@ import {
   formatStaminaPercent,
   formatTemperatureC,
   formatTrainingLoad,
+  formatVo2maxUnavailableReason,
 } from '../src/lib/format';
 
 describe('formatDuration', () => {
@@ -217,6 +218,12 @@ describe('formatDecouplingUnavailableReason', () => {
     expect(formatDecouplingUnavailableReason('TOO_SHORT')).toBe('Needs 30 min of running');
     expect(formatDecouplingUnavailableReason('NOT_STEADY')).toBe('Pace too variable');
     expect(formatDecouplingUnavailableReason('NO_PACE_DATA')).toBe('No pace data');
+  });
+});
+
+describe('formatVo2maxUnavailableReason', () => {
+  it('explains a Run without Activity Details', () => {
+    expect(formatVo2maxUnavailableReason('NO_ACTIVITY_DETAILS')).toBe('No recorded data');
   });
 });
 

@@ -824,6 +824,7 @@ export const zTrainingLoadUnavailableReason = z.enum([
 ]);
 
 export const zVo2MaxUnavailableReason = z.enum([
+    'NO_ACTIVITY_DETAILS',
     'NO_PACE_DATA',
     'NO_HEART_RATE_THRESHOLDS',
     'NO_HEART_RATE',
