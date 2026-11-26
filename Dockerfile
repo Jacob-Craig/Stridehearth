@@ -7,7 +7,7 @@
 # Base images are pinned by tag and digest; Dependabot (.github/dependabot.yml) updates both.
 
 # ---- Node, borrowed by the build stage to bundle the SPA (major version as in frontend/.nvmrc) ----
-FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS node
+FROM node:25-bookworm-slim@sha256:81db02c4b671288a03915da9534dbd54f96d0e7c24d80ccc54f5b36b2e684370 AS node
 
 # ---- Build: the Spring Boot jar with the SPA inside, split into its layers ----
 FROM eclipse-temurin:17-jdk-noble@sha256:1bedb04434bd275ef072355e9caec2a22be5240fbe82ad51a59323f2bbcab4a6 AS build
