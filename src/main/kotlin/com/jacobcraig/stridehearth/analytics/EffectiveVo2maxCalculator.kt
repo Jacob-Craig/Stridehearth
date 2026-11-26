@@ -103,30 +103,39 @@ object EffectiveVo2maxCalculator {
         val window = Window(runs)
         val calibrations =
             candidates
-                .mapNotNull { candidate -> window.uncorrected(candidate.day)?.let { candidate to it } }
-                .sortedWith(compareBy({ it.first.day }, { it.first.activityId }))
+                .mapNotNull { candidate -> window.uncorrected(candidate.day)?.let { Calibration(candidate, candidate.vdot, it) } }
+                .sortedWith(compareBy({ it.candidate.day }, { it.candidate.activityId }))
+        // A monotonic deque over the calibrations in day order: VDOT never rises from front to back, and an equal VDOT
+        // stays behind the earlier one it ties with, so the front is always the best calibration in the window.
+        val inWindow = ArrayDeque<Calibration>()
+        var next = 0
         return generateSequence(from) { it.plusDays(1) }
             .takeWhile { it <= to }
             .map { day ->
-                val best =
-                    calibrations
-                        .filter { (candidate, _) -> candidate.day <= day && candidate.day > day.minusDays(CALIBRATION_DAYS) }
-                        .maxWithOrNull(BEST_CALIBRATION)
-                val correction = best?.let { (candidate, u) -> (candidate.vdot / u).coerceIn(MIN_CORRECTION, MAX_CORRECTION) } ?: 1.0
+                while (next < calibrations.size && calibrations[next].candidate.day <= day) {
+                    val entering = calibrations[next++]
+                    while (inWindow.lastOrNull()?.let { it.vdot < entering.vdot } == true) inWindow.removeLast()
+                    inWindow.addLast(entering)
+                }
+                val expired = day.minusDays(CALIBRATION_DAYS)
+                while (inWindow.firstOrNull()?.let { it.candidate.day <= expired } == true) inWindow.removeFirst()
+                val best = inWindow.firstOrNull()
+                val correction = best?.let { (it.vdot / it.uncorrected).coerceIn(MIN_CORRECTION, MAX_CORRECTION) } ?: 1.0
                 FitnessDay(
                     day = day,
                     effectiveVo2max = window.uncorrected(day)?.let { it * correction },
                     correctionFactor = correction,
-                    correctionSource = best?.first?.let { CorrectionSource(it.activityId, it.benchmarkDistance, it.vdot) },
+                    correctionSource = best?.let { CorrectionSource(it.candidate.activityId, it.candidate.benchmarkDistance, it.vdot) },
                 )
             }.toList()
     }
 
-    /** Highest VDOT first; of equal ones, the earlier day, then the lower id. */
-    private val BEST_CALIBRATION: Comparator<Pair<CalibrationCandidate, Double>> =
-        compareBy<Pair<CalibrationCandidate, Double>> { it.first.vdot }
-            .thenByDescending { it.first.day }
-            .thenByDescending { it.first.activityId }
+    /** A [candidate] with its VDOT, computed once, and U([uncorrected]) on its own day. */
+    private class Calibration(
+        val candidate: CalibrationCandidate,
+        val vdot: Double,
+        val uncorrected: Double,
+    )
 
     /** Per-day sums of the estimates, so U(D) costs [WINDOW_DAYS] lookups. */
     private class Window(
