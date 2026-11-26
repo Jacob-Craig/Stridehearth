@@ -25,6 +25,28 @@ PostgreSQL and Redis. Failed checks during the 3-minute start period don't count
 a row (30 seconds apart) turn the container `unhealthy`. `docker compose ps` shows the health, and
 `docker compose logs -f stridehearth` shows progress.
 
+## Registration Mode and the Administrator
+
+A Server's Registration Mode decides who can create an account (ADR-0011). It is set with
+`STRIDEHEARTH_REGISTRATION_MODE` in `.env`, and the sample's default is `closed`.
+
+- **`closed`** (default). Only the first account on an empty Server can register itself. Everyone else needs an
+  Invite. The sign-in screen says the Server is closed.
+- **`open`**. Anyone who can reach the Server can create an account. It is not yet hardened for the public internet,
+  so use it only on a network you trust.
+
+The first account ever registered becomes the **Administrator**. Register it yourself straight after the first start,
+before anyone else can reach the Server: until it exists, anyone who reaches the sign-up page can claim it. A Server
+has at most one Administrator.
+
+On a closed Server the Administrator adds people from the **Invites** page (`/invites`). An Invite is a single-use
+link that lets one person choose their own username and password. It expires after 7 days, can be revoked before it
+is used, and is shown only once, when you create it, so copy it then. Anyone with the link can use it. Invites work
+the same way on an open Server.
+
+Changing the mode means editing `.env` and running `docker compose up -d`, which recreates the Stridehearth
+container. Existing accounts are unaffected. Any value other than `closed` or `open` stops the Server from starting.
+
 ## Image tags
 
 | Tag | What it is |
@@ -49,6 +71,41 @@ The sample pins every image by digest. Upgrading means editing the pin yourself:
   schema upgrades, not a PostGIS image change, so take a manual backup first (`docker compose exec -T postgres
   pg_dumpall -U "$POSTGRES_USER" > backup.sql`) before pulling a new PostGIS image. A major PostgreSQL version (for
   example 18 to 19) cannot read the old data directory without a dump and restore.
+
+## Upgrading
+
+Upgrade by hand, on a day you can spare a few minutes. Some Releases are One-way Releases: they contain database
+migrations that the previous Release cannot read. The Server's automatic backup makes going back possible, but only
+back to the state at the moment of the upgrade.
+
+1. **Read the release notes** for every Release between yours and the one you want, and look for a One-way Release.
+2. **Pick the version.** Edit the `image:` line of the `stridehearth` service to the exact version, for example
+   `ghcr.io/jacob-craig/stridehearth:X.Y.Z`. Write down the previous value: you need it to go back.
+3. **Pull and start.** From the directory holding your compose file:
+
+   ```sh
+   docker compose pull
+   docker compose up -d
+   docker compose logs -f stridehearth
+   ```
+
+   If the new Release has pending migrations, the Server first writes a `pg_dump` (see
+   [Backups and going back](#backups-and-going-back)), then migrates. Wait for `docker compose ps` to show
+   `healthy`.
+4. **Check it.** Sign in and look at some activities. If something is wrong, go back as described below.
+
+Your data lives in the named volumes, so `docker compose pull` and `docker compose up -d` never lose it.
+`docker compose down -v` does delete the volumes, so never add `-v` unless you mean to wipe the Server.
+
+### Auto-updaters and `latest`
+
+Do not point an auto-updater (Watchtower, Diun in auto-apply mode, Renovate or Dependabot with auto-merge, or
+anything that runs `docker compose pull` on a schedule) at a floating tag such as `latest`, `X` or `X.Y`. The updater
+would pull a new Release and start it without you reading its notes, and if that Release is a One-way Release its
+migrations run on your data, and the only way back is the restore described below, which loses what you recorded
+since. If you use an auto-updater anyway, pin an exact `X.Y.Z` or digest, which it will leave alone (and exclude the
+`stridehearth` container from it, for example with Watchtower's `com.centurylinklabs.watchtower.enable=false`
+label), and upgrade by hand as above.
 
 ## Backups and going back
 
@@ -98,6 +155,31 @@ docker run --rm -v <project>_backups:/b:ro -v "$PWD":/out alpine cp /b/<dump-fil
 Use your own dump's file name. The dumps are unencrypted copies of every athlete's data, kept on the same disk as the
 database, so they do not protect against losing that disk. Copy them off the host (to a backup you trust) on a
 schedule you choose.
+
+## Repairing damaged FIT files (optional)
+
+Stridehearth can try to repair a damaged FIT file on import with Garmin's Activity Repair Tool. The tool is not in the
+image, because it is Garmin's separately licensed tool, so you download it yourself. To turn it on:
+
+1. Download `ActivityRepairTool.jar` from Garmin's [fit-sdk-tools](https://github.com/garmin/fit-sdk-tools)
+   repository (or the FIT SDK) on the host, for example to `./fit/ActivityRepairTool.jar`.
+2. Mount it into the Stridehearth container, read-only, and point the Server at it. In `compose.yaml`, under the
+   `stridehearth` service:
+
+   ```yaml
+       environment:
+         FIT_REPAIR_TOOL_PATH: '/opt/fit/ActivityRepairTool.jar'
+       volumes:
+         - './fit/ActivityRepairTool.jar:/opt/fit/ActivityRepairTool.jar:ro'
+   ```
+
+   (Add the `FIT_REPAIR_TOOL_PATH` line to the existing `environment:` block and the mount to the existing `volumes:`
+   list. The sample has both as comments.)
+3. Run `docker compose up -d`.
+
+The Server runs the tool with the container's own Java. If the path does not point to a file, the Server logs
+`FIT repair tool not found` and carries on with repair turned off, so check the logs if repair does not seem to
+work. A repair that fails or takes more than 30 seconds is skipped, and the file is reported as damaged.
 
 ## Environment variables
 

@@ -28,12 +28,16 @@ services:
       # Behind a reverse proxy, uncomment so sign-in limits count each client's address rather than the proxy's.
       # Leave it unset when clients can reach the Server directly. See docs/self-hosting.md.
       # SERVER_FORWARD_HEADERS_STRATEGY: 'native'
+      # Optional FIT repair: uncomment together with the matching volume below (docs/self-hosting.md).
+      # FIT_REPAIR_TOOL_PATH: '/opt/fit/ActivityRepairTool.jar'
     volumes:
       # Import uploads are staged here; the app runs as uid 10001 and writes only here and to the backups volume.
       - 'import-temp:/app/temp-batches'
       # Before applying pending migrations, the Server writes a pg_dump here and keeps the latest three (ADR-0010).
       # Restoring one is described in docs/self-hosting.md.
       - 'backups:/app/backups'
+      # Optional: Garmin's ActivityRepairTool.jar, which you download yourself (docs/self-hosting.md).
+      # - './fit/ActivityRepairTool.jar:/opt/fit/ActivityRepairTool.jar:ro'
     depends_on:
       postgres:
         condition: service_healthy
