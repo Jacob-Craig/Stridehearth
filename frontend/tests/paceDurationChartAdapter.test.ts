@@ -19,7 +19,13 @@ const fakeUplot = vi.hoisted(() => {
       filter?: (u: FakeUplot, splits: number[]) => (number | null)[];
       values: (u: FakeUplot, ticks: number[]) => string[];
     }>;
-    series: Array<{ label?: string; stroke?: () => string; dash?: number[] }>;
+    series: Array<{
+      label?: string;
+      stroke?: () => string;
+      dash?: number[];
+      width?: number;
+      points?: { size?: number };
+    }>;
   }
   const lo = Math.log10(5);
   const hi = Math.log10(3600);
@@ -99,11 +105,22 @@ describe('Pace-Duration Curve uPlot adapter', () => {
     expect(plot.opts.axes[0]!.values(plot, [5, 60, 3600])).toEqual(['5s', '1m', '60m']);
     expect(plot.data).toEqual([
       [60, 600],
-      [5.0, 4.0],
       [6.0, 4.6],
+      [5.0, 4.0],
       [null, null],
     ]);
-    expect(plot.opts.series.slice(1).map((s) => s.label)).toEqual(['90 days', 'All-Time', 'Model']);
+    expect(plot.opts.series.slice(1).map((s) => s.label)).toEqual(['All-Time', '90 days', 'Model']);
+  });
+
+  it('draws the 90-day curve over a wider All-Time curve, so both show where they coincide', () => {
+    const { plot } = chart();
+    const [, allTime, recent] = plot.opts.series;
+
+    // uPlot draws series in order: All-Time first, then the 90-day curve on top of it.
+    expect(allTime!.label).toBe('All-Time');
+    expect(recent!.label).toBe('90 days');
+    expect(allTime!.width!).toBeGreaterThan(recent!.width!);
+    expect(allTime!.points!.size!).toBeGreaterThan(recent!.points!.size!);
   });
 
   it('labels every Benchmark Duration tick, not only the 1-2-5 ticks of a log axis', () => {

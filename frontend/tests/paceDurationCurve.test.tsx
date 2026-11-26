@@ -259,6 +259,22 @@ describe('Pace-Duration Curve', () => {
     ).toBeInTheDocument();
   });
 
+  it('says the recent efforts do not fit a model, not that more are needed, for a poor fit', async () => {
+    stubApi(
+      peakEfforts(PACE_PEAKS),
+      criticalSpeed({ ...NO_MODEL, status: 'POOR_FIT', pointCount: 4, rSquared: 0.6 }),
+    );
+    renderDashboard();
+
+    const section = await pdcSection();
+    expect(
+      await within(section).findByText(
+        'No Critical Speed model yet: your recent Peak Efforts between 2 and 20 min do not fit one, for example because some were not all-out.',
+      ),
+    ).toBeInTheDocument();
+    expect(within(section).queryByText(/it needs 3/)).not.toBeInTheDocument();
+  });
+
   it('draws in the dark palette when the system is dark', async () => {
     stubColourScheme('dark');
     stubApi(peakEfforts(PACE_PEAKS));

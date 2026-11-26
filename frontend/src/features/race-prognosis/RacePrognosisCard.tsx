@@ -57,24 +57,34 @@ export function RacePrognosisCard({ userId }: RacePrognosisCardProps) {
       {prognosis.status === 'pending' ? (
         <p className="py-2 text-slate-500 dark:text-slate-400">Loading…</p>
       ) : prognosis.status === 'error' ? (
-        <>
-          <ErrorAlert>
-            Your Race Prognosis could not be loaded. {parseApiError(prognosis.error).generalError}
-          </ErrorAlert>
-          {hasConditions && <ConditionsDisclosure onApply={setConditions} />}
-        </>
-      ) : prognosis.data.current === null ? (
-        <EmptyPrognosis />
+        <ErrorAlert>
+          Your Race Prognosis could not be loaded. {parseApiError(prognosis.error).generalError}
+        </ErrorAlert>
+      ) : prognosis.data.current !== null ? (
+        <Predictions current={prognosis.data.current} />
+      ) : prognosis.data.days.length > 0 ? (
+        <NoRecentRuns lastDay={prognosis.data.days.at(-1)!.day} />
       ) : (
-        <>
-          <Predictions current={prognosis.data.current} />
-          <ConditionsDisclosure onApply={setConditions} />
-          {prognosis.data.days.length > 0 && (
-            <PrognosisTrend days={prognosis.data.days} today={prognosis.data.current.day} />
-          )}
-        </>
+        <EmptyPrognosis />
+      )}
+      {/* One form outside the status switch, so typed conditions survive a failed or empty derated query. */}
+      {(hasConditions || prognosis.data?.current != null) && (
+        <ConditionsDisclosure onApply={setConditions} />
+      )}
+      {prognosis.status === 'success' && prognosis.data.days.length > 0 && (
+        <PrognosisTrend days={prognosis.data.days} today={prognosis.data.current?.day ?? null} />
       )}
     </section>
+  );
+}
+
+/** After a break: no prognosis today, but the trend up to the last qualifying day still shows. */
+function NoRecentRuns({ lastDay }: { lastDay: string }) {
+  return (
+    <p className="py-2 text-sm text-slate-500 dark:text-slate-400">
+      No recent qualifying runs: your last prognosis was on {formatDate(lastDay)}. Record a steady
+      run with heart rate to update it.
+    </p>
   );
 }
 
@@ -226,14 +236,21 @@ function ConditionsDisclosure({ onApply }: { onApply: (conditions: RaceCondition
 }
 
 /** One day's finish times as read out under the cursor, e.g. `Today · 5K 18:13 · … · Marathon 3:26:57`. */
-function formatDayReading(day: RacePrognosisDayDto, today: string): string {
+function formatDayReading(day: RacePrognosisDayDto, today: string | null): string {
   return [
     day.day === today ? 'Today' : formatDate(day.day),
     ...RACE_DISTANCES.map(({ label, dayKey }) => `${label} ${formatFinishTime(day[dayKey])}`),
   ].join(' · ');
 }
 
-function PrognosisTrend({ days, today }: { days: readonly RacePrognosisDayDto[]; today: string }) {
+/** `today` is null after a break, when the latest day is not today and is read out by its date. */
+function PrognosisTrend({
+  days,
+  today,
+}: {
+  days: readonly RacePrognosisDayDto[];
+  today: string | null;
+}) {
   const theme = useColorScheme();
   const latestTheme = useRef(theme);
   useEffect(() => {

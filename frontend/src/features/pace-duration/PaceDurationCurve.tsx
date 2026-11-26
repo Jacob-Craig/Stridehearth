@@ -2,6 +2,7 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { match } from 'ts-pattern';
 import type {
+  CriticalSpeedFitDto,
   CriticalSpeedResponseDto,
   PeakEffortDto,
   PeakEffortsResponseDto,
@@ -152,14 +153,26 @@ function PaceDurationBody({
         <p className="mb-2 text-sm text-slate-500 dark:text-slate-400">
           {criticalSpeed.status === 'error'
             ? `Your ${modelName} model could not be loaded.`
-            : `No ${modelName} model yet: it needs 3 ${
-                mode === 'power' ? 'power ' : ''
-              }Peak Efforts between 2 and 20 min in the last ${peaks.windowDays} days.`}
+            : noModelReason(modelName, mode, fit, peaks.windowDays)}
         </p>
       )}
       <PaceDurationFigure curves={curves} model={model} mode={mode} windowLabel={windowLabel} />
     </>
   );
+}
+
+/** Why there is no model: too few Peak Efforts, or efforts that do not fit one (often because they were sub-maximal). */
+function noModelReason(
+  modelName: string,
+  mode: PdcMode,
+  fit: CriticalSpeedFitDto | null,
+  windowDays: number,
+): string {
+  const efforts = `${mode === 'power' ? 'power ' : ''}Peak Efforts between 2 and 20 min`;
+  if (fit && (fit.status === 'POOR_FIT' || fit.status === 'NON_PHYSICAL')) {
+    return `No ${modelName} model yet: your recent ${efforts} do not fit one, for example because some were not all-out.`;
+  }
+  return `No ${modelName} model yet: it needs 3 ${efforts} in the last ${windowDays} days.`;
 }
 
 function LegendItem({ color, label, dashed }: { color: string; label: string; dashed?: boolean }) {
