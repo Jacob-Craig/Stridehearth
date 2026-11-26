@@ -175,7 +175,7 @@ class WorkoutTypeRefreshTest {
     }
 
     @Test
-    fun `earlier Runs that raise the 28-day median make a Run Long only once the worker has served the request, and deleting them undoes it`() {
+    fun `earlier Runs raise the 28-day median and make a Run Long once the worker serves the request, and deleting them undoes it`() {
         val long = import(steadyRun(2400), startedAt = "2026-03-20T08:00:00Z", externalId = "long")
         assertEquals(WorkoutType.EASY, typeOf(long))
 
