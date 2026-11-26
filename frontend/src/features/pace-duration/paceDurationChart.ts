@@ -23,6 +23,9 @@ import {
   type PeakCurves,
 } from './paceDurationSeries';
 
+/** The card behind the chart (Tailwind white / slate-900), to draw the All-Time points hollow. */
+const CARD_BACKGROUND: Record<ColorScheme, string> = { light: '#ffffff', dark: '#0f172a' };
+
 /** How near, in CSS pixels, a click must land to a peak to open its Activity. */
 const CLICK_RADIUS_PX = 16;
 
@@ -55,13 +58,30 @@ export function createPaceDurationChart(
     grid: { stroke: () => AXIS_PALETTE[theme].grid, width: 1 },
     ticks: { show: false },
   };
-  const peakSeries = (label: string, color: () => string) => ({
-    label,
-    stroke: color,
+  // All-Time is drawn first, wider and with hollow points, so the 90-day curve on top of it stays visible
+  // where the two coincide (all-time bests set within the last 90 days).
+  const allTimeColor = () => PDC_PALETTE[theme].allTime;
+  const recentColor = () => PDC_PALETTE[theme].recent;
+  const allTimeSeries = {
+    label: 'All-Time',
+    stroke: allTimeColor,
+    width: 5,
+    spanGaps: true,
+    points: {
+      show: true,
+      size: 12,
+      width: 2,
+      stroke: allTimeColor,
+      fill: () => CARD_BACKGROUND[theme],
+    },
+  };
+  const recentSeries = {
+    label: '90 days',
+    stroke: recentColor,
     width: 2,
     spanGaps: true,
-    points: { show: true, size: 7, stroke: color, fill: color },
-  });
+    points: { show: true, size: 6, stroke: recentColor, fill: recentColor },
+  };
   const plot = new uPlot(
     {
       width: container.clientWidth,
@@ -87,8 +107,8 @@ export function createPaceDurationChart(
       ],
       series: [
         {},
-        peakSeries('90 days', () => PDC_PALETTE[theme].recent),
-        peakSeries('All-Time', () => PDC_PALETTE[theme].allTime),
+        allTimeSeries,
+        recentSeries,
         {
           label: 'Model',
           stroke: () => PDC_PALETTE[theme].model,
@@ -100,7 +120,7 @@ export function createPaceDurationChart(
       ],
     },
     // uPlot does not mutate its data; it is typed as mutable only.
-    [data.x, data.recent, data.allTime, data.model],
+    [data.x, data.allTime, data.recent, data.model],
     container,
   );
 
