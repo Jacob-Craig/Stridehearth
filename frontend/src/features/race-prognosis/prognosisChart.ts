@@ -9,7 +9,7 @@ import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import type { ColorScheme } from '../../lib/colorScheme';
 import { AXIS_PALETTE } from '../charts/chartTheme';
-import { calendarDate } from '../charts/dateAxis';
+import { calendarDate, DATE_TICK_SPACE_PX, dateTickLabels } from '../charts/dateAxis';
 import {
   type AlignedPrognosisData,
   formatPaceSeconds,
@@ -57,7 +57,12 @@ export function createPrognosisChart(options: PrognosisChartOptions): PrognosisC
         y: { dir: -1 },
       },
       axes: [
-        axis,
+        {
+          ...axis,
+          space: DATE_TICK_SPACE_PX,
+          // Days sit at midnight UTC, so their ticks are labelled in UTC.
+          values: (_u: uPlot, ticks: number[]) => dateTickLabels(ticks, 'UTC'),
+        },
         {
           ...axis,
           size: Y_AXIS_SIZE,

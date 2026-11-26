@@ -16,7 +16,7 @@ import kotlin.test.assertTrue
  */
 class SeriesScalingTest {
     private val day0: LocalDate = LocalDate.of(2016, 1, 1)
-    private val tenYears = 3652L
+    private val thirtyYears = 10_958L
 
     private fun day(n: Long): LocalDate = day0.plusDays(n)
 
@@ -90,10 +90,32 @@ class SeriesScalingTest {
     }
 
     @Test
-    fun `ten years of daily Runs rebuild both series well under a second`() {
-        // Worst case: a Run every day, every one of them a race and every sixth a long run.
-        val athlete = athlete(seed = 86, days = tenYears, raceEvery = 1)
-        val to = day(tenYears - 1)
+    fun `a series over inputs read back only as far as the lookback equals the full replay`() {
+        // AthleteFitnessService reads only the inputs within LOOKBACK_DAYS of the days it computes (#93).
+        for (seed in 1..5) {
+            val athlete = athlete(seed, days = 1200, raceEvery = 3)
+            for ((from, to) in listOf(day(0) to day(1230), day(500) to day(900), day(700) to day(700), day(1100) to day(1230))) {
+                val readFrom = from.minusDays(EffectiveVo2maxCalculator.LOOKBACK_DAYS)
+                val windowed =
+                    EffectiveVo2maxCalculator.series(
+                        athlete.estimates.filter { it.day in readFrom..to },
+                        athlete.candidates.filter { it.day in readFrom..to },
+                        from,
+                        to,
+                    )
+                val full = EffectiveVo2maxCalculator.series(athlete.estimates, athlete.candidates, from, to)
+                assertEquals(full, windowed, "seed $seed, $from..$to")
+            }
+        }
+    }
+
+    @Test
+    fun `thirty years of daily Runs rebuild both series well under a second`() {
+        // Worst case: a Run every day, every one of them a race and every sixth a long run. The per-day scans before
+        // #86 take several seconds on this history (273 ms on ten years, and they grow with its square), so the
+        // bound catches a return to them.
+        val athlete = athlete(seed = 86, days = thirtyYears, raceEvery = 1)
+        val to = day(thirtyYears - 1)
 
         fun rebuild() {
             val fitness = EffectiveVo2maxCalculator.series(athlete.estimates, athlete.candidates, day0, to)
@@ -104,8 +126,8 @@ class SeriesScalingTest {
         val started = System.nanoTime()
         rebuild()
         val millis = (System.nanoTime() - started) / 1_000_000
-        println("SeriesScalingTest: ten-year rebuild took $millis ms")
-        assertTrue(millis < 1000, "ten-year rebuild took $millis ms")
+        println("SeriesScalingTest: thirty-year rebuild took $millis ms")
+        assertTrue(millis < 1000, "thirty-year rebuild took $millis ms")
     }
 
     /** MarathonShapeCalculator.History.longRunPoints before #86. */

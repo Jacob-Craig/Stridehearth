@@ -387,7 +387,11 @@ class AthleteThresholdsApiIntegrationTest {
                         thresholdProposals.upsertPending(runner.id!!, ThresholdKind.LTHR, 161.0, LocalDate.parse("2024-04-01"), "CS_FIT")
                     }
                 }
-            locks.awaitRowLockWaiter(excluding = setOf(dismisserPid), ended = upsert::isDone)
+            locks.awaitRowLockWaiter(
+                excluding = setOf(dismisserPid),
+                statementMentioning = "athlete_threshold_proposal",
+                ended = upsert::isDone,
+            )
         }
 
         // The dismissal has committed, releasing the upsert, which must have found nothing to reopen.

@@ -45,6 +45,7 @@ export function AppShell({ user, onLogout, children }: AppShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuId = useId();
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLElement>(null);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const items = NAV_ITEMS.filter((item) => !item.administratorOnly || user?.administrator === true);
 
@@ -57,8 +58,10 @@ export function AppShell({ user, onLogout, children }: AppShellProps) {
     if (!menuOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
+      // Only pull focus back when it was inside the menu, not in a form field behind it.
+      const focusInMenu = menuRef.current?.contains(document.activeElement) ?? false;
       setMenuOpen(false);
-      menuButtonRef.current?.focus();
+      if (focusInMenu) menuButtonRef.current?.focus();
     };
     document.addEventListener('keydown', closeOnEscape);
     return () => document.removeEventListener('keydown', closeOnEscape);
@@ -81,6 +84,7 @@ export function AppShell({ user, onLogout, children }: AppShellProps) {
           <div className="flex shrink-0 items-center gap-8">
             <Link
               to="/dashboard"
+              onClick={() => setMenuOpen(false)}
               className="text-xl font-bold tracking-tight text-blue-600 dark:text-blue-400 flex items-center gap-2"
             >
               <span className="tabular-nums">🏃‍♂️</span>
@@ -121,6 +125,7 @@ export function AppShell({ user, onLogout, children }: AppShellProps) {
         {menuOpen && (
           <nav
             id={menuId}
+            ref={menuRef}
             aria-label="Menu"
             className="xl:hidden border-t border-slate-200 dark:border-slate-800 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2"
           >

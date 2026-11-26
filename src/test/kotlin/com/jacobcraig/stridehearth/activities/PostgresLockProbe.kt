@@ -73,19 +73,27 @@ class PostgresLockProbe(
     }
 
     /**
-     * Polls until a backend other than [excluding] waits on a heavyweight lock that is not an advisory lock (such as
-     * another transaction's row lock), and returns it: the way to find the backend of work that opens its own
-     * transaction. Fails after a timeout, or as soon as [ended] reports that the work finished without waiting.
+     * Polls until a backend other than [excluding] in this database waits on a heavyweight lock that is not an
+     * advisory lock (such as another transaction's row lock), and returns it: the way to find the backend of work
+     * that opens its own transaction. When [statementMentioning] is given, only a backend whose current statement
+     * contains that text (such as a table name) counts, so another backend's lock wait is not mistaken for it. Fails
+     * after a timeout, or as soon as [ended] reports that the work finished without waiting.
      */
     fun awaitRowLockWaiter(
         excluding: Set<Int> = emptySet(),
+        statementMentioning: String? = null,
         ended: () -> Boolean = { false },
     ): Int {
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30)
         while (System.nanoTime() < deadline) {
+            jdbcClient.sql("SELECT pg_stat_clear_snapshot()").query { _, _ -> }.list()
             val waiter =
                 jdbcClient
-                    .sql("SELECT pid FROM pg_locks WHERE locktype <> 'advisory' AND NOT granted")
+                    .sql(
+                        "SELECT l.pid FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid " +
+                            "WHERE l.locktype <> 'advisory' AND NOT l.granted AND a.datname = current_database() " +
+                            "AND (CAST(:statement AS text) IS NULL OR a.query LIKE '%' || CAST(:statement AS text) || '%')",
+                    ).param("statement", statementMentioning)
                     .query(Int::class.java)
                     .list()
                     .firstOrNull { it !in excluding }

@@ -571,6 +571,99 @@ class TelemetryCleanerTest {
         }
 
         @Test
+        fun `a stretch whose entry is smooth but whose exit jumps is cadence-lock`() {
+            // Heart rate drifts smoothly into a steady 170 (steady step rate, so no correlation), holds it for
+            // 300 s, then drops abruptly to 145: only the exit end shows the sensor letting go.
+            val n = 800
+            val heartRate: Array<Short?> =
+                Array(n) {
+                    when {
+                        it < 300 -> (150 + 20 * it / 300).toShort()
+                        it < 600 -> 170
+                        else -> 145
+                    }
+                }
+            val details =
+                outdoor(n, speed = steadySpeed(n), distance = steadyDistance(n), heartRate = heartRate, cadence = Array(n) { 85 })
+
+            val cleaned = TelemetryCleaner.clean(details, ActivitySport.RUN)
+
+            for (i in 300 until 600) assertNull(cleaned.heartRate[i], "heartRate[$i]")
+            assertEquals(150.toShort(), cleaned.heartRate[0])
+            assertEquals(145.toShort(), cleaned.heartRate[600])
+        }
+
+        /**
+         * Step rate alternating every 8 s over 256 s, so its standard deviation is exactly [sd] (every figure is a
+         * power of two, so the arithmetic is exact), with heart rate equal to it; cadence then drops out and heart
+         * rate carries on, so the exit is smooth and the stretch starts the recording.
+         */
+        private fun alternatingStepRate(
+            low: Short,
+            lowFraction: Float,
+            high: Short,
+        ): FitTelemetry {
+            val n = 400
+            val high8 = { i: Int -> (i / 8) % 2 == 1 }
+            val cadence: Array<Short?> =
+                Array(n) {
+                    if (it >= 256) {
+                        null
+                    } else if (high8(it)) {
+                        high
+                    } else {
+                        low
+                    }
+                }
+            val fraction: Array<Float?> = Array(n) { if (high8(it)) 0f else lowFraction }
+            val heartRate: Array<Short?> =
+                Array(
+                    n,
+                ) { i -> (2 * ((if (high8(i)) high.toInt() else low.toInt()) + (if (high8(i)) 0f else lowFraction))).toInt().toShort() }
+            return outdoor(n, heartRate = heartRate, cadence = cadence, fractionalCadence = fraction)
+        }
+
+        @Test
+        fun `heart rate that follows a step rate with a standard deviation of exactly 1 is cadence-lock`() {
+            // Step rate 168 and 170: standard deviation exactly 1.0, which is enough to correlate.
+            val details = alternatingStepRate(low = 84, lowFraction = 0f, high = 85)
+
+            val cleaned = TelemetryCleaner.clean(details, ActivitySport.RUN)
+
+            for (i in 0 until 256) assertNull(cleaned.heartRate[i], "heartRate[$i]")
+            for (i in 256 until 400) assertEquals(details.heartRate[i], cleaned.heartRate[i], "heartRate[$i]")
+        }
+
+        @Test
+        fun `heart rate that follows a step rate with a standard deviation under 1 is kept`() {
+            // Step rate 169 and 170: standard deviation 0.5, too steady to say heart rate follows it.
+            val details = alternatingStepRate(low = 84, lowFraction = 0.5f, high = 85)
+
+            val cleaned = TelemetryCleaner.clean(details, ActivitySport.RUN)
+
+            assertContentEquals(details.heartRate, cleaned.heartRate)
+        }
+
+        /** 130 bpm climbing at [tenthsPerSecond]/10 bpm per second to 170, then sitting at step rate 170 to the end. */
+        private fun rampThenStepRate(tenthsPerSecond: Int): FitTelemetry {
+            val n = 250
+            val heartRate: Array<Short?> = Array(n) { minOf(170, 130 + tenthsPerSecond * it / 10).toShort() }
+            return outdoor(n, speed = steadySpeed(n), distance = steadyDistance(n), heartRate = heartRate, cadence = Array(n) { 85 })
+        }
+
+        @Test
+        fun `a ramp of 0,5 bpm per second into step rate is kept, and one of 0,7 is cadence-lock`() {
+            val slow = rampThenStepRate(5)
+            assertContentEquals(slow.heartRate, TelemetryCleaner.clean(slow, ActivitySport.RUN).heartRate)
+
+            val fast = rampThenStepRate(7)
+            val cleaned = TelemetryCleaner.clean(fast, ActivitySport.RUN).heartRate
+            // The stretch starts at 167 bpm, 53 s into the ramp.
+            for (i in 53 until 250) assertNull(cleaned[i], "heartRate[$i]")
+            assertEquals(130.toShort(), cleaned[0])
+        }
+
+        @Test
         fun `a two-second heart-rate glitch beside a steady stretch at step rate does not make it cadence-lock`() {
             // True heart rate drifts up into a steady step rate of 170, with a 2 s dropout to 120 just before it.
             val n = 900

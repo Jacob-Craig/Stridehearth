@@ -103,6 +103,7 @@ object EffectiveVo2maxCalculator {
         val window = Window(runs)
         val calibrations =
             candidates
+                .filter { it.vdot.isFinite() }
                 .mapNotNull { candidate -> window.uncorrected(candidate.day)?.let { Calibration(candidate, candidate.vdot, it) } }
                 .sortedWith(compareBy({ it.candidate.day }, { it.candidate.activityId }))
         // A monotonic deque over the calibrations in day order: VDOT never rises from front to back, and an equal VDOT

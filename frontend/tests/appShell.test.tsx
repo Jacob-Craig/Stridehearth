@@ -13,7 +13,7 @@ import { AppShell } from '../src/components/AppShell';
 const athlete = { id: 1, username: 'runner', administrator: false } as UserResponseDto;
 
 /** Renders the shell inside a router, since its links need one. */
-function renderShell(user: UserResponseDto = athlete, onLogout = vi.fn()) {
+function renderShell(user: UserResponseDto = athlete, onLogout = vi.fn(), entry = '/') {
   const rootRoute = createRootRoute({
     component: () => (
       <AppShell user={user} onLogout={onLogout}>
@@ -21,7 +21,7 @@ function renderShell(user: UserResponseDto = athlete, onLogout = vi.fn()) {
       </AppShell>
     ),
   });
-  const history = createMemoryHistory({ initialEntries: ['/'] });
+  const history = createMemoryHistory({ initialEntries: [entry] });
   const router = createRouter({ routeTree: rootRoute, history });
   render(<RouterProvider router={router} />);
   return { onLogout, router, history };
@@ -40,11 +40,13 @@ function stubWideWindow() {
     removeEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) =>
       listeners.delete(listener),
   };
-  vi.stubGlobal('matchMedia', () => query);
-  return (matches: boolean) => {
+  const matchMedia = vi.fn(() => query);
+  vi.stubGlobal('matchMedia', matchMedia);
+  const setWide = (matches: boolean) => {
     query.matches = matches;
     for (const listener of listeners) listener({ matches } as MediaQueryListEvent);
   };
+  return Object.assign(setWide, { matchMedia });
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -141,9 +143,28 @@ describe('AppShell navigation menu', () => {
     const setWide = stubWideWindow();
     renderShell();
     fireEvent.click(await menuButton());
+    expect(setWide.matchMedia).toHaveBeenCalledWith('(min-width: 1280px)');
     act(() => setWide(true));
     act(() => setWide(false));
     expect(await menuButton()).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByRole('navigation', { name: 'Menu' })).toBeNull();
+  });
+
+  it('closes when the logo is clicked on the page it links to', async () => {
+    renderShell(athlete, vi.fn(), '/dashboard');
+    fireEvent.click(await menuButton());
+    fireEvent.click(screen.getByRole('link', { name: /Stridehearth/ }));
+    expect(screen.queryByRole('navigation', { name: 'Menu' })).toBeNull();
+  });
+
+  it('leaves focus alone when Escape closes the menu while focus is elsewhere', async () => {
+    renderShell();
+    const field = document.body.appendChild(document.createElement('input'));
+    fireEvent.click(await menuButton());
+    field.focus();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('navigation', { name: 'Menu' })).toBeNull();
+    expect(field).toHaveFocus();
+    field.remove();
   });
 });

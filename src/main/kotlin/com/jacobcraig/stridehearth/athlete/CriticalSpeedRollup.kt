@@ -143,6 +143,9 @@ class CriticalSpeedRollup(
      * accepting a Threshold the model now disagrees with proposes it without waiting for a Run (#85). It runs after
      * [RecomputeRequestListener] has taken the exclusive scoring lock, so it never holds a proposal row while waiting for
      * that lock (ADR-0016).
+     *
+     * It shares its order with [ThresholdProposals.onThresholdsChanged], and either runs first with the same result:
+     * each touches only its own kind of proposal, and neither reads what the other writes.
      */
     @EventListener
     @Order(Ordered.LOWEST_PRECEDENCE)

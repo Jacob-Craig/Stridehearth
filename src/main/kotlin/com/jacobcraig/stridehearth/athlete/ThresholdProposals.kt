@@ -177,6 +177,9 @@ class ThresholdProposals(
      * on the proposal's date already matches, within [SAME_VALUE_TOLERANCE]: there is nothing left to suggest. Runs
      * after [RecomputeRequestListener] has taken the exclusive scoring lock, so it never holds a proposal row while
      * waiting for that lock (ADR-0016).
+     *
+     * It shares its order with [CriticalSpeedRollup.onThresholdsChanged], and either runs first with the same result:
+     * each touches only its own kind of proposal, and neither reads what the other writes.
      */
     @EventListener
     @Order(Ordered.LOWEST_PRECEDENCE)

@@ -291,8 +291,11 @@ object TelemetryCleaner {
                 if (first < 0) first = i
                 continue
             }
-            if (first >= 0 && t[i - 1] - t[first] >= CADENCE_LOCK_MIN_SECONDS && followsStepRate(t, heartRate, stepRate, first, i)) {
-                for (j in first until i) heartRate[j] = MISSING
+            if (first >= 0) {
+                val longEnough = t[i - 1] - t[first] >= CADENCE_LOCK_MIN_SECONDS
+                if (longEnough && followsStepRate(t, heartRate, stepRate, first, i)) {
+                    for (j in first until i) heartRate[j] = MISSING
+                }
             }
             // A sample that tracks step rate but follows a long pause starts the next stretch.
             first = if (i < t.size && tracksStepRate(i)) i else -1
@@ -348,7 +351,9 @@ object TelemetryCleaner {
         var previous = from
         val near = mutableListOf<Double>()
         for (i in outside) {
-            if (abs(t[i] - t[previous]) > CADENCE_LOCK_BREAK_GAP_SECONDS || abs(t[i] - t[from]) > CADENCE_LOCK_JUMP_WINDOW_SECONDS) break
+            val afterPause = abs(t[i] - t[previous]) > CADENCE_LOCK_BREAK_GAP_SECONDS
+            val beyondWindow = abs(t[i] - t[from]) > CADENCE_LOCK_JUMP_WINDOW_SECONDS
+            if (afterPause || beyondWindow) break
             if (!heartRate[i].isNaN()) near += heartRate[i]
             previous = i
         }
