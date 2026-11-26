@@ -21,9 +21,9 @@ other machines, see [Exposing the Server](#exposing-the-server).
 
 The first start can take a few minutes, because database migrations run before the app answers. The container
 shows `starting` until its first successful healthcheck. The healthcheck passes only once the app can reach both
-PostgreSQL and Redis. If it is still failing after the 3-minute start period plus three more failed checks, the
-container shows `unhealthy`. `docker compose ps` shows the health, and `docker compose logs -f stridehearth` shows
-progress.
+PostgreSQL and Redis. Failed checks during the 3-minute start period don't count. After it, three failed checks in
+a row (30 seconds apart) turn the container `unhealthy`. `docker compose ps` shows the health, and
+`docker compose logs -f stridehearth` shows progress.
 
 ## Image tags
 
@@ -40,11 +40,12 @@ downgrading means restoring that backup.
 
 The sample pins every image by digest. Upgrading means editing the pin yourself:
 
-- **Stridehearth.** Dependabot ignores this pin on purpose. Change it when you choose to upgrade.
-- **PostgreSQL (PostGIS) and Redis.** In this repository, Dependabot proposes bumps to both the tag and the digest.
-  On your own Server, take them from upstream when you choose to. Back up PostgreSQL before pulling a new PostGIS
-  image. A major PostgreSQL version (for example 18 to 19) cannot read the old data directory without a dump and
-  restore.
+- **Stridehearth.** Change the digest or version to the Release you want, after reading its notes. A One-way
+  Release cannot be undone without a backup.
+- **PostgreSQL (PostGIS) and Redis.** Update the tag and digest when you choose to. You can copy them from the
+  latest `deploy/compose.yaml` in this repository, which is kept current. Back up PostgreSQL before pulling a new
+  PostGIS image. A major PostgreSQL version (for example 18 to 19) cannot read the old data directory without a
+  dump and restore.
 
 ## Environment variables
 
