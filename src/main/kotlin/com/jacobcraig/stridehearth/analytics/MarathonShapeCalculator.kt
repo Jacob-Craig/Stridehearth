@@ -108,15 +108,26 @@ object MarathonShapeCalculator {
         ): Double {
             val target = targetLongRunKm(vo2max)
             val earliest = day.minusDays(LONG_RUN_DAYS - 1)
-            return longRuns
-                .asSequence()
-                .dropWhile { it.day < earliest }
-                .takeWhile { it.day <= day }
-                .sumOf { run ->
-                    val age = ChronoUnit.DAYS.between(run.day, day)
-                    val term = ((run.km - MIN_LONG_RUN_KM) / (target - MIN_LONG_RUN_KM)).pow(2)
-                    (1 - age.toDouble() / LONG_RUN_DAYS) * min(MAX_LONG_RUN_TERM, term)
-                }
+            var points = 0.0
+            var i = firstOnOrAfter(earliest)
+            while (i < longRuns.size && longRuns[i].day <= day) {
+                val run = longRuns[i++]
+                val age = ChronoUnit.DAYS.between(run.day, day)
+                val term = ((run.km - MIN_LONG_RUN_KM) / (target - MIN_LONG_RUN_KM)).pow(2)
+                points += (1 - age.toDouble() / LONG_RUN_DAYS) * min(MAX_LONG_RUN_TERM, term)
+            }
+            return points
+        }
+
+        /** The index of the first long run on or after [day] (binary search, so a day costs only its own window). */
+        private fun firstOnOrAfter(day: LocalDate): Int {
+            var low = 0
+            var high = longRuns.size
+            while (low < high) {
+                val mid = (low + high) ushr 1
+                if (longRuns[mid].day < day) low = mid + 1 else high = mid
+            }
+            return low
         }
 
         /** [day] with its Marathon Shape, from its Effective VO2max. */
