@@ -247,6 +247,47 @@ describe('Race Prognosis card', () => {
     expect(prognosisCharts.all).toHaveLength(0);
   });
 
+  it('keeps the trend, with a note, after a break with no recent qualifying runs', async () => {
+    stubApi({ [BASE_URL]: { current: null, days: PROGNOSIS.days } });
+    renderDashboard();
+
+    const section = await card();
+    expect(await within(section).findByText(/No recent qualifying runs/)).toBeInTheDocument();
+    expect(within(section).queryByText(/Record steady runs with heart rate/)).toBeNull();
+    expect(within(section).queryByRole('list', { name: 'Predicted finish times' })).toBeNull();
+    await waitFor(() => expect(prognosisCharts.live()).toHaveLength(1));
+    // With no today in the data, the latest day is read out by its date, not as "Today".
+    expect(within(section).getByRole('status')).toHaveTextContent('24 Nov 2026');
+  });
+
+  it('keeps the typed conditions and the open form when the derated query fails', async () => {
+    stubApi({
+      [BASE_URL]: PROGNOSIS,
+      [`${BASE_URL}?temperatureC=25&elevationGainM=200`]: 500,
+    });
+    renderDashboard();
+
+    const section = await card();
+    await within(section).findByText('55.5');
+    fireEvent.click(within(section).getByText('Race-day conditions'));
+    fireEvent.change(within(section).getByLabelText('Temperature (°C)'), {
+      target: { value: '25' },
+    });
+    fireEvent.change(within(section).getByLabelText('Course climb (m)'), {
+      target: { value: '200' },
+    });
+    fireEvent.click(within(section).getByRole('button', { name: 'Apply' }));
+
+    expect(
+      await within(section).findByText(/Your Race Prognosis could not be loaded/),
+    ).toBeInTheDocument();
+    expect(within(section).getByLabelText('Temperature (°C)')).toHaveValue('25');
+    expect(within(section).getByLabelText('Course climb (m)')).toHaveValue('200');
+    expect(within(section).getByText('Race-day conditions').closest('details')).toHaveAttribute(
+      'open',
+    );
+  });
+
   it('keeps a failure inside the card', async () => {
     stubApi({ [BASE_URL]: 500 });
     renderDashboard();
