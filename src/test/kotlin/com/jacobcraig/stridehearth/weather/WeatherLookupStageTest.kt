@@ -61,6 +61,7 @@ class WeatherLookupStageTest {
     fun setUp() {
         requests.clear()
         status.set(200)
+        rejectNext.set(0)
         userRepository.save(User(email = "weather_lookup_runner@example.com", passwordHash = "x", username = "weather_lookup_runner"))
     }
 
@@ -111,6 +112,22 @@ class WeatherLookupStageTest {
     }
 
     @Test
+    fun `an Activity the provider rejects is cached with no values and does not block the next one`() {
+        val bad = upload()
+        val good = upload(startShiftDays = 1)
+        // Answer 400 for the first request only.
+        rejectNext.set(1)
+
+        assertEquals(2, stage.runOnce())
+        assertEquals(1, count("activity_weather", bad))
+        assertEquals(null, mockCondition(bad))
+        assertEquals(15.0, mockCondition(good))
+
+        assertEquals(0, stage.runOnce())
+        assertEquals(2, requests.size, "neither Activity is looked up again")
+    }
+
+    @Test
     fun `an Activity with a device temperature is not looked up`() {
         upload(temperatureC = 31)
 
@@ -118,13 +135,22 @@ class WeatherLookupStageTest {
         assertEquals(0, requests.size)
     }
 
-    private fun upload(temperatureC: Int? = null): Long {
+    private fun upload(
+        temperatureC: Int? = null,
+        startShiftDays: Long = 0,
+    ): Long {
         val body =
             mockMvc
                 .perform(
                     multipart("/api/activities/upload")
-                        .file(MockMultipartFile("file", "run.fit", "application/octet-stream", SampleRunGenerator.sampleRun(temperatureC)))
-                        .with(csrf()),
+                        .file(
+                            MockMultipartFile(
+                                "file",
+                                "run.fit",
+                                "application/octet-stream",
+                                SampleRunGenerator.sampleRun(temperatureC, startShiftDays),
+                            ),
+                        ).with(csrf()),
                 ).andExpect(status().isOk)
                 .andReturn()
                 .response.contentAsString
@@ -156,15 +182,17 @@ class WeatherLookupStageTest {
     companion object {
         private val requests = CopyOnWriteArrayList<String>()
         private val status = AtomicInteger(200)
+        private val rejectNext = AtomicInteger(0)
 
         private val server: HttpServer =
             HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
                 createContext("/v1/archive") { exchange ->
                     requests.add(exchange.requestURI.rawQuery)
-                    val code = status.get()
+                    val code = if (rejectNext.getAndUpdate { maxOf(0, it - 1) } > 0) 400 else status.get()
                     val body =
                         if (code == 200) {
-                            val hours = (0..23).map { "\"2026-06-06T%02d:00\"".format(it) }
+                            val date = Regex("start_date=([0-9-]+)").find(exchange.requestURI.rawQuery)!!.groupValues[1]
+                            val hours = (0..23).map { "\"${date}T%02d:00\"".format(it) }
                             val series = { value: String -> (0..23).joinToString(",", "[", "]") { value } }
                             """{"hourly":{"time":${hours.joinToString(",", "[", "]")},
                               "temperature_2m":${series("15.0")},"dew_point_2m":${series("9.5")},

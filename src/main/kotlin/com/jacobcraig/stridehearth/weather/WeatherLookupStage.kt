@@ -18,7 +18,8 @@ import java.time.Duration
  * the provider call is made with no transaction and no lock open, and only caching the result and refreshing the
  * Activity's derived data share one short transaction.
  *
- * A failed lookup (provider down, slow, rate-limited) ends the run and leaves the Activity without a cache row, so
+ * An Activity the provider can never answer for (a 4xx, no matching hour) is cached with no values so it neither
+ * blocks the Activities after it nor is retried. A transient failure (provider down, slow, rate-limited) ends the run and leaves the Activity without a cache row, so
  * the next run tries it again. Activities newer than [archiveLag] are not asked for, as ERA5 has no data for them yet.
  */
 @Component
@@ -53,7 +54,14 @@ class WeatherLookupStage(
         val candidates = repository.findLookupCandidates(clock.instant().minus(archiveLag), DERIVED_DATA_VERSION, lookupsPerRun)
         var cached = 0
         for (candidate in candidates) {
-            val observation = client.lookup(candidate.latitude, candidate.longitude, candidate.startedAt)
+            val observation =
+                try {
+                    client.lookup(candidate.latitude, candidate.longitude, candidate.startedAt)
+                } catch (e: PermanentLookupException) {
+                    // Retrying cannot help and would block every later Activity: cache "no value" for this one.
+                    logger.warn("Weather: no value for Activity {}: {}", candidate.activityId, e.message)
+                    NO_WEATHER
+                }
             val stored =
                 transactions.execute {
                     val activity = activityRepository.findById(candidate.activityId).orElse(null)
@@ -67,5 +75,9 @@ class WeatherLookupStage(
             if (stored == true) cached++
         }
         return cached
+    }
+
+    private companion object {
+        val NO_WEATHER = WeatherObservation(null, null, null, null)
     }
 }
