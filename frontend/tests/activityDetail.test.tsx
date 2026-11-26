@@ -12,6 +12,7 @@ import type {
   ActivitySummaryDto,
   ActivityTelemetryResponseDto,
   ActivityTelemetryStreamsDto,
+  DetectedIntervalDto,
   RunMetricsDto,
   UserResponseDto,
 } from '../src/api/generated/types.gen';
@@ -91,6 +92,7 @@ function detail(overrides: Partial<ActivityDetailDto> = {}): ActivityDetailDto {
     laps: [],
     history: [],
     bestEfforts: [],
+    detectedIntervals: [],
     runMetrics: null,
     trainingLoad: null,
     trainingLoadUnavailableReason: null,
@@ -899,6 +901,71 @@ describe('/activities/$activityId Laps', () => {
 
     await screen.findByRole('heading', { name: 'Track Session' });
     expect(screen.queryByRole('table', { name: /laps/i })).toBeNull();
+  });
+});
+
+describe('/activities/$activityId Intervals', () => {
+  const interval = (
+    intervalNumber: number,
+    kind: 'WORK' | 'RECOVERY',
+    overrides: Partial<DetectedIntervalDto> = {},
+  ): DetectedIntervalDto => ({
+    intervalNumber,
+    kind,
+    startIndex: 0,
+    endIndex: 180,
+    startTimeSeconds: 0,
+    endTimeSeconds: 180,
+    movingSeconds: 180,
+    distanceMeters: 800.4,
+    averageGapMetersPerSecond: 4.5,
+    averageHeartRate: 171.6,
+    averagePowerWatts: null,
+    decouplingPct: 2.34,
+    ...overrides,
+  });
+
+  it('lists Detected Intervals with work rows marked and missing values dashed', async () => {
+    stubActivity(
+      detail({
+        detectedIntervals: [
+          interval(1, 'WORK'),
+          interval(2, 'RECOVERY', {
+            movingSeconds: 120,
+            distanceMeters: null,
+            averageGapMetersPerSecond: 2.5,
+            averageHeartRate: null,
+            averagePowerWatts: 210.4,
+            decouplingPct: null,
+          }),
+        ],
+      }),
+    );
+    renderApp('/activities/42');
+
+    const table = await screen.findByRole('table', { name: /intervals/i });
+    const [, work, recovery] = within(table).getAllByRole('row');
+    expect(work).toHaveAttribute('data-kind', 'WORK');
+    expect(work).toHaveTextContent('Work');
+    expect(work).toHaveTextContent('800 m');
+    expect(work).toHaveTextContent('03:00');
+    expect(work).toHaveTextContent('03:42 /km');
+    expect(work).toHaveTextContent('172 bpm');
+    expect(work).toHaveTextContent('2.3%');
+    expect(recovery).toHaveAttribute('data-kind', 'RECOVERY');
+    expect(recovery).toHaveTextContent('Recovery');
+    expect(recovery).toHaveTextContent('02:00');
+    expect(recovery).toHaveTextContent('06:40 /km');
+    expect(recovery).toHaveTextContent('210 W');
+    expect(within(recovery as HTMLElement).getAllByText('—')).toHaveLength(3);
+  });
+
+  it('hides the Intervals table when no Detected Intervals were found', async () => {
+    stubActivity(detail());
+    renderApp('/activities/42');
+
+    await screen.findByRole('heading', { name: 'Track Session' });
+    expect(screen.queryByRole('table', { name: /intervals/i })).toBeNull();
   });
 });
 

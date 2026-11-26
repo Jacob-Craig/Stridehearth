@@ -20,6 +20,8 @@ import com.jacobcraig.stridehearth.system.fit.FitTelemetry
  * temperature and **Mean Altitude** it was done in, [ActivityConditions]) exist for every sport. [vo2max], the
  * **VO2max Estimate** ([Vo2maxEstimator]) or why there is none, exists for a Run only, against the same Thresholds.
  * Both depend on the Thresholds, so [thresholdDependent] groups them for a recompute after a Threshold change.
+ * [detectedIntervals] ([IntervalDetector]), the **Detected Intervals** of a Run, are read from the same GAP stream and
+ * plausible power; a steady Run, a Run without GAP, and every other sport have none.
  *
  * No Spring and no I/O.
  */
@@ -31,6 +33,7 @@ class ActivityAnalysis private constructor(
     val trainingLoad: TrainingLoadResult,
     val conditions: ActivityConditions,
     val vo2max: Vo2maxResult?,
+    val detectedIntervals: List<DetectedInterval>,
 ) {
     /** The derived data that depends on the Thresholds in force on the Activity's date. */
     val thresholdDependent: ThresholdDependentMetrics get() = ThresholdDependentMetrics(trainingLoad, vo2max)
@@ -71,7 +74,9 @@ class ActivityAnalysis private constructor(
                 if (sport == ActivitySport.RUN) peakEfforts(details, power, cleaned, gapSpeed) else emptyList()
             val conditions = ActivityConditions.of(details, cleaned)
             val vo2max = if (sport == ActivitySport.RUN) Vo2maxEstimator.estimate(cleaned, gapSpeed, thresholds, conditions) else null
-            return ActivityAnalysis(cleaned, gapSpeed, runMetrics, peakEfforts, trainingLoad, conditions, vo2max)
+            val detectedIntervals =
+                if (sport == ActivitySport.RUN && gapSpeed != null) IntervalDetector.detect(cleaned, gapSpeed, power) else emptyList()
+            return ActivityAnalysis(cleaned, gapSpeed, runMetrics, peakEfforts, trainingLoad, conditions, vo2max, detectedIntervals)
         }
 
         /** [power] with every sample outside 0..[MAX_RUN_POWER_WATTS] read as missing. */

@@ -45,6 +45,7 @@ class ActivityServiceTest {
     private val acclimationRollup: AcclimationRollup = mock()
     private val athleteTimeZone: AthleteTimeZone = mock()
     private val athleteFitnessService: AthleteFitnessService = mock()
+    private val detectedIntervalRepository: ActivityDetectedIntervalRepository = mock()
     private val activityService =
         ActivityService(
             activityRepository,
@@ -61,6 +62,7 @@ class ActivityServiceTest {
             acclimationRollup,
             athleteTimeZone,
             athleteFitnessService,
+            detectedIntervalRepository,
         )
     private val owner = User(id = 7L, email = "a@b.com", passwordHash = "x", username = "alice")
 

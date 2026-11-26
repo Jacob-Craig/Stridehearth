@@ -24,6 +24,7 @@ import { ActivityVisualization } from './ActivityVisualization';
 import { BestEffortsTable } from './BestEffortsTable';
 import { ConditionsMetrics } from './ConditionsMetrics';
 import { DecouplingBadge } from './DecouplingBadge';
+import { IntervalsTable } from './IntervalsTable';
 import { LapsTable } from './LapsTable';
 import { SECONDARY_BUTTON_CLASS } from './styles';
 import { TrainingLoadValue } from './TrainingLoadValue';
@@ -115,7 +116,13 @@ export function ActivityDetailPage({ userId, activity, telemetry }: ActivityDeta
 
       <ConditionsMetrics conditions={activity.conditions} />
 
-      {telemetry && <ActivityVisualization telemetry={telemetry} selectedEffort={selectedEffort} />}
+      {telemetry && (
+        <ActivityVisualization
+          telemetry={telemetry}
+          selectedEffort={selectedEffort}
+          detectedIntervals={activity.detectedIntervals}
+        />
+      )}
 
       {activity.bestEfforts.length > 0 && (
         <BestEffortsTable
@@ -130,6 +137,10 @@ export function ActivityDetailPage({ userId, activity, telemetry }: ActivityDeta
       )}
 
       {activity.laps.length >= MIN_LAPS_SHOWN && <LapsTable laps={activity.laps} />}
+
+      {activity.detectedIntervals.length > 0 && (
+        <IntervalsTable intervals={activity.detectedIntervals} />
+      )}
 
       <DeleteActivityDialog
         activity={confirmingDelete ? activity : null}

@@ -45,6 +45,7 @@ function detailOf(summary: ActivitySummaryDto): ActivityDetailDto {
     laps: [],
     history: [],
     bestEfforts: [],
+    detectedIntervals: [],
     runMetrics: null,
     trainingLoad: null,
     trainingLoadUnavailableReason: null,

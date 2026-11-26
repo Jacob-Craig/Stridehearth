@@ -34,14 +34,15 @@ import java.time.ZoneId
  * - 6: Activity conditions (#43): the device and Ambient Temperature and the Mean Altitude of every Activity.
  * - 7: VO2max Estimate of Runs (#42).
  * - 8: Cadence-lock requires heart rate to follow cadence, so steady true heart rate at step rate is kept (#52).
+ * - 9: Detected Intervals of Runs (#47).
  */
-const val DERIVED_DATA_VERSION: Short = 8
+const val DERIVED_DATA_VERSION: Short = 9
 
 /**
  * The derived-data module (ADR-0014): the only writer of `activity_derived_metrics`, which holds one row per
  * **Activity** of every sport, computed in one pure pass ([ActivityAnalysis]) from its **Cleaned Activity
- * Details** and stamped with [DERIVED_DATA_VERSION], and of `activity_peak_effort`, a Run's **Peak Efforts** from
- * the same pass. It also marks the athlete's rollups ([AthleteRollups]).
+ * Details** and stamped with [DERIVED_DATA_VERSION], and of `activity_peak_effort` and `activity_detected_interval`,
+ * a Run's **Peak Efforts** and **Detected Intervals** from the same pass. It also marks the athlete's rollups ([AthleteRollups]).
  *
  * Caller contract, as for [BestEffortRefresh]:
  * - Call it in the caller's transaction whenever an input changes: an Activity is created (with or without Activity
@@ -66,6 +67,7 @@ class DerivedDataRefresh(
     private val activityDetailsService: ActivityDetailsService,
     private val derivedMetricsRepository: ActivityDerivedMetricsRepository,
     private val peakEffortRepository: ActivityPeakEffortRepository,
+    private val detectedIntervalRepository: ActivityDetectedIntervalRepository,
     private val athleteRollups: AthleteRollups,
     private val thresholdRepository: AthleteThresholdRepository,
     private val analyticsStateRepository: AthleteAnalyticsStateRepository,
@@ -148,6 +150,7 @@ class DerivedDataRefresh(
             analysis?.conditions,
         )
         peakEffortRepository.replace(activityId, analysis?.peakEfforts.orEmpty())
+        detectedIntervalRepository.replace(activityId, analysis?.detectedIntervals.orEmpty())
     }
 
     /** [activity]'s analysis from [details] or its stored Activity Details, or null when it has none. */

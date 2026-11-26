@@ -97,6 +97,7 @@ const activity: ActivityDetailDto = {
   laps: [],
   history: [],
   bestEfforts: [effort],
+  detectedIntervals: [],
   runMetrics: null,
   trainingLoad: null,
   trainingLoadUnavailableReason: null,
@@ -108,12 +109,15 @@ function json(body: unknown): Response {
   return new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } });
 }
 
-function renderActivity(details: ActivityTelemetryResponseDto) {
+function renderActivity(
+  details: ActivityTelemetryResponseDto,
+  detail: ActivityDetailDto = activity,
+) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
       const path = new URL(input.toString(), 'http://localhost').pathname;
-      if (path === '/api/activities/42') return json(activity);
+      if (path === '/api/activities/42') return json(detail);
       if (path === '/api/activities/42/telemetry') return json(details);
       throw new Error(`Unexpected request ${path}`);
     }),
@@ -214,6 +218,41 @@ describe('Activity Details route map and sensor charts', () => {
     expect(map.setHighlight).toHaveBeenLastCalledWith([]);
   });
 
+  it('shades only the work Detected Intervals on every chart', async () => {
+    const interval = (n: number, kind: 'WORK' | 'RECOVERY', start: number, end: number) => ({
+      intervalNumber: n,
+      kind,
+      startIndex: start,
+      endIndex: end,
+      startTimeSeconds: start,
+      endTimeSeconds: end,
+      movingSeconds: end - start,
+      distanceMeters: null,
+      averageGapMetersPerSecond: 3,
+      averageHeartRate: null,
+      averagePowerWatts: null,
+      decouplingPct: null,
+    });
+    renderActivity(telemetry(), {
+      ...activity,
+      detectedIntervals: [
+        interval(1, 'RECOVERY', 0, 3),
+        interval(2, 'WORK', 3, 5),
+        interval(3, 'RECOVERY', 5, 7),
+        interval(4, 'WORK', 7, 9),
+      ],
+    });
+
+    const { charts } = await chartsAndMapReady();
+
+    for (const chart of charts) {
+      expect(chart.setWorkIntervals).toHaveBeenLastCalledWith([
+        expect.objectContaining({ startTimeSeconds: 3, endTimeSeconds: 5 }),
+        expect.objectContaining({ startTimeSeconds: 7, endTimeSeconds: 9 }),
+      ]);
+    }
+  });
+
   it('scrubbing one chart moves the other crosshairs and the route marker on the next frame', async () => {
     renderActivity(telemetry());
     const [heartRate, cadence] = (await chartsAndMapReady()).charts;
@@ -249,7 +288,11 @@ describe('Activity Details route map and sensor charts', () => {
     let commits = 0;
     render(
       <Profiler id="visualization" onRender={() => commits++}>
-        <ActivityVisualization telemetry={telemetry()} selectedEffort={effort} />
+        <ActivityVisualization
+          telemetry={telemetry()}
+          selectedEffort={effort}
+          detectedIntervals={[]}
+        />
       </Profiler>,
     );
     const { charts, map } = await chartsAndMapReady();

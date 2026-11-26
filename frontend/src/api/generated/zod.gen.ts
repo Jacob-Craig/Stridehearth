@@ -780,6 +780,23 @@ export const zDecouplingUnavailableReason = z.enum([
     'NOT_STEADY'
 ]);
 
+export const zDetectedIntervalKind = z.enum(['WORK', 'RECOVERY']);
+
+export const zDetectedIntervalDto = z.object({
+    intervalNumber: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    kind: zDetectedIntervalKind,
+    startIndex: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    endIndex: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    startTimeSeconds: z.number(),
+    endTimeSeconds: z.number(),
+    movingSeconds: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
+    distanceMeters: z.number().nullable(),
+    averageGapMetersPerSecond: z.number(),
+    averageHeartRate: z.number().nullable(),
+    averagePowerWatts: z.number().nullable(),
+    decouplingPct: z.number().nullable()
+});
+
 export const zEffortWindowDto = z.object({
     startIndex: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
     endIndex: z.int().min(-2147483648, { error: 'Invalid value: Expected int32 to be >= -2147483648' }).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }),
@@ -875,6 +892,7 @@ export const zActivityDetailDto = z.object({
     laps: z.array(zActivityLapDto),
     history: z.array(zActivityHistoryEntryDto),
     bestEfforts: z.array(zActivityBestEffortDto),
+    detectedIntervals: z.array(zDetectedIntervalDto),
     runMetrics: zRunMetricsDto.nullable(),
     trainingLoad: zTrainingLoadDto.nullable(),
     trainingLoadUnavailableReason: zTrainingLoadUnavailableReason.nullable(),

@@ -38,6 +38,7 @@ const COURSE: ActivityDetailDto = {
   laps: [],
   history: [],
   bestEfforts: [],
+  detectedIntervals: [],
   runMetrics: null,
   trainingLoad: null,
   trainingLoadUnavailableReason: null,
