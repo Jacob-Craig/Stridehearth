@@ -3,11 +3,10 @@ import type {
   BenchmarkProgressionDto,
   PersonalRecordStepDto,
 } from '../src/api/generated/types.gen';
+import { DATE_TICK_SPACE_PX, dateTickLabels } from '../src/features/charts/dateAxis';
 import {
   defaultBenchmark,
-  PROGRESSION_X_TICK_SPACE_PX,
   progressionSteps,
-  progressionTickLabels,
 } from '../src/features/pr-progression/progressionSeries';
 
 const step = (activityId: number, startedAt: string, seconds: number): PersonalRecordStepDto => ({
@@ -70,13 +69,13 @@ describe('progressionSteps', () => {
   });
 });
 
-describe('progressionTickLabels', () => {
+describe('dateTickLabels', () => {
   const at = (iso: string) => Date.parse(iso) / 1000;
 
   it('labels month ticks in the zone uPlot placed them in, not UTC', () => {
     // uPlot puts month ticks at local midnight: 1 Mar in Berlin is 28 Feb 23:00 UTC.
     const ticks = [at('2026-01-31T23:00:00Z'), at('2026-02-28T23:00:00Z')];
-    expect(progressionTickLabels(ticks, 'Europe/Berlin')).toEqual(['Feb 2026', 'Mar 2026']);
+    expect(dateTickLabels(ticks, 'Europe/Berlin')).toEqual(['Feb 2026', 'Mar 2026']);
   });
 
   it('labels ticks under a month apart by day', () => {
@@ -85,26 +84,22 @@ describe('progressionTickLabels', () => {
       at('2026-11-09T00:00:00Z'),
       at('2026-11-16T00:00:00Z'),
     ];
-    expect(progressionTickLabels(ticks, 'UTC')).toEqual(['2 Nov', '9 Nov', '16 Nov']);
+    expect(dateTickLabels(ticks, 'UTC')).toEqual(['2 Nov', '9 Nov', '16 Nov']);
   });
 
   it('labels a lone tick by month', () => {
-    expect(progressionTickLabels([at('2026-03-01T00:00:00Z')], 'UTC')).toEqual(['Mar 2026']);
+    expect(dateTickLabels([at('2026-03-01T00:00:00Z')], 'UTC')).toEqual(['Mar 2026']);
   });
 });
 
-describe('PROGRESSION_X_TICK_SPACE_PX', () => {
+describe('DATE_TICK_SPACE_PX', () => {
   // uPlot's axis font is 12px; its widest glyphs here average under 7px, and labels need a gap.
   const AXIS_CHAR_WIDTH_PX = 7;
   const LABEL_GAP_PX = 16;
 
   it('spaces date ticks wide enough that the longest month label cannot touch its neighbour', () => {
     const monthStarts = Array.from({ length: 12 }, (_, m) => Date.UTC(2026, m, 15) / 1000);
-    const widest = Math.max(
-      ...progressionTickLabels(monthStarts, 'UTC').map((label) => label.length),
-    );
-    expect(PROGRESSION_X_TICK_SPACE_PX).toBeGreaterThanOrEqual(
-      widest * AXIS_CHAR_WIDTH_PX + LABEL_GAP_PX,
-    );
+    const widest = Math.max(...dateTickLabels(monthStarts, 'UTC').map((label) => label.length));
+    expect(DATE_TICK_SPACE_PX).toBeGreaterThanOrEqual(widest * AXIS_CHAR_WIDTH_PX + LABEL_GAP_PX);
   });
 });

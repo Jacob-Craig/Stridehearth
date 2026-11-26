@@ -1,17 +1,11 @@
 /**
- * Pure helpers for the **Personal Record Progression** chart: which Benchmark Distance it opens on,
- * the step points it plots, and the labels of its date axis.
+ * Pure helpers for the **Personal Record Progression** chart: which Benchmark Distance it opens on
+ * and the step points it plots. Its date axis is labelled by `dateTickLabels` in `charts/dateAxis`.
  */
 import type { BenchmarkProgressionDto, PersonalRecordStepDto } from '../../api/generated/types.gen';
 
 /** Height of the chart's canvas; the React card reserves the same slot. */
 export const PROGRESSION_PLOT_HEIGHT_PX = 220;
-
-/**
- * Least room uPlot leaves between date ticks: wide enough for `Sept 2026` and a gap, so a narrow
- * (phone-width) chart drops ticks rather than running its labels together.
- */
-export const PROGRESSION_X_TICK_SPACE_PX = 80;
 
 export type BenchmarkDistance = BenchmarkProgressionDto['benchmarkDistance'];
 
@@ -50,26 +44,4 @@ export function progressionSteps(
     y.push(lastY);
   }
   return { x, y };
-}
-
-/** Ticks closer together than this are days or weeks apart, so they are labelled by day. */
-const DAY_TICK_SPACING_SECONDS = 28 * 24 * 60 * 60;
-
-/**
- * Labels for the chart's time ticks (epoch seconds), formatted in `timeZone` (the viewer's when
- * omitted, which is the zone uPlot places its ticks in): `2 Nov` when ticks are under a month apart,
- * otherwise `Mar 2026`.
- */
-export function progressionTickLabels(ticks: readonly number[], timeZone?: string): string[] {
-  const first = ticks[0];
-  const second = ticks[1];
-  const byDay =
-    first !== undefined && second !== undefined && second - first < DAY_TICK_SPACING_SECONDS;
-  const format = new Intl.DateTimeFormat(
-    'en-GB',
-    byDay
-      ? { day: 'numeric', month: 'short', timeZone }
-      : { month: 'short', year: 'numeric', timeZone },
-  );
-  return ticks.map((tick) => format.format(new Date(tick * 1000)));
 }

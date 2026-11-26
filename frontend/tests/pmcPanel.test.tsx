@@ -225,6 +225,13 @@ describe('Performance Management Chart panel', () => {
     expect(readout()).toHaveTextContent(/^19 Nov 2026 · /);
   });
 
+  it('shows that the chart is loading while the PMC request is still pending or retrying', async () => {
+    renderPanel(undefined);
+    const panel = await screen.findByRole('region', { name: 'Performance Management Chart' });
+    expect(within(panel).getByText('Loading…')).toBeVisible();
+    expect(within(panel).queryByText('This chart could not be displayed.')).toBeNull();
+  });
+
   it('says the chart could not be displayed when the PMC could not be loaded', async () => {
     renderPanel(undefined, { isError: true });
 
