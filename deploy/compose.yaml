@@ -25,6 +25,8 @@ services:
       SPRING_DATA_REDIS_HOST: 'redis'
       # Optional: `closed` (the default) lets only the first account register itself; `open` lets anyone (ADR-0011).
       STRIDEHEARTH_REGISTRATION_MODE: '${STRIDEHEARTH_REGISTRATION_MODE:-closed}'
+      # Optional: `none` (the default) makes no outbound call; `open-meteo` looks up weather (docs/self-hosting.md).
+      STRIDEHEARTH_WEATHER_PROVIDER: '${STRIDEHEARTH_WEATHER_PROVIDER:-none}'
       # Behind a reverse proxy, uncomment so sign-in limits count each client's address rather than the proxy's.
       # Leave it unset when clients can reach the Server directly. See docs/self-hosting.md.
       # SERVER_FORWARD_HEADERS_STRATEGY: 'native'

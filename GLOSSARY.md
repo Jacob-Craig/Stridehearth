@@ -152,8 +152,12 @@ They are never stored and never shown in place of Activity Details; derived anal
 _Avoid_: Filtered telemetry, corrected data, cleaned streams
 
 **Ambient Temperature**:
-The air temperature an Activity was done in, as Stridehearth estimates it: the median of the temperatures the device recorded (when at least 60 samples cover at least half the Activity) less the Wrist-Heat Correction. It comes only from the Activity's own file (ADR-0017). Derived, so recomputed, never edited.
+The air temperature an Activity was done in, as Stridehearth estimates it: the median of the temperatures the device recorded (when at least 60 samples cover at least half the Activity) less the Wrist-Heat Correction. It comes from the Activity's own file, or, only when the device recorded no temperature and an Operator has enabled an external weather provider, from that provider's cached air temperature at the Activity's start (ADR-0017). Derived, so recomputed, never edited.
 _Avoid_: Weather, air temperature, device temperature
+
+**Weather Provider**:
+The external service an Operator may opt in to (`stridehearth.weather.provider`, `none` by default, or `open-meteo`) to look up the weather of Activities whose device recorded no temperature. It is sent only the Activity's start point rounded to 0.1° and its start date, runs in a background stage after commit, and its result is cached once per Activity (ADR-0017). Athletes cannot turn it on.
+_Avoid_: Weather API, weather integration
 
 **Wrist-Heat Correction**:
 The 6 °C subtracted from a device's temperature to estimate the Ambient Temperature, because a watch worn on the wrist reads warmer than the air. Where a device is worn is never recorded, so it applies to every Activity.
