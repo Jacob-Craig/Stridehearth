@@ -193,7 +193,7 @@ An intensity band derived from a Threshold: five heart-rate Zones as percentages
 _Avoid_: Level, bucket
 
 **Threshold Proposal**:
-A value another feature (such as a Critical Speed fit) suggests for one of an athlete's Thresholds. It never takes effect on its own: it becomes a Threshold entry only when the athlete accepts it, and a dismissed one is not suggested again for a value within 3% of it.
+A value another feature (such as a Critical Speed fit) suggests for one of an athlete's Thresholds. It never takes effect on its own: it becomes a Threshold entry only when the athlete accepts it, and a dismissed one is not suggested again for a value within 3% of it. A Critical Speed proposal is re-decided when a refit reaches the athlete's current model and whenever they record or accept that Threshold; it comes only from a current model, one whose 90-day window still overlaps today's, and is withdrawn once there is none.
 _Avoid_: Auto-update, recommendation
 
 **Athlete Time Zone**:

@@ -275,6 +275,27 @@ describe('Pace-Duration Curve', () => {
     expect(within(section).queryByText(/it needs 3/)).not.toBeInTheDocument();
   });
 
+  it('says the recent power efforts do not fit a Critical Power model, in power mode', async () => {
+    stubApi(
+      peakEfforts(PACE_PEAKS, { TWO_MINUTES: { recent: effort(7, 350), allTime: effort(8, 380) } }),
+      criticalSpeed(model(4.0, 240), {
+        ...NO_MODEL,
+        status: 'POOR_FIT',
+        pointCount: 4,
+        rSquared: 0.6,
+      }),
+    );
+    renderDashboard();
+
+    const section = await pdcSection();
+    fireEvent.click(await within(section).findByRole('button', { name: 'Power' }));
+    expect(
+      await within(section).findByText(
+        'No Critical Power model yet: your recent power Peak Efforts between 2 and 20 min do not fit one, for example because some were not all-out.',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('draws in the dark palette when the system is dark', async () => {
     stubColourScheme('dark');
     stubApi(peakEfforts(PACE_PEAKS));

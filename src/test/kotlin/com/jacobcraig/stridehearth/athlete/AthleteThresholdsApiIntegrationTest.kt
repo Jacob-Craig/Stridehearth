@@ -1,6 +1,7 @@
 package com.jacobcraig.stridehearth.athlete
 
 import com.jacobcraig.stridehearth.TestcontainersConfiguration
+import com.jacobcraig.stridehearth.activities.PostgresLockProbe
 import com.jacobcraig.stridehearth.users.User
 import com.jacobcraig.stridehearth.users.UserRepository
 import org.hamcrest.Matchers.hasSize
@@ -31,10 +32,14 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -71,6 +76,9 @@ class AthleteThresholdsApiIntegrationTest {
 
     @Autowired
     private lateinit var clock: Clock
+
+    @Autowired
+    private lateinit var transactionManager: PlatformTransactionManager
 
     /**
      * Fixes "now" at 23:30 UTC on 1 March 2026, half an hour before UTC midnight and already 2 March in a UTC+14 zone,
@@ -360,6 +368,39 @@ class AthleteThresholdsApiIntegrationTest {
 
         thresholdProposals.upsertPending(runner.id!!, ThresholdKind.LTHR, 170.0, LocalDate.parse("2024-04-01"), "CS_FIT")
         assertEquals(1, thresholdProposals.pending(runner.id!!).size)
+    }
+
+    @Test
+    fun `an upsert waiting on a dismissal in flight does not reopen it once the dismissal commits`() {
+        // Two transactions: the dismissal holds the proposal's row lock, the upsert waits for it, and on commit the
+        // upsert re-checks its WHERE clause against the DISMISSED row instead of the PENDING one it first found.
+        val proposal = thresholdProposals.propose(runner.id!!, ThresholdKind.LTHR, 160.0, LocalDate.parse("2024-03-01"), "CS_FIT")!!
+        val locks = PostgresLockProbe(jdbcClient)
+        val transactions = TransactionTemplate(transactionManager)
+        lateinit var upsert: CompletableFuture<ThresholdProposal?>
+        transactions.executeWithoutResult {
+            thresholdProposals.dismiss(runner.id!!, proposal.id)
+            val dismisserPid = locks.currentBackendPid()
+            upsert =
+                CompletableFuture.supplyAsync {
+                    transactions.execute {
+                        thresholdProposals.upsertPending(runner.id!!, ThresholdKind.LTHR, 161.0, LocalDate.parse("2024-04-01"), "CS_FIT")
+                    }
+                }
+            locks.awaitRowLockWaiter(excluding = setOf(dismisserPid), ended = upsert::isDone)
+        }
+
+        // The dismissal has committed, releasing the upsert, which must have found nothing to reopen.
+        assertNull(upsert.get(30, TimeUnit.SECONDS))
+        assertEquals(0, thresholdProposals.pending(runner.id!!).size)
+        assertEquals(
+            "DISMISSED",
+            jdbcClient
+                .sql("SELECT status FROM athlete_threshold_proposal WHERE id = :id")
+                .param("id", proposal.id)
+                .query(String::class.java)
+                .single(),
+        )
     }
 
     @Test

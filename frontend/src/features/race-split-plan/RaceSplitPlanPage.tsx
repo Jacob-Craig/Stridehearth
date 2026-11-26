@@ -172,7 +172,8 @@ function PlanActions({ plan }: { plan: RaceSplitPlanResponseDto }) {
 const INPUT_CLASS =
   'mt-1 block w-32 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-1 text-sm tabular-nums aria-invalid:border-red-500';
 
-function PlanControls({
+/** The Goal Time, unit and Split Bias controls. Exported for tests. */
+export function PlanControls({
   request,
   onChange,
   suggestion,
@@ -186,6 +187,12 @@ function PlanControls({
   const [goalText, setGoalText] = useState(() => formatGoalTime(request.goalSeconds));
   // The slider's own value: its label follows it at once, and the plan is asked for once it settles.
   const [bias, setBias] = useState(request.biasPct);
+  // A Split Bias set from outside the slider (a reset, say) moves the slider with it.
+  const [requestedBias, setRequestedBias] = useState(request.biasPct);
+  if (request.biasPct !== requestedBias) {
+    setRequestedBias(request.biasPct);
+    setBias(request.biasPct);
+  }
   const latest = useRef({ request, onChange });
   useEffect(() => {
     latest.current = { request, onChange };

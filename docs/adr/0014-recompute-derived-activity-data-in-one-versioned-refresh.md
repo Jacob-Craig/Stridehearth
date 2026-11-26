@@ -55,3 +55,9 @@ Compare-and-clear alone does not cover an Activity write that is still in flight
 - The integration is O(N) in the samples and needs no migration, version bump or Backfill; a refit simply changes the next read.
 - The model is the one dated the Run's own day, so the Run's own Peak Efforts count towards it: a breakthrough Run is measured against the model it set, not one fitted before it. This keeps one model per day for every consumer rather than a second, Run-excluding fit.
 - **Rejected: storing the stream with the model inputs it used, recomputed after each refit.** It bounds the cascade, but it still writes Activity rows from the rollup, and it adds a column set and a recompute path for a value that is cheap to compute.
+
+## A new "unavailable" reason without a version bump (#64, #91)
+
+A version bump is for values computed from the same Activity Details. Manual Runs recording `Vo2maxUnavailableReason.NO_ACTIVITY_DETAILS` (#89) is a deliberate exception: no algorithm changed, only the reason stored when there are no Activity Details. Stored rows are left as they are, so an existing manual Run keeps a NULL VO2max with no reason until its next refresh (an edit, an Upgrade, or a Threshold or time zone recompute). The reason is display text, and no value or rollup reads it.
+
+- **Rejected: bumping `DERIVED_DATA_VERSION`.** It would recompute every Activity on every Server, re-reading all Activity Details, to fill in a label. The next derived-data change that bumps the version fills them in anyway.
