@@ -15,6 +15,9 @@ Flyway migrations only run forward, so a Server cannot step back from a One-way 
 - Flyway's default of ignoring "future" migrations (applied in the database but unknown to the running code) is overridden, so an older image fails fast with a clear message instead of running against a schema it does not understand.
 - The app image bundles a PostgreSQL client whose major version follows the PostGIS major pinned in the sample compose file (currently 18; the Dockerfile `POSTGRES_CLIENT_MAJOR` build argument). A newer `pg_dump` can dump older servers but not the reverse. A server major-version upgrade becomes an Operator-visible event, called out in release notes.
 - Release notes flag every One-way Release, and the sample compose file pins an exact version (see ADR-0009).
+- One Server instance per database is supported. The backup runs outside Flyway's migration lock, so two instances starting at once could dump an already-migrated database under the old version labels and prune twice. A Postgres advisory lock was not added: the supported deployment is a single Server, and the lock would add a code path nothing exercises.
+- Local development opts out with `stridehearth.backup.enabled=false`, which the `dev` profile sets; a Server never runs that profile.
+- CI fails if the compose PostGIS major and the Dockerfile `POSTGRES_CLIENT_MAJOR` differ (`.github/scripts/check-postgres-client-major.sh`).
 - Normal restarts with no pending migrations take no backup and cost nothing.
 
 ## Amendments
