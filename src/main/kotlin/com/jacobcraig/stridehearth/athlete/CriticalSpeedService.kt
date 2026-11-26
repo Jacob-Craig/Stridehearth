@@ -21,6 +21,7 @@ data class CriticalSpeedModels(
 class CriticalSpeedService(
     private val repository: CriticalSpeedModelRepository,
     private val athleteTimeZone: AthleteTimeZone,
+    private val stateRepository: AthleteAnalyticsStateRepository,
 ) {
     /** [userId]'s models for the window ending on their local [date], fitted live with their points. */
     @Transactional(readOnly = true)
@@ -35,15 +36,21 @@ class CriticalSpeedService(
         )
     }
 
-    /** [userId]'s [metric] model in effect on their local [date]: the stored one for that day, else a live fit. */
+    /**
+     * [userId]'s [metric] model in effect on their local [date]: the stored one for that day, else a live fit. While
+     * their rollups are stale ([ROLLUP_VERSION], such as after a time-zone change and until the worker rebuilds them)
+     * the stored rows may be dated in another zone, so it always fits live (#85).
+     */
     @Transactional(readOnly = true)
     fun inEffect(
         userId: Long,
         metric: PeakEffortMetric,
         date: LocalDate,
-    ): CriticalSpeedFit =
-        repository.find(userId, metric, date)?.fit
+    ): CriticalSpeedFit {
+        val stale = (stateRepository.findRollupVersion(userId) ?: ROLLUP_VERSION) < ROLLUP_VERSION
+        return repository.find(userId, metric, date)?.fit?.takeUnless { stale }
             ?: CriticalSpeedWindow.model(windowPeaks(userId, date), metric, date).fit
+    }
 
     private fun windowPeaks(
         userId: Long,

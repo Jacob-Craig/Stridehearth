@@ -25,10 +25,14 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.context.TestConfiguration
+import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Import
+import org.springframework.context.annotation.Primary
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean
 import org.springframework.transaction.support.TransactionTemplate
+import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -89,6 +93,20 @@ class CriticalSpeedRollupIntegrationTest {
 
     @Autowired
     private lateinit var transactionTemplate: TransactionTemplate
+
+    @Autowired
+    private lateinit var clock: Clock
+
+    /**
+     * Fixes today at noon UTC on day 89, the last day whose 90-day window still holds day 0, so a model is current from
+     * day 0 to day 89 and a later day is future-dated.
+     */
+    @TestConfiguration(proxyBeanMethods = false)
+    class FixedClock {
+        @Bean
+        @Primary
+        fun fixedClock(): Clock = Clock.fixed(Instant.parse("2025-03-31T12:00:00Z"), ZoneOffset.UTC)
+    }
 
     private lateinit var runner: User
     private lateinit var otherRunner: User
@@ -441,11 +459,11 @@ class CriticalSpeedRollupIntegrationTest {
 
     @Test
     fun `only a refit of the latest model proposes`() {
-        storedRun(100, critical = 4.0)
+        storedRun(80, critical = 4.0)
         thresholdProposals.dismiss(runner.id!!, pending().single().id)
 
-        // An older Run refits days 0 to 89 only; the latest model, day 100, is untouched.
-        storedRun(0, critical = 5.0)
+        // An older Run refits days -20 to 69 only; the latest model, day 80, is untouched.
+        storedRun(-20, critical = 5.0)
 
         assertEquals(emptyList(), pending())
     }
@@ -498,15 +516,15 @@ class CriticalSpeedRollupIntegrationTest {
 
     @Test
     fun `deleting the Run whose model was proposed re-proposes from the latest model left`() {
-        storedRun(50, critical = 4.0)
-        val newest = storedRun(100, critical = 4.4)
+        storedRun(30, critical = 4.0)
+        val newest = storedRun(70, critical = 4.4)
         assertEquals(4.4, pending().single().value, 1e-9)
 
         activityService.deleteActivity(newest.id!!, runner.id!!)
 
         val proposal = pending().single()
         assertEquals(4.0, proposal.value, 1e-9)
-        assertEquals(day(50), proposal.effectiveDate)
+        assertEquals(day(30), proposal.effectiveDate)
     }
 
     @Test
@@ -546,7 +564,7 @@ class CriticalSpeedRollupIntegrationTest {
 
     @Test
     fun `a future-dated Run does not stop today's model from proposing`() {
-        val today = LocalDate.now(ZoneOffset.UTC)
+        val today = LocalDate.now(clock)
         storedRun(ChronoUnit.DAYS.between(origin, today.plusDays(400)), critical = 4.0)
 
         storedRun(ChronoUnit.DAYS.between(origin, today.minusDays(5)), critical = 4.4)
@@ -554,5 +572,53 @@ class CriticalSpeedRollupIntegrationTest {
         val proposal = pending().single()
         assertEquals(4.4, proposal.value, 1e-9)
         assertEquals(today.minusDays(5), proposal.effectiveDate)
+    }
+
+    @Test
+    fun `a power model older than the 90-day window proposes no Critical Power, and withdraws a pending one`() {
+        athleteThresholds.record(runner.id!!, ThresholdKind.CRITICAL_POWER, day(-200), 280.0)
+        storedRun(-10, power = 300.0 to 20_000.0)
+        // The proposal day -10's model made while it was still current.
+        thresholdProposals.propose(runner.id!!, ThresholdKind.CRITICAL_POWER, 300.0, day(-10), CriticalSpeedRollup.PROPOSAL_SOURCE)
+
+        // A Run without power since: the latest power model, day -10, ends a window today's no longer overlaps.
+        storedRun(85)
+
+        assertEquals(day(-10), repository.findLatest(runner.id!!, PeakEffortMetric.POWER, onOrBefore = day(89))!!.modelDate)
+        assertEquals(emptyList(), pending().filter { it.kind == ThresholdKind.CRITICAL_POWER })
+    }
+
+    @Test
+    fun `a stale power model never proposes, even on a full rebuild`() {
+        athleteThresholds.record(runner.id!!, ThresholdKind.CRITICAL_POWER, day(-200), 280.0)
+        storedRun(-100, power = 300.0 to 20_000.0)
+
+        transactionTemplate.execute { rollup.refit(runner.id!!, changedAt = null) }
+
+        assertEquals(emptyList(), pending().filter { it.kind == ThresholdKind.CRITICAL_POWER })
+    }
+
+    @Test
+    fun `recording a Threshold Pace that the current model disagrees with proposes it without a new Run`() {
+        athleteThresholds.record(runner.id!!, ThresholdKind.THRESHOLD_PACE, day(-10), 4.0)
+        storedRun(0, critical = 4.0)
+        assertEquals(emptyList(), pending())
+
+        athleteThresholds.record(runner.id!!, ThresholdKind.THRESHOLD_PACE, day(-5), 3.5)
+
+        val proposal = pending().single()
+        assertEquals(ThresholdKind.THRESHOLD_PACE, proposal.kind)
+        assertEquals(4.0, proposal.value, 1e-9)
+        assertEquals(day(0), proposal.effectiveDate)
+    }
+
+    @Test
+    fun `recording a Threshold Pace against a stale model proposes nothing`() {
+        athleteThresholds.record(runner.id!!, ThresholdKind.THRESHOLD_PACE, day(-200), 4.0)
+        storedRun(-100, critical = 4.0)
+
+        athleteThresholds.record(runner.id!!, ThresholdKind.THRESHOLD_PACE, day(-150), 3.5)
+
+        assertEquals(emptyList(), pending())
     }
 }
