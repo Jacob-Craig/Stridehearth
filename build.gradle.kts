@@ -67,7 +67,7 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-postgresql")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     // Source: https://mvnrepository.com/artifact/com.garmin/fit
-    implementation("com.garmin:fit:21.221.0")
+    implementation("com.garmin:fit:21.222.0")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-api:3.2.0")
 }
 
