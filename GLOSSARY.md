@@ -137,7 +137,7 @@ An athlete's best Peak Efforts plotted against their Benchmark Durations (5 s to
 _Avoid_: Power-duration curve (for pace), mean-maximal curve, PDC (in the UI)
 
 **Telemetry Cleaning**:
-The pass that produces Cleaned Activity Details from an Activity's Activity Details and sport: it rejects GPS spikes (speeds above the sport's ceiling and distance jumps), treats heart rate as missing during dropouts and cadence-lock, interpolates gaps of up to 10 seconds, and smooths altitude over a 15 m distance window.
+The pass that produces Cleaned Activity Details from an Activity's Activity Details and sport: it rejects GPS spikes (speeds above the sport's ceiling and distance jumps), treats heart rate as missing during dropouts and cadence-lock (heart rate that sits at step rate and follows it, not a true heart rate that merely matches it), interpolates gaps of up to 10 seconds, and smooths altitude over a 15 m distance window.
 It never changes the stored Activity Details, and an Activity with no GPS fix keeps its speed, distance and altitude exactly as recorded. Temperature is not cleaned.
 _Avoid_: Filtering, sanitising, data correction
 

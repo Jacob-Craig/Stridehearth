@@ -6,6 +6,7 @@ import com.jacobcraig.stridehearth.system.fit.FitTelemetryMapper
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 /**
  * **Telemetry Cleaning**: turns an Activity's stored Activity Details into **Cleaned Activity Details**
@@ -24,7 +25,7 @@ import kotlin.math.roundToInt
  * 4. **Distance.** A step between two samples is bad when time does not advance, distance goes backwards, or
  *    the step implies a speed above the ceiling (a GPS teleport). Only the bad step's excess is removed: it is
  *    replaced by the distance the cleaned speed covers, and every later sample shifts by the difference.
- * 5. **Heart rate.** Missing when it is 0, when it tracks step rate (cadence-lock), or when it steps faster
+ * 5. **Heart rate.** Missing when it is 0, when it tracks and follows step rate (cadence-lock), or when it steps faster
  *    than [MAX_HR_STEP_BPM_PER_SECOND].
  * 6. **Altitude.** The mean over a centred [ALTITUDE_WINDOW_METERS] window of cleaned distance.
  *
@@ -43,6 +44,22 @@ object TelemetryCleaner {
 
     /** A pause in recording longer than this ends a stretch of heart rate tracking step rate. */
     const val CADENCE_LOCK_BREAK_GAP_SECONDS = 10
+
+    /**
+     * A difference of at least this many beats per minute between the median heart rate in the
+     * [CADENCE_LOCK_JUMP_WINDOW_SECONDS] just outside a stretch and the same span just inside it is the sensor
+     * locking onto, or letting go of, step rate.
+     */
+    const val CADENCE_LOCK_JUMP_BPM = 10
+
+    /** How far either side of each end of a stretch tracking step rate heart rate is compared for a jump. */
+    const val CADENCE_LOCK_JUMP_WINDOW_SECONDS = 20
+
+    /** Step rate must vary by at least this standard deviation over a stretch for a correlation to mean anything. */
+    const val CADENCE_LOCK_MIN_STEP_RATE_SD = 1.0
+
+    /** Heart rate correlating with step rate at least this strongly over a stretch is following it. */
+    const val CADENCE_LOCK_MIN_CORRELATION = 0.6
 
     /** The longest gap, measured between the good samples either side, that is interpolated. */
     const val MAX_INTERPOLATION_GAP_SECONDS = 10
@@ -249,20 +266,22 @@ object TelemetryCleaner {
      *
      * Stored cadence is strides per minute of one leg with the half-step in `fractionalCadence`, so step rate
      * is twice their sum. A lock is an unbroken stretch of samples, each with heart rate within
-     * [CADENCE_LOCK_TOLERANCE_BPM] of step rate, that spans at least [CADENCE_LOCK_MIN_SECONDS]. A sample
-     * without heart rate or cadence, or a recording pause over [CADENCE_LOCK_BREAK_GAP_SECONDS], ends a stretch.
+     * [CADENCE_LOCK_TOLERANCE_BPM] of step rate, that spans at least [CADENCE_LOCK_MIN_SECONDS], and in which
+     * heart rate follows cadence rather than merely coinciding with it ([followsStepRate]). A sample without
+     * heart rate or cadence, or a recording pause over [CADENCE_LOCK_BREAK_GAP_SECONDS], ends a stretch.
      */
     private fun rejectCadenceLock(
         t: IntArray,
         heartRate: DoubleArray,
         details: FitTelemetry,
     ) {
-        fun tracksStepRate(i: Int): Boolean {
-            val cadence = details.cadence.getOrNull(i) ?: return false
-            if (heartRate[i].isNaN()) return false
-            val stepRate = 2.0 * (cadence + (details.fractionalCadence.getOrNull(i) ?: 0.0f))
-            return abs(heartRate[i] - stepRate) <= CADENCE_LOCK_TOLERANCE_BPM
-        }
+        val stepRate =
+            DoubleArray(t.size) { i ->
+                details.cadence.getOrNull(i)?.let { 2.0 * (it + (details.fractionalCadence.getOrNull(i) ?: 0.0f)) } ?: MISSING
+            }
+
+        fun tracksStepRate(i: Int): Boolean =
+            !heartRate[i].isNaN() && !stepRate[i].isNaN() && abs(heartRate[i] - stepRate[i]) <= CADENCE_LOCK_TOLERANCE_BPM
 
         var first = -1
         for (i in 0..t.size) {
@@ -272,12 +291,107 @@ object TelemetryCleaner {
                 if (first < 0) first = i
                 continue
             }
-            if (first >= 0 && t[i - 1] - t[first] >= CADENCE_LOCK_MIN_SECONDS) {
+            if (first >= 0 && t[i - 1] - t[first] >= CADENCE_LOCK_MIN_SECONDS && followsStepRate(t, heartRate, stepRate, first, i)) {
                 for (j in first until i) heartRate[j] = MISSING
             }
             // A sample that tracks step rate but follows a long pause starts the next stretch.
             first = if (i < t.size && tracksStepRate(i)) i else -1
         }
+    }
+
+    /**
+     * Whether heart rate over the stretch `[first, end)` follows step rate, so that the stretch is a lock and not
+     * a true heart rate that happens to sit at step rate (#52). It does when any of these holds:
+     * - at either end, the median heart rate over the [CADENCE_LOCK_JUMP_WINDOW_SECONDS] just outside the stretch
+     *   differs by at least [CADENCE_LOCK_JUMP_BPM] from the median over the same span just inside it: the sensor
+     *   locking on or letting go, abruptly or over a short ramp. Medians keep a brief glitch from counting;
+     * - step rate varies over the stretch (standard deviation at least [CADENCE_LOCK_MIN_STEP_RATE_SD]) and heart
+     *   rate correlates with it at least [CADENCE_LOCK_MIN_CORRELATION];
+     * - the stretch both starts and ends the heart rate recorded, so there is nothing either side to tell by.
+     *
+     * An end whose outside window has no heart rate for another reason (a recording pause, a dropout) cannot be
+     * judged and the other end decides. A steady heart rate that drifts into and out of a steady step rate passes
+     * none of these and is kept.
+     */
+    private fun followsStepRate(
+        t: IntArray,
+        heartRate: DoubleArray,
+        stepRate: DoubleArray,
+        first: Int,
+        end: Int,
+    ): Boolean {
+        val last = end - 1
+        val window = CADENCE_LOCK_JUMP_WINDOW_SECONDS
+        val insideStart = (first until end).takeWhile { t[it] - t[first] < window }
+        val insideEnd = (last downTo first).takeWhile { t[last] - t[it] < window }
+        val entry = endOfStretch(t, heartRate, insideStart, outside = (first - 1 downTo 0), from = first)
+        val exit = endOfStretch(t, heartRate, insideEnd, outside = (end until t.size), from = last)
+        if (entry == StretchEnd.JUMP || exit == StretchEnd.JUMP) return true
+        if (entry == StretchEnd.RECORDING_EDGE && exit == StretchEnd.RECORDING_EDGE) return true
+        return correlation(heartRate, stepRate, first, end)?.let { it >= CADENCE_LOCK_MIN_CORRELATION } ?: false
+    }
+
+    private enum class StretchEnd { JUMP, SMOOTH, UNKNOWN, RECORDING_EDGE }
+
+    /**
+     * Classifies one end of a stretch, [from] being its outermost sample, [inside] the stretch's samples within
+     * the window of it and [outside] the indices beyond it, nearest first.
+     */
+    private fun endOfStretch(
+        t: IntArray,
+        heartRate: DoubleArray,
+        inside: List<Int>,
+        outside: IntProgression,
+        from: Int,
+    ): StretchEnd {
+        if (outside.none { !heartRate[it].isNaN() }) return StretchEnd.RECORDING_EDGE
+        var previous = from
+        val near = mutableListOf<Double>()
+        for (i in outside) {
+            if (abs(t[i] - t[previous]) > CADENCE_LOCK_BREAK_GAP_SECONDS || abs(t[i] - t[from]) > CADENCE_LOCK_JUMP_WINDOW_SECONDS) break
+            if (!heartRate[i].isNaN()) near += heartRate[i]
+            previous = i
+        }
+        if (near.size < CADENCE_LOCK_JUMP_WINDOW_SECONDS / 4) return StretchEnd.UNKNOWN
+        val jump = abs(median(near) - median(inside.map { heartRate[it] }))
+        return if (jump >= CADENCE_LOCK_JUMP_BPM) StretchEnd.JUMP else StretchEnd.SMOOTH
+    }
+
+    private fun median(values: List<Double>): Double {
+        val sorted = values.sorted()
+        val mid = sorted.size / 2
+        return if (sorted.size % 2 == 1) sorted[mid] else (sorted[mid - 1] + sorted[mid]) / 2
+    }
+
+    /**
+     * Pearson correlation of heart rate with step rate over `[first, end)`, or null when step rate's standard
+     * deviation is below [CADENCE_LOCK_MIN_STEP_RATE_SD] (too steady to say) or heart rate does not vary at all.
+     */
+    private fun correlation(
+        heartRate: DoubleArray,
+        stepRate: DoubleArray,
+        first: Int,
+        end: Int,
+    ): Double? {
+        val n = end - first
+        var meanHr = 0.0
+        var meanSr = 0.0
+        for (i in first until end) {
+            meanHr += heartRate[i] / n
+            meanSr += stepRate[i] / n
+        }
+        var covariance = 0.0
+        var varianceHr = 0.0
+        var varianceSr = 0.0
+        for (i in first until end) {
+            val dHr = heartRate[i] - meanHr
+            val dSr = stepRate[i] - meanSr
+            covariance += dHr * dSr
+            varianceHr += dHr * dHr
+            varianceSr += dSr * dSr
+        }
+        if (sqrt(varianceSr / n) < CADENCE_LOCK_MIN_STEP_RATE_SD || varianceHr == 0.0) return null
+        return covariance / sqrt(varianceHr * varianceSr)
     }
 
     /**

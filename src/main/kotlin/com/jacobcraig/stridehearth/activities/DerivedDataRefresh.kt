@@ -33,8 +33,9 @@ import java.time.ZoneId
  * - 5: Training Load of every Activity (#35).
  * - 6: Activity conditions (#43): the device and Ambient Temperature and the Mean Altitude of every Activity.
  * - 7: VO2max Estimate of Runs (#42).
+ * - 8: Cadence-lock requires heart rate to follow cadence, so steady true heart rate at step rate is kept (#52).
  */
-const val DERIVED_DATA_VERSION: Short = 7
+const val DERIVED_DATA_VERSION: Short = 8
 
 /**
  * The derived-data module (ADR-0014): the only writer of `activity_derived_metrics`, which holds one row per
