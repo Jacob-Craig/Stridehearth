@@ -9,10 +9,14 @@ services:
     # Pinned to an exact image (ADR-0009): a floating tag combined with an auto-updater could apply a One-way Release
     # without anyone choosing to (ADR-0010). No Release has been tagged yet, so this pins the Edge Build by digest.
     # Once one exists, prefer a version: ghcr.io/jacob-craig/stridehearth:X.Y.Z
+    # Dependabot does not bump this pin; change it by hand when you choose to upgrade (docs/self-hosting.md).
     image: ghcr.io/jacob-craig/stridehearth@sha256:dab9a1ca49ae3e596046811bd46acba22dea49f0538890f7f201fdf2ef838a47
     restart: unless-stopped
     ports:
-      - '8080:8080'
+      # Plain HTTP, reachable only from this host. Put a TLS-terminating reverse proxy in front for remote access.
+      # Drop `127.0.0.1:` to expose it on every interface, e.g. on a trusted LAN. If you change SERVER_PORT, change
+      # the second number to match.
+      - '127.0.0.1:8080:8080'
     environment:
       # Required: the image holds no connection settings and refuses to start without these.
       SPRING_DATASOURCE_URL: 'jdbc:postgresql://postgres:5432/${POSTGRES_DB:-stridehearth}'
@@ -35,7 +39,9 @@ services:
 
   postgres:
     # Multi-architecture PostGIS build (amd64 and arm64); postgis/postgis publishes only amd64 (ADR-0009).
-    image: 'imresamu/postgis:18-3.6'
+    # Pinned by digest as well as tag, so `docker compose pull` never swaps the database under you. Dependabot
+    # proposes bumps; back up PostgreSQL before applying one (docs/self-hosting.md).
+    image: 'imresamu/postgis:18-3.6@sha256:b5766ee720aca09c61b9a868abefbf273348a4b90ad4cf146b4f8c9ac85d48e4'
     restart: unless-stopped
     environment:
       POSTGRES_DB: '${POSTGRES_DB:-stridehearth}'
@@ -50,7 +56,7 @@ services:
       retries: 5
 
   redis:
-    image: 'redis:8'
+    image: 'redis:8@sha256:ca1cb6df9313d0186b68f19b60fc2802e0c76e8542b2c05650b560e7bbb3cc8f'
     restart: unless-stopped
     volumes:
       - 'redis-data:/data'

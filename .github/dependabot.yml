@@ -45,9 +45,14 @@ updates:
     cooldown:
       default-days: 7
 
-  # Images in docker-compose.yml (local development databases).
+  # Images in docker-compose.yml (local development databases) and deploy/compose.yaml (the sample Server).
+  # The sample's Stridehearth image is pinned by digest on purpose and bumped by hand, so it is ignored here.
   - package-ecosystem: docker-compose
-    directory: /
+    directories:
+      - /
+      - /deploy
+    ignore:
+      - dependency-name: ghcr.io/jacob-craig/stridehearth
     schedule:
       interval: weekly
     cooldown:
