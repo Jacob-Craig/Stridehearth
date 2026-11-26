@@ -12,6 +12,7 @@ import type {
   UserResponseDto,
 } from '../src/api/generated/types.gen';
 import { raceSplitPlanQueryKey } from '../src/api/raceSplitPlan';
+import { PlanControls } from '../src/features/race-split-plan/RaceSplitPlanPage';
 import { createAppRouter } from '../src/router';
 import { elevationProfileCharts } from './support/fakeElevationProfileChart';
 
@@ -165,7 +166,7 @@ function renderPlan() {
     { queryClient, auth: { user: runner, isLoading: false } },
     history,
   );
-  render(
+  return render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
@@ -345,6 +346,19 @@ describe('/activities/$activityId/split-plan', () => {
     expect(elevationProfileCharts.all).toHaveLength(1);
   });
 
+  it('asks for no plan when the page is left while the slider is settling', async () => {
+    const api = stubApi();
+    const { unmount } = renderPlan();
+    await splitsTable();
+
+    fireEvent.change(screen.getByRole('slider', { name: /Split Bias/ }), {
+      target: { value: '2' },
+    });
+    unmount();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(api.plans().map((plan) => plan.biasPct)).toEqual(['0']);
+  });
+
   it('copies the splits to the clipboard as tab-separated text', async () => {
     stubApi();
     renderPlan();
@@ -427,5 +441,18 @@ describe('Race Split Plan query', () => {
     expect(raceSplitPlanQueryKey(8, 42, request)).not.toEqual(
       raceSplitPlanQueryKey(7, 42, request),
     );
+  });
+});
+
+describe('Race Split Plan controls', () => {
+  it('moves the Split Bias slider when the plan request changes it from outside', () => {
+    const props = { onChange: vi.fn(), suggestion: null, suggestionLabel: null };
+    const { rerender } = render(
+      <PlanControls request={{ goalSeconds: 6300, unit: 'KM', biasPct: 0 }} {...props} />,
+    );
+    rerender(<PlanControls request={{ goalSeconds: 6300, unit: 'KM', biasPct: 3 }} {...props} />);
+
+    expect(screen.getByRole('slider', { name: /Split Bias/ })).toHaveValue('3');
+    expect(props.onChange).not.toHaveBeenCalled();
   });
 });

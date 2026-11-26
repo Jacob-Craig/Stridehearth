@@ -254,6 +254,10 @@ describe('Race Prognosis card', () => {
     const section = await card();
     expect(await within(section).findByText(/No recent qualifying runs/)).toBeInTheDocument();
     expect(within(section).queryByText(/Record steady runs with heart rate/)).toBeNull();
+    expect(within(section).getByRole('link', { name: 'Settings' })).toHaveAttribute(
+      'href',
+      '/settings',
+    );
     expect(within(section).queryByRole('list', { name: 'Predicted finish times' })).toBeNull();
     await waitFor(() => expect(prognosisCharts.live()).toHaveLength(1));
     // With no today in the data, the latest day is read out by its date, not as "Today".

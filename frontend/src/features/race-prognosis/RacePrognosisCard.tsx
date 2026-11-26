@@ -83,7 +83,14 @@ function NoRecentRuns({ lastDay }: { lastDay: string }) {
   return (
     <p className="py-2 text-sm text-slate-500 dark:text-slate-400">
       No recent qualifying runs: your last prognosis was on {formatDate(lastDay)}. Record a steady
-      run with heart rate to update it.
+      run with heart rate, with your max and resting heart rate set in{' '}
+      <Link
+        to="/settings"
+        className="font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+      >
+        Settings
+      </Link>
+      , to update it.
     </p>
   );
 }
