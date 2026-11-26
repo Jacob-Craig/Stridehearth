@@ -283,7 +283,8 @@ class FitnessRollup(
         }
     }
 
-    private fun firstEstimateDay(
+    /** [userId]'s first local day in [zone] with a VO2max Estimate, including a Run dated after today; null without one. */
+    fun firstEstimateDay(
         userId: Long,
         zone: ZoneId,
     ): LocalDate? =

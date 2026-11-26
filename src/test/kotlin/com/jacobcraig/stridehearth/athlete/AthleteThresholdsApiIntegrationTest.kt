@@ -341,6 +341,28 @@ class AthleteThresholdsApiIntegrationTest {
     }
 
     @Test
+    fun `a dismissal that commits after the dismissed-row check is not undone by the upsert`() {
+        // propose() checks for a DISMISSED row, then upserts. A dismiss committing in between must survive:
+        // the upsert itself refuses to reopen a dismissal for a value within 3 percent.
+        val proposal = thresholdProposals.propose(runner.id!!, ThresholdKind.LTHR, 160.0, LocalDate.parse("2024-03-01"), "CS_FIT")!!
+        mockMvc.perform(post("/api/athlete/thresholds/proposals/${proposal.id}/dismiss").with(csrf())).andExpect(status().isNoContent)
+
+        assertNull(thresholdProposals.upsertPending(runner.id!!, ThresholdKind.LTHR, 161.0, LocalDate.parse("2024-04-01"), "CS_FIT"))
+        assertEquals(0, thresholdProposals.pending(runner.id!!).size)
+        assertEquals(
+            "DISMISSED",
+            jdbcClient
+                .sql("SELECT status FROM athlete_threshold_proposal WHERE id = :id")
+                .param("id", proposal.id)
+                .query(String::class.java)
+                .single(),
+        )
+
+        thresholdProposals.upsertPending(runner.id!!, ThresholdKind.LTHR, 170.0, LocalDate.parse("2024-04-01"), "CS_FIT")
+        assertEquals(1, thresholdProposals.pending(runner.id!!).size)
+    }
+
+    @Test
     fun `a proposal the athlete could not accept is skipped rather than thrown into the proposer's transaction`() {
         // Out of range (a degenerate fit), not a number, or dated after tomorrow (UTC): record() would refuse each.
         val tooLate = LocalDate.now(clock.withZone(ZoneOffset.UTC)).plusDays(2)

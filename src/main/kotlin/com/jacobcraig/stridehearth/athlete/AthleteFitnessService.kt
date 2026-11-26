@@ -51,14 +51,19 @@ class AthleteFitnessService(
         today: LocalDate,
     ): FitnessSeries {
         val stored = fitnessRollup.findStoredRange(userId)
-        if (stored == null || stored.start > today) return FitnessSeries(today, null, emptyList(), emptyList())
-        val start = maxOf(from ?: stored.start, stored.start)
+        // No rows are stored when every estimate was dated after the rollup's today (a device clock ahead): the
+        // series then starts at the first estimate once that day has arrived, as PmcService does.
+        val first = stored?.start ?: fitnessRollup.firstEstimateDay(userId, fitnessRollup.zoneOf(userId))
+        if (first == null || first > today) return FitnessSeries(today, null, emptyList(), emptyList())
+        val lastStored = stored?.endInclusive ?: first.minusDays(1)
+        val start = maxOf(from ?: first, first)
         val end = minOf(to ?: today, today)
-        val continued = continuation(userId, stored.endInclusive, maxOf(end, today))
-        val current = if (today <= stored.endInclusive) fitnessRollup.findDays(userId, today, today).single() else continued.getValue(today)
+        val continued = continuation(userId, lastStored, maxOf(end, today))
+        val current = if (today <= lastStored) fitnessRollup.findDays(userId, today, today).single() else continued.getValue(today)
         if (start > end) return FitnessSeries(today, current, emptyList(), emptyList())
 
-        val days = fitnessRollup.findDays(userId, start, minOf(end, stored.endInclusive)) + continued.values.filter { it.day in start..end }
+        val storedDays = if (start <= minOf(end, lastStored)) fitnessRollup.findDays(userId, start, minOf(end, lastStored)) else emptyList()
+        val days = storedDays + continued.values.filter { it.day in start..end }
         val correctionOn = days.associate { it.day to it.correctionFactor }
         val runs =
             fitnessRollup
@@ -78,7 +83,11 @@ class AthleteFitnessService(
         day: LocalDate,
     ): Double? = fitnessRollup.findDays(userId, day, day).singleOrNull()?.correctionFactor
 
-    /** The days after [lastStored] up to [until], computed from the inputs before them; empty when there are none. */
+    /**
+     * The days after [lastStored] up to [until], computed from the inputs up to [until]; empty when there are none.
+     * The inputs reach past [lastStored] because Runs dated after the rollup's today are stored without rows (#64);
+     * each day still reads only the inputs on or before it.
+     */
     private fun continuation(
         userId: Long,
         lastStored: LocalDate,
@@ -88,11 +97,11 @@ class AthleteFitnessService(
         if (first > until) return emptyMap()
         val zone = fitnessRollup.zoneOf(userId)
         val readFrom = first.minusDays(EffectiveVo2maxCalculator.LOOKBACK_DAYS)
-        val history = fitnessRollup.marathonHistory(userId, zone, first, lastStored)
+        val history = fitnessRollup.marathonHistory(userId, zone, first, until)
         return EffectiveVo2maxCalculator
             .series(
-                fitnessRollup.findRuns(userId, zone, readFrom, lastStored),
-                fitnessRollup.findCandidates(userId, zone, readFrom, lastStored),
+                fitnessRollup.findRuns(userId, zone, readFrom, until),
+                fitnessRollup.findCandidates(userId, zone, readFrom, until),
                 first,
                 until,
             ).map(history::withShape)

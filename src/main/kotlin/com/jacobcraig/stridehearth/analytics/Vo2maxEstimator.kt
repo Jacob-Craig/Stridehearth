@@ -6,6 +6,9 @@ import io.swagger.v3.oas.annotations.media.Schema
 /** Why a Run has no **VO2max Estimate**, in the order the reasons are checked. */
 @Schema(enumAsRef = true)
 enum class Vo2maxUnavailableReason {
+    /** The Run has no Activity Details to estimate from, such as a manual Run. */
+    NO_ACTIVITY_DETAILS,
+
     /** No Grade-Adjusted Pace, or no Moving Time. */
     NO_PACE_DATA,
 

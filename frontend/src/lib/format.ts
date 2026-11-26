@@ -99,6 +99,7 @@ export function formatDecouplingUnavailableReason(reason: DecouplingUnavailableR
 export type Vo2maxUnavailableReason = NonNullable<RunMetricsDto['vo2maxUnavailableReason']>;
 
 const VO2MAX_UNAVAILABLE_LABELS: Readonly<Record<Vo2maxUnavailableReason, string>> = {
+  NO_ACTIVITY_DETAILS: 'No recorded data',
   NO_PACE_DATA: 'No pace data',
   NO_HEART_RATE_THRESHOLDS: 'Set your Max and Resting HR',
   NO_HEART_RATE: 'No heart rate',

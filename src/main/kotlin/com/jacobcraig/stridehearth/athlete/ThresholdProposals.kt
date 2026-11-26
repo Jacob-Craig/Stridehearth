@@ -61,13 +61,31 @@ class ThresholdProposals(
                 .optional()
                 .orElse(null)
         if (dismissed != null && sameValue(value, dismissed)) return null
-        return jdbcClient
+        return upsertPending(userId, kind, value, effectiveDate, source)
+    }
+
+    /**
+     * Makes [value] [source]'s pending proposal for [userId]'s [kind], unless the athlete has dismissed one within
+     * [SAME_VALUE_TOLERANCE] of it: then it returns null and the dismissal stays. [propose] checks the same before it
+     * gets here, but a dismiss can commit in between, so the upsert repeats the check itself (#62).
+     */
+    internal fun upsertPending(
+        userId: Long,
+        kind: ThresholdKind,
+        value: Double,
+        effectiveDate: LocalDate,
+        source: String,
+    ): ThresholdProposal? =
+        jdbcClient
             .sql(
                 """
                 INSERT INTO athlete_threshold_proposal (user_id, kind, value, effective_date, source, status)
                 VALUES (:userId, :kind, :value, :effectiveDate, :source, 'PENDING')
                 ON CONFLICT (user_id, kind, source) DO UPDATE
                 SET value = EXCLUDED.value, effective_date = EXCLUDED.effective_date, status = 'PENDING', created_at = now()
+                WHERE athlete_threshold_proposal.status <> 'DISMISSED'
+                   OR abs(EXCLUDED.value - athlete_threshold_proposal.value)
+                      > :tolerance * abs(athlete_threshold_proposal.value)
                 RETURNING id, kind, value, effective_date, source
                 """.trimIndent(),
             ).param("userId", userId)
@@ -75,9 +93,10 @@ class ThresholdProposals(
             .param("value", value)
             .param("effectiveDate", effectiveDate)
             .param("source", source)
+            .param("tolerance", SAME_VALUE_TOLERANCE)
             .query { rs, _ -> rs.toProposal() }
-            .single()
-    }
+            .optional()
+            .orElse(null)
 
     /**
      * Withdraws [source]'s pending proposal for [userId]'s [kind], if there is one, because it no longer suggests a

@@ -3282,6 +3282,7 @@ export const TrainingLoadUnavailableReasonSchema = {
 export const Vo2maxUnavailableReasonSchema = {
     type: 'string',
     enum: [
+        'NO_ACTIVITY_DETAILS',
         'NO_PACE_DATA',
         'NO_HEART_RATE_THRESHOLDS',
         'NO_HEART_RATE',

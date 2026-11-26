@@ -188,6 +188,36 @@ class FitnessRollupIntegrationTest {
     }
 
     @Test
+    fun `a Run without Activity Details stores why it has no estimate, and a Ride without them stores none`() {
+        heartRateThresholds()
+        listOf(ActivitySport.RUN, ActivitySport.RIDE).forEach { sport ->
+            activityImportService.importParsed(
+                listOf(
+                    parsedActivity(
+                        sport = sport,
+                        title = "Manual $sport",
+                        startedAt = march(10).atTime(8, 0).toInstant(ZoneOffset.UTC),
+                        distance = 9.6,
+                        timeTakenSeconds = 2400,
+                        externalId = "vo2max-manual-$sport",
+                    ),
+                ),
+                runner.id!!,
+            )
+        }
+        val run = activityRepository.findByUserIdAndSourceAndExternalId(runner.id!!, ActivitySource.FIT_UPLOAD, "vo2max-manual-RUN")!!
+        val ride = activityRepository.findByUserIdAndSourceAndExternalId(runner.id!!, ActivitySource.FIT_UPLOAD, "vo2max-manual-RIDE")!!
+
+        assertEquals(Vo2maxResult.Unavailable(Vo2maxUnavailableReason.NO_ACTIVITY_DETAILS), derivedMetricsRepository.findVo2max(run.id!!))
+        assertNull(derivedMetricsRepository.findVo2max(ride.id!!))
+        // The Threshold-dependent recompute path writes the same reason.
+        athleteThresholds.record(runner.id!!, ThresholdKind.RESTING_HR, LocalDate.parse("2026-01-01"), 52.0)
+        drain()
+        assertEquals(Vo2maxResult.Unavailable(Vo2maxUnavailableReason.NO_ACTIVITY_DETAILS), derivedMetricsRepository.findVo2max(run.id!!))
+        assertEquals(emptyList(), days())
+    }
+
+    @Test
     fun `the 30-day mean weights each run by its Moving Time and drops a run after 30 days`() {
         heartRateThresholds()
         import(march(1))
