@@ -4,6 +4,9 @@ import com.jacobcraig.stridehearth.analytics.BenchmarkDuration
 import com.jacobcraig.stridehearth.analytics.CriticalSpeedFit
 import com.jacobcraig.stridehearth.analytics.CriticalSpeedFitter
 import com.jacobcraig.stridehearth.analytics.PeakEffortMetric
+import org.springframework.context.event.EventListener
+import org.springframework.core.Ordered
+import org.springframework.core.annotation.Order
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Component
 import java.time.Clock
@@ -95,11 +98,12 @@ object CriticalSpeedWindow {
  * Effort in the window. Days are athlete-local, in the **Athlete Time Zone**.
  *
  * A Peak Effort affects only the models of the 90 days from its own, so a change refits just those days. After a
- * refit that reaches the athlete's current model (their latest dated on or before their today) or a later day, a
+ * refit that reaches the athlete's current model (their latest dated on or before their today, and no more than
+ * [CriticalSpeedFitter.WINDOW_DAYS] - 1 days before it) or a later day, and whenever the matching Threshold changes, a
  * published current model that differs from the Threshold in force on its day by more than
  * [ThresholdProposals.SAME_VALUE_TOLERANCE] (relative to the Threshold, as a speed for pace) becomes a **Threshold
- * Proposal**; one that agrees, or a current model that is missing or unpublished, withdraws the pending one. It never
- * records a Threshold itself.
+ * Proposal**; one that agrees, or a current model that is missing, unpublished or stale, withdraws the pending one. It
+ * never records a Threshold itself.
  *
  * Its caller serialises it per athlete ([AthleteRollups], ADR-0016); it takes no lock of its own.
  */
@@ -135,12 +139,23 @@ class CriticalSpeedRollup(
     }
 
     /**
-     * For each metric, when a refit range ended on or after its current model's day (the latest model dated on or
-     * before [today], so a future-dated Run never hides it) or there is no current model, re-decides the proposal:
-     * a published current model's critical value is proposed as the matching Threshold unless the Threshold in force
-     * on the model's day already agrees with it, which withdraws the pending proposal, as does a current model that
-     * is missing or unpublished. [rangeEnds] holds each refit range's last day, null for a full refit. A refit that
-     * ends before the current model's day changes nothing it depends on.
+     * Re-decides [userId]'s proposal of the Threshold [event] changed, from the stored current model, so recording or
+     * accepting a Threshold the model now disagrees with proposes it without waiting for a Run (#85). It runs after
+     * [RecomputeRequestListener] has taken the exclusive scoring lock, so it never holds a proposal row while waiting for
+     * that lock (ADR-0016).
+     */
+    @EventListener
+    @Order(Ordered.LOWEST_PRECEDENCE)
+    fun onThresholdsChanged(event: ThresholdsChanged) {
+        val metric = PROPOSED_KINDS.firstOrNull { it.second == event.kind }?.first ?: return
+        val today = LocalDate.now(clock.withZone(zoneOf(event.userId)))
+        decide(event.userId, event.kind, current(event.userId, metric, today), athleteThresholds.history(event.userId))
+    }
+
+    /**
+     * For each metric, when a refit range ended on or after its current model's day or there is no current model,
+     * re-decides the proposal ([decide]). [rangeEnds] holds each refit range's last day, null for a full refit. A refit
+     * that ends before the current model's day changes nothing it depends on.
      */
     private fun proposeThresholds(
         userId: Long,
@@ -149,17 +164,46 @@ class CriticalSpeedRollup(
     ) {
         val history by lazy { athleteThresholds.history(userId) }
         for ((metric, kind) in PROPOSED_KINDS) {
-            val current = repository.findLatest(userId, metric, onOrBefore = today)
+            val current = current(userId, metric, today)
             if (current != null && rangeEnds.none { it == null || it >= current.modelDate }) continue
-            val value = current?.fit?.criticalValue
-            val inForce = current?.let { history.valueOf(kind, it.modelDate) }
-            if (current == null || value == null || (inForce != null && ThresholdProposals.sameValue(value, inForce))) {
-                thresholdProposals.withdraw(userId, kind, PROPOSAL_SOURCE)
-            } else {
-                // A value the athlete could not accept stores nothing; the stale proposal must not outlive it.
-                thresholdProposals.propose(userId, kind, value, current.modelDate, PROPOSAL_SOURCE)
-                    ?: thresholdProposals.withdraw(userId, kind, PROPOSAL_SOURCE)
-            }
+            decide(userId, kind, current, history)
+        }
+    }
+
+    /**
+     * [userId]'s current [metric] model: the latest dated on or before [today], so a future-dated Run never hides it,
+     * and only while its window still overlaps today's ([CriticalSpeedFitter.WINDOW_DAYS] days ending [today]). Power
+     * models are stored only on days with a power Peak Effort in the window, so after the athlete stops recording power
+     * (or running) an older one would otherwise stay current indefinitely (#85).
+     */
+    private fun current(
+        userId: Long,
+        metric: PeakEffortMetric,
+        today: LocalDate,
+    ): StoredCriticalSpeedModel? =
+        repository
+            .findLatest(userId, metric, onOrBefore = today)
+            ?.takeIf { it.modelDate >= today.minusDays(CriticalSpeedFitter.WINDOW_DAYS - 1L) }
+
+    /**
+     * A published [current] model's critical value is proposed as [kind] unless the Threshold in force on the model's
+     * day already agrees with it, which withdraws the pending proposal, as does a current model that is missing or
+     * unpublished.
+     */
+    private fun decide(
+        userId: Long,
+        kind: ThresholdKind,
+        current: StoredCriticalSpeedModel?,
+        history: ThresholdHistory,
+    ) {
+        val value = current?.fit?.criticalValue
+        val inForce = current?.let { history.valueOf(kind, it.modelDate) }
+        if (current == null || value == null || (inForce != null && ThresholdProposals.sameValue(value, inForce))) {
+            thresholdProposals.withdraw(userId, kind, PROPOSAL_SOURCE)
+        } else {
+            // A value the athlete could not accept stores nothing; the stale proposal must not outlive it.
+            thresholdProposals.propose(userId, kind, value, current.modelDate, PROPOSAL_SOURCE)
+                ?: thresholdProposals.withdraw(userId, kind, PROPOSAL_SOURCE)
         }
     }
 

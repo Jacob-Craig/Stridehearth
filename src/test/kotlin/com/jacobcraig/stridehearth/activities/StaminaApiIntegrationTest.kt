@@ -1,9 +1,12 @@
 package com.jacobcraig.stridehearth.activities
 
 import com.jacobcraig.stridehearth.TestcontainersConfiguration
+import com.jacobcraig.stridehearth.analytics.BenchmarkDuration
 import com.jacobcraig.stridehearth.analytics.CriticalSpeedFit
 import com.jacobcraig.stridehearth.analytics.CriticalSpeedStatus
+import com.jacobcraig.stridehearth.analytics.PeakEffort
 import com.jacobcraig.stridehearth.analytics.PeakEffortMetric
+import com.jacobcraig.stridehearth.athlete.AthleteAnalyticsStateRepository
 import com.jacobcraig.stridehearth.athlete.CriticalSpeedModelRepository
 import com.jacobcraig.stridehearth.athlete.StoredCriticalSpeedModel
 import com.jacobcraig.stridehearth.system.ActivitySport
@@ -56,6 +59,12 @@ class StaminaApiIntegrationTest {
 
     @Autowired
     private lateinit var modelRepository: CriticalSpeedModelRepository
+
+    @Autowired
+    private lateinit var peakEffortRepository: ActivityPeakEffortRepository
+
+    @Autowired
+    private lateinit var stateRepository: AthleteAnalyticsStateRepository
 
     @Autowired
     private lateinit var userRepository: UserRepository
@@ -211,5 +220,27 @@ class StaminaApiIntegrationTest {
             .perform(get("/api/activities/{id}", foreign.id))
             .andExpect(status().isNotFound)
             .andExpect(jsonPath("$.minStaminaPct").doesNotExist())
+    }
+
+    @Test
+    fun `after a time-zone change and before the rebuild, Stamina uses a live fit for the new zone`() {
+        // 23:00 UTC on 1 January is 12:00 on 2 January in Auckland (UTC+13).
+        val run = activity(startedAt = Instant.parse("2026-01-01T23:00:00Z"))
+        // The Run's own Peak Efforts follow v = 4 + 200 / t: a live fit gives CS 4 m/s and D' 200 m, so a 25 % low.
+        peakEffortRepository.replace(
+            run.id!!,
+            BenchmarkDuration.entries
+                .filter { it.seconds in 120..1200 }
+                .map { PeakEffort(PeakEffortMetric.GAP_SPEED, it, 4.0 + 200.0 / it.seconds, 0, it.seconds, 0.0, it.seconds.toDouble()) },
+        )
+        // A row dated 2 January left from the old zone (another Run that day, since moved): CS 4.5 m/s, D' 300 m, 75 %.
+        storeModels(runner, model(runDay.plusDays(1), 4.5, 300.0))
+        runner.timeZone = "Pacific/Auckland"
+        userRepository.save(runner)
+        // What the time-zone listener does: the worker has not rebuilt the stored models yet.
+        stateRepository.markRollupsStale(runner.id!!)
+
+        detail(run).andExpect(jsonPath("$.minStaminaPct").value(25.0))
+        telemetry(run).andExpect(jsonPath("$.derivedStreams.staminaPct[150]").value(25.0))
     }
 }
