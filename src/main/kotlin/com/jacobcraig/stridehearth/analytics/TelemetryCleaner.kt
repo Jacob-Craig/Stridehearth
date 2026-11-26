@@ -46,16 +46,17 @@ object TelemetryCleaner {
     const val CADENCE_LOCK_BREAK_GAP_SECONDS = 10
 
     /**
-     * A change in heart rate of at least this many beats per minute within [CADENCE_LOCK_JUMP_WINDOW_SECONDS]
-     * of a stretch's start or end is the sensor locking onto, or letting go of, step rate.
+     * A difference of at least this many beats per minute between the median heart rate in the
+     * [CADENCE_LOCK_JUMP_WINDOW_SECONDS] just outside a stretch and the same span just inside it is the sensor
+     * locking onto, or letting go of, step rate.
      */
     const val CADENCE_LOCK_JUMP_BPM = 10
 
-    /** How far either side of a stretch tracking step rate heart rate is examined for a jump. */
-    const val CADENCE_LOCK_JUMP_WINDOW_SECONDS = 5
+    /** How far either side of each end of a stretch tracking step rate heart rate is compared for a jump. */
+    const val CADENCE_LOCK_JUMP_WINDOW_SECONDS = 20
 
     /** Step rate must vary by at least this standard deviation over a stretch for a correlation to mean anything. */
-    const val CADENCE_LOCK_MIN_STEP_RATE_SD = 2.0
+    const val CADENCE_LOCK_MIN_STEP_RATE_SD = 1.0
 
     /** Heart rate correlating with step rate at least this strongly over a stretch is following it. */
     const val CADENCE_LOCK_MIN_CORRELATION = 0.6
@@ -301,13 +302,16 @@ object TelemetryCleaner {
     /**
      * Whether heart rate over the stretch `[first, end)` follows step rate, so that the stretch is a lock and not
      * a true heart rate that happens to sit at step rate (#52). It does when any of these holds:
-     * - heart rate jumps by at least [CADENCE_LOCK_JUMP_BPM] within [CADENCE_LOCK_JUMP_WINDOW_SECONDS] of either
-     *   end of the stretch: the sensor locking on or letting go;
+     * - at either end, the median heart rate over the [CADENCE_LOCK_JUMP_WINDOW_SECONDS] just outside the stretch
+     *   differs by at least [CADENCE_LOCK_JUMP_BPM] from the median over the same span just inside it: the sensor
+     *   locking on or letting go, abruptly or over a short ramp. Medians keep a brief glitch from counting;
      * - step rate varies over the stretch (standard deviation at least [CADENCE_LOCK_MIN_STEP_RATE_SD]) and heart
      *   rate correlates with it at least [CADENCE_LOCK_MIN_CORRELATION];
-     * - there is no heart rate within the window on either side to tell, as when a lock spans the whole recording.
+     * - the stretch both starts and ends the heart rate recorded, so there is nothing either side to tell by.
      *
-     * A steady heart rate that drifts into and out of a steady step rate passes none of these and is kept.
+     * An end whose outside window has no heart rate for another reason (a recording pause, a dropout) cannot be
+     * judged and the other end decides. A steady heart rate that drifts into and out of a steady step rate passes
+     * none of these and is kept.
      */
     private fun followsStepRate(
         t: IntArray,
@@ -317,14 +321,46 @@ object TelemetryCleaner {
         end: Int,
     ): Boolean {
         val last = end - 1
-        val before = (first - 1 downTo 0).takeWhile { t[first] - t[it] <= CADENCE_LOCK_JUMP_WINDOW_SECONDS }
-        val after = (end until t.size).takeWhile { t[it] - t[last] <= CADENCE_LOCK_JUMP_WINDOW_SECONDS }
-        val entry = before.map { heartRate[it] }.filterNot { it.isNaN() }
-        val exit = after.map { heartRate[it] }.filterNot { it.isNaN() }
-        if (entry.isEmpty() && exit.isEmpty()) return true
-        if (entry.any { abs(it - heartRate[first]) >= CADENCE_LOCK_JUMP_BPM }) return true
-        if (exit.any { abs(it - heartRate[last]) >= CADENCE_LOCK_JUMP_BPM }) return true
+        val window = CADENCE_LOCK_JUMP_WINDOW_SECONDS
+        val insideStart = (first until end).takeWhile { t[it] - t[first] < window }
+        val insideEnd = (last downTo first).takeWhile { t[last] - t[it] < window }
+        val entry = endOfStretch(t, heartRate, insideStart, outside = (first - 1 downTo 0), from = first)
+        val exit = endOfStretch(t, heartRate, insideEnd, outside = (end until t.size), from = last)
+        if (entry == StretchEnd.JUMP || exit == StretchEnd.JUMP) return true
+        if (entry == StretchEnd.RECORDING_EDGE && exit == StretchEnd.RECORDING_EDGE) return true
         return correlation(heartRate, stepRate, first, end)?.let { it >= CADENCE_LOCK_MIN_CORRELATION } ?: false
+    }
+
+    private enum class StretchEnd { JUMP, SMOOTH, UNKNOWN, RECORDING_EDGE }
+
+    /**
+     * Classifies one end of a stretch, [from] being its outermost sample, [inside] the stretch's samples within
+     * the window of it and [outside] the indices beyond it, nearest first.
+     */
+    private fun endOfStretch(
+        t: IntArray,
+        heartRate: DoubleArray,
+        inside: List<Int>,
+        outside: IntProgression,
+        from: Int,
+    ): StretchEnd {
+        if (outside.none { !heartRate[it].isNaN() }) return StretchEnd.RECORDING_EDGE
+        var previous = from
+        val near = mutableListOf<Double>()
+        for (i in outside) {
+            if (abs(t[i] - t[previous]) > CADENCE_LOCK_BREAK_GAP_SECONDS || abs(t[i] - t[from]) > CADENCE_LOCK_JUMP_WINDOW_SECONDS) break
+            if (!heartRate[i].isNaN()) near += heartRate[i]
+            previous = i
+        }
+        if (near.size < CADENCE_LOCK_JUMP_WINDOW_SECONDS / 4) return StretchEnd.UNKNOWN
+        val jump = abs(median(near) - median(inside.map { heartRate[it] }))
+        return if (jump >= CADENCE_LOCK_JUMP_BPM) StretchEnd.JUMP else StretchEnd.SMOOTH
+    }
+
+    private fun median(values: List<Double>): Double {
+        val sorted = values.sorted()
+        val mid = sorted.size / 2
+        return if (sorted.size % 2 == 1) sorted[mid] else (sorted[mid - 1] + sorted[mid]) / 2
     }
 
     /**

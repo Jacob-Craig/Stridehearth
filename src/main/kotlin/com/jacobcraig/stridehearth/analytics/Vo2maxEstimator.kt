@@ -65,7 +65,7 @@ sealed interface Vo2maxResult {
  * as Daniels' tables makes the estimate a VDOT.
  *
  * The first failing check of [Vo2maxUnavailableReason], in order, is the reason there is none. Cleaned heart rate is
- * read like the Efficiency Factor's, so it shares its known bias (#52). No Spring and no I/O.
+ * read like the Efficiency Factor's, through Telemetry Cleaning's cadence-lock rule (ADR-0013). No Spring and no I/O.
  */
 object Vo2maxEstimator {
     const val MIN_MOVING_SECONDS = 1200

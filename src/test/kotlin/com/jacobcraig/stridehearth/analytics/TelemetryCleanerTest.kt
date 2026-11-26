@@ -545,6 +545,72 @@ class TelemetryCleanerTest {
         }
 
         @Test
+        fun `heart rate that ramps up and then sits on step rate to the end is cadence-lock`() {
+            // 130 bpm for 5 minutes, a 40 s ramp to 170, then the sensor reports step rate (cadence 85 +/- 1,
+            // changing every 20 s) for 10 minutes until the recording ends.
+            val n = 300 + 40 + 600
+            val wobbly: Array<Short?> = Array(n) { (85 + listOf(-1, 0, 1, 0)[(it / 20) % 4]).toShort() }
+            val flat: Array<Short?> = Array(n) { 85 }
+            for (cadence in listOf(wobbly, flat)) {
+                val heartRate: Array<Short?> =
+                    Array(n) {
+                        when {
+                            it < 300 -> 130
+                            it < 340 -> (130 + (it - 300)).toShort()
+                            else -> (2 * cadence[it]!!).toShort()
+                        }
+                    }
+                val details =
+                    outdoor(n, speed = steadySpeed(n), distance = steadyDistance(n), heartRate = heartRate, cadence = cadence)
+
+                val cleaned = TelemetryCleaner.clean(details, ActivitySport.RUN)
+
+                for (i in 340 until n) assertNull(cleaned.heartRate[i], "heartRate[$i]")
+                assertEquals(130.toShort(), cleaned.heartRate[299])
+            }
+        }
+
+        @Test
+        fun `a two-second heart-rate glitch beside a steady stretch at step rate does not make it cadence-lock`() {
+            // True heart rate drifts up into a steady step rate of 170, with a 2 s dropout to 120 just before it.
+            val n = 900
+            val heartRate: Array<Short?> = Array(n) { if (it < 300) (150 + 20 * it / 300).toShort() else 170 }
+            heartRate[284] = 120
+            heartRate[285] = 120
+            val details =
+                outdoor(n, speed = steadySpeed(n), distance = steadyDistance(n), heartRate = heartRate, cadence = Array(n) { 85 })
+
+            val cleaned = TelemetryCleaner.clean(details, ActivitySport.RUN)
+
+            for (i in 290 until n) assertEquals(heartRate[i], cleaned.heartRate[i], "heartRate[$i]")
+        }
+
+        @Test
+        fun `a steady stretch at step rate after a timer pause is judged by its other end, not discarded`() {
+            // 300 s at 160, a 30 s timer pause, then a steady 170 at step rate 170 that drifts out to 180.
+            val n = 900
+            val t = IntArray(n) { if (it < 300) it else it + 30 }
+            val heartRate: Array<Short?> =
+                Array(n) {
+                    when {
+                        it < 300 -> 160
+                        it < 700 -> 170
+                        else -> (170 + 10 * (it - 700) / 200).toShort()
+                    }
+                }
+            // And a second recording that ends while still at step rate: neither end can be judged.
+            val endsAtStepRate = heartRate.copyOf(750)
+            for (details in listOf(
+                outdoor(n, t = t, heartRate = heartRate, cadence = Array(n) { 85 }),
+                outdoor(750, t = t.copyOf(750), heartRate = endsAtStepRate, cadence = Array(750) { 85 }),
+            )) {
+                val cleaned = TelemetryCleaner.clean(details, ActivitySport.RUN)
+
+                assertContentEquals(details.heartRate, cleaned.heartRate)
+            }
+        }
+
+        @Test
         fun `a missing cadence sample or a recording gap over 10 s ends a cadence match`() {
             val n = 100
             // Heart rate 170 against step rate 170 throughout, but cadence drops out at t=50:
