@@ -15,6 +15,7 @@ import { type MountedRenderer, useLazyRenderer } from '../telemetry/useLazyRende
 import type { ElevationProfileHandle } from './elevationProfileChart';
 import {
   BIAS_STEP_PCT,
+  type ElevationProfileData,
   elevationProfileData,
   formatGoalTime,
   formatGrade,
@@ -102,7 +103,7 @@ export function RaceSplitPlanPage({ userId, activity }: RaceSplitPlanPageProps) 
         <p className="text-slate-500 dark:text-slate-400">Loading…</p>
       ) : plan.status === 'error' ? (
         <ErrorAlert>
-          This Race Split Plan could not be made. {parseApiError(plan.error).generalError}
+          This Race Split Plan could not be made. {planErrorReason(plan.error)}
         </ErrorAlert>
       ) : (
         <>
@@ -117,6 +118,16 @@ export function RaceSplitPlanPage({ userId, activity }: RaceSplitPlanPageProps) 
     </div>
   );
 }
+
+/** The server's own reasons (such as an Activity with no route) rather than a bare "Validation failed". */
+function planErrorReason(error: unknown): string {
+  const { generalError, fieldErrors } = parseApiError(error);
+  const reasons = Object.values(fieldErrors);
+  return reasons.length > 0 ? reasons.join(' ') : generalError;
+}
+
+/** How long the Split Bias slider rests before the plan is asked for, so a drag sends one request. */
+const BIAS_SETTLE_MS = 250;
 
 function formatBias(biasPct: number): string {
   if (biasPct === 0) return 'even';
@@ -173,6 +184,20 @@ function PlanControls({
   suggestionLabel: string | null;
 }) {
   const [goalText, setGoalText] = useState(() => formatGoalTime(request.goalSeconds));
+  // The slider's own value: its label follows it at once, and the plan is asked for once it settles.
+  const [bias, setBias] = useState(request.biasPct);
+  const latest = useRef({ request, onChange });
+  useEffect(() => {
+    latest.current = { request, onChange };
+  });
+  useEffect(() => {
+    if (bias === latest.current.request.biasPct) return;
+    const timer = setTimeout(
+      () => latest.current.onChange({ ...latest.current.request, biasPct: bias }),
+      BIAS_SETTLE_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [bias]);
   const [goalError, setGoalError] = useState<string | null>(null);
 
   const applyGoal = (event: FormEvent) => {
@@ -257,7 +282,7 @@ function PlanControls({
 
         <div>
           <label htmlFor="split-bias" className="text-slate-600 dark:text-slate-300">
-            Split Bias <span className="tabular-nums">{formatBias(request.biasPct)}</span>
+            Split Bias <span className="tabular-nums">{formatBias(bias)}</span>
           </label>
           <input
             id="split-bias"
@@ -265,8 +290,8 @@ function PlanControls({
             min={-MAX_BIAS_PCT}
             max={MAX_BIAS_PCT}
             step={BIAS_STEP_PCT}
-            value={request.biasPct}
-            onChange={(event) => onChange({ ...request, biasPct: Number(event.target.value) })}
+            value={bias}
+            onChange={(event) => setBias(Number(event.target.value))}
             className="mt-2 block w-48"
           />
         </div>
@@ -282,7 +307,8 @@ function ElevationProfile({ plan }: { plan: RaceSplitPlanResponseDto }) {
     latestTheme.current = theme;
   });
   const container = useRef<HTMLDivElement>(null);
-  const data = useMemo(() => elevationProfileData(plan), [plan]);
+  // A new Goal Time or Split Bias is a new plan over the same course: keep the data, and so the chart.
+  const data = useStableValue(elevationProfileData(plan), sameProfileData);
   const mount = useMemo(
     () =>
       ({
@@ -323,6 +349,32 @@ function ElevationProfile({ plan }: { plan: RaceSplitPlanResponseDto }) {
   );
 }
 
+function sameNumbers(a: readonly number[], b: readonly number[]): boolean {
+  return a.length === b.length && a.every((value, i) => value === b[i]);
+}
+
+function sameProfileData(a: ElevationProfileData, b: ElevationProfileData): boolean {
+  return (
+    a.unitLabel === b.unitLabel &&
+    sameNumbers(a.x, b.x) &&
+    sameNumbers(a.altitude, b.altitude) &&
+    sameNumbers(a.boundaries, b.boundaries)
+  );
+}
+
+/** [value], or the previous one while it is [equal] to it, so effects keyed on it do not re-run. */
+function useStableValue<T>(value: T, equal: (a: T, b: T) => boolean): T {
+  const stable = useRef(value);
+  if (stable.current !== value && !equal(stable.current, value)) stable.current = value;
+  return stable.current;
+}
+
+function formatGainLoss(gainM: number, lossM: number): string {
+  const gain = Math.round(gainM);
+  const loss = Math.round(lossM);
+  return `${gain > 0 ? `+${gain}` : '0'} / ${loss > 0 ? `−${loss}` : '0'} m`;
+}
+
 function SplitsTable({ plan }: { plan: RaceSplitPlanResponseDto }) {
   const unit = UNIT_LABELS[plan.unit].short;
   const columns: readonly TableColumn[] = [
@@ -351,7 +403,7 @@ function SplitsTable({ plan }: { plan: RaceSplitPlanResponseDto }) {
           <NumericCell>
             {split.elevationGainM == null || split.elevationLossM == null
               ? '—'
-              : `+${Math.round(split.elevationGainM)} / −${Math.round(split.elevationLossM)} m`}
+              : formatGainLoss(split.elevationGainM, split.elevationLossM)}
           </NumericCell>
           <NumericCell>
             {split.avgGradePct == null ? '—' : formatGrade(split.avgGradePct)}

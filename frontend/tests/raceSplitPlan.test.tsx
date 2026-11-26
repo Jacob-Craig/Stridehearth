@@ -206,8 +206,8 @@ describe('/activities/$activityId/split-plan', () => {
     // 6300 s over 21.3 km: 295.77 s per km; 22 splits, the last 300 m.
     const cells = rows(table);
     expect(cells).toHaveLength(22);
-    expect(cells[0]).toEqual(['1', '1.00', '4:56', '4:56', '4:56', '+120 / −0 m', '+12.0%']);
-    expect(cells[21]).toEqual(['22', '21.30', '1:29', '4:56', '1:45:00', '+0 / −0 m', '0.0%']);
+    expect(cells[0]).toEqual(['1', '1.00', '4:56', '4:56', '4:56', '+120 / 0 m', '+12.0%']);
+    expect(cells[21]).toEqual(['22', '21.30', '1:29', '4:56', '1:45:00', '0 / 0 m', '0.0%']);
     expect(screen.getByRole('link', { name: 'Riverside Half' })).toHaveAttribute(
       'href',
       '/activities/42',
@@ -325,6 +325,26 @@ describe('/activities/$activityId/split-plan', () => {
     ).toBeInTheDocument();
   });
 
+  it('asks for one plan, and keeps the elevation profile, when the slider is dragged through several steps', async () => {
+    const api = stubApi();
+    renderPlan();
+    await splitsTable();
+    await waitFor(() => expect(elevationProfileCharts.live()).toHaveLength(1));
+
+    const slider = screen.getByRole('slider', { name: /Split Bias/ });
+    for (const value of ['0.5', '1', '1.5', '2']) fireEvent.change(slider, { target: { value } });
+    // The label follows the slider at once, before any plan is asked for.
+    expect(
+      screen.getByText(/\+2% \(positive split\)/, { selector: 'label span' }),
+    ).toBeInTheDocument();
+
+    await waitFor(() => expect(api.plans().at(-1)).toMatchObject({ biasPct: '2' }));
+    await screen.findByText(/Split Bias \+2% \(positive split\)/, { selector: 'p' });
+    expect(api.plans().map((plan) => plan.biasPct)).toEqual(['0', '2']);
+    // The course and its split boundaries did not change, so the chart is not rebuilt.
+    expect(elevationProfileCharts.all).toHaveLength(1);
+  });
+
   it('copies the splits to the clipboard as tab-separated text', async () => {
     stubApi();
     renderPlan();
@@ -362,7 +382,10 @@ describe('/activities/$activityId/split-plan', () => {
     );
     renderPlan();
 
-    expect(await screen.findByText(/This Race Split Plan could not be made/)).toBeInTheDocument();
+    expect(await screen.findByText(/This Race Split Plan could not be made/)).toHaveTextContent(
+      'This Race Split Plan could not be made. The Activity has no GPS route with distance',
+    );
+    expect(screen.queryByText(/Validation failed/)).toBeNull();
   });
 
   it('hides the navigation and controls when printed', async () => {
