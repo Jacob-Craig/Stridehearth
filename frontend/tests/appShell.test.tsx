@@ -5,7 +5,8 @@ import {
   RouterProvider,
 } from '@tanstack/react-router';
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { act } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { UserResponseDto } from '../src/api/generated/types.gen';
 import { AppShell } from '../src/components/AppShell';
 
@@ -20,15 +21,33 @@ function renderShell(user: UserResponseDto = athlete, onLogout = vi.fn()) {
       </AppShell>
     ),
   });
-  const router = createRouter({
-    routeTree: rootRoute,
-    history: createMemoryHistory({ initialEntries: ['/'] }),
-  });
+  const history = createMemoryHistory({ initialEntries: ['/'] });
+  const router = createRouter({ routeTree: rootRoute, history });
   render(<RouterProvider router={router} />);
-  return { onLogout };
+  return { onLogout, router, history };
 }
 
 const menuButton = () => screen.findByRole('button', { name: 'Menu' });
+
+/** Stubs `matchMedia` with a wide-window query the test can flip, notifying the shell's listener. */
+function stubWideWindow() {
+  const listeners = new Set<(event: MediaQueryListEvent) => void>();
+  const query = {
+    matches: false,
+    media: '(min-width: 1280px)',
+    addEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) =>
+      listeners.add(listener),
+    removeEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) =>
+      listeners.delete(listener),
+  };
+  vi.stubGlobal('matchMedia', () => query);
+  return (matches: boolean) => {
+    query.matches = matches;
+    for (const listener of listeners) listener({ matches } as MediaQueryListEvent);
+  };
+}
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('AppShell navigation menu', () => {
   it('starts closed', async () => {
@@ -93,5 +112,38 @@ describe('AppShell navigation menu', () => {
     expect(within(menu).getByText('runner')).toBeInTheDocument();
     fireEvent.click(within(menu).getByRole('button', { name: 'Log out' }));
     expect(onLogout).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes when the page changes from outside the menu, such as the logo or Back', async () => {
+    const { router, history } = renderShell();
+    fireEvent.click(await menuButton());
+    await act(() => router.navigate({ to: '/settings' }));
+    expect(screen.queryByRole('navigation', { name: 'Menu' })).toBeNull();
+
+    fireEvent.click(await menuButton());
+    await act(async () => {
+      history.back();
+      await router.load();
+    });
+    expect(screen.queryByRole('navigation', { name: 'Menu' })).toBeNull();
+  });
+
+  it('returns focus to the Menu button when Escape closes the menu from a link', async () => {
+    renderShell();
+    fireEvent.click(await menuButton());
+    const menu = screen.getByRole('navigation', { name: 'Menu' });
+    within(menu).getByRole('link', { name: 'Settings' }).focus();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(await menuButton()).toHaveFocus();
+  });
+
+  it('closes when the window widens to the full nav, so it does not reappear open', async () => {
+    const setWide = stubWideWindow();
+    renderShell();
+    fireEvent.click(await menuButton());
+    act(() => setWide(true));
+    act(() => setWide(false));
+    expect(await menuButton()).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('navigation', { name: 'Menu' })).toBeNull();
   });
 });
