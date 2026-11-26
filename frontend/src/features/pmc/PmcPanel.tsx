@@ -73,7 +73,10 @@ export function PmcPanel({ pmc: { data: pmc, isError } }: PmcPanelProps) {
         )}
       </div>
       {pmc === undefined ? (
-        isError && <p className="text-sm text-slate-500 dark:text-slate-400">{CHART_FAILED}</p>
+        // No data and no error yet: the first request is pending, or React Query is retrying a failure.
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          {isError ? CHART_FAILED : 'Loading…'}
+        </p>
       ) : empty ? (
         <EmptyPmc />
       ) : (

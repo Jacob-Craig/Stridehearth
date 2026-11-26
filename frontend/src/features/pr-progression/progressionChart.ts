@@ -9,12 +9,8 @@ import 'uplot/dist/uPlot.min.css';
 import type { ColorScheme } from '../../lib/colorScheme';
 import { formatDuration } from '../../lib/format';
 import { AXIS_PALETTE } from '../charts/chartTheme';
-import {
-  PROGRESSION_PLOT_HEIGHT_PX,
-  PROGRESSION_X_TICK_SPACE_PX,
-  progressionTickLabels,
-  type StepPoints,
-} from './progressionSeries';
+import { DATE_TICK_SPACE_PX, dateTickLabels } from '../charts/dateAxis';
+import { PROGRESSION_PLOT_HEIGHT_PX, type StepPoints } from './progressionSeries';
 
 /** The blue of the record figures on the Personal Record cards. */
 const LINE_COLOR: Record<ColorScheme, string> = { light: '#2563eb', dark: '#60a5fa' };
@@ -54,9 +50,9 @@ export function createProgressionChart(options: ProgressionChartOptions): Progre
       axes: [
         {
           ...axis,
-          space: PROGRESSION_X_TICK_SPACE_PX,
+          space: DATE_TICK_SPACE_PX,
           // uPlot places time ticks in the viewer's zone, so they are labelled in it too.
-          values: (_u, ticks) => progressionTickLabels(ticks),
+          values: (_u, ticks) => dateTickLabels(ticks),
         },
         { ...axis, size: 70, values: (_u, ticks) => ticks.map((tick) => formatDuration(tick)) },
       ],

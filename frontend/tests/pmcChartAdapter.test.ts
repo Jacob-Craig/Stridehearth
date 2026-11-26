@@ -18,7 +18,12 @@ const fakeUplot = vi.hoisted(() => {
     hooks: { setCursor: Hook[]; drawClear?: Hook[] };
     cursor: { sync: { key: string } };
     scales: { x: { time: boolean }; y?: { range?: Range } };
-    axes: Array<{ stroke: Stroke; grid: { stroke: Stroke } }>;
+    axes: Array<{
+      stroke: Stroke;
+      grid: { stroke: Stroke };
+      space?: number;
+      values?: (u: FakeUplot, ticks: number[]) => string[];
+    }>;
     series: Array<{ label?: string; stroke?: Stroke }>;
     height: number;
     tzDate: (seconds: number) => Date;
@@ -136,6 +141,30 @@ describe('PMC uPlot adapter', () => {
     expect([date.getFullYear(), date.getMonth(), date.getDate(), date.getHours()]).toEqual([
       2026, 2, 2, 0,
     ]);
+  });
+
+  it('labels the date ticks as the rest of the app does: by day, or by month when ticks are far apart', () => {
+    const { acwr } = chart(days);
+    const values = acwr.opts.axes[0]!.values!;
+    expect(values(acwr, [dayStart('2026-08-21'), dayStart('2026-08-28')])).toEqual([
+      '21 Aug',
+      '28 Aug',
+    ]);
+    expect(values(acwr, [dayStart('2026-03-01'), dayStart('2026-04-01')])).toEqual([
+      'Mar 2026',
+      'Apr 2026',
+    ]);
+  });
+
+  it('spaces the date ticks wide enough for a month label', () => {
+    const { acwr } = chart(days);
+    expect(acwr.opts.axes[0]!.space).toBeGreaterThanOrEqual(80);
+  });
+
+  it('lets the short ACWR pane label the corridor with more than one tick', () => {
+    // 120 px less the x-axis leaves ~70 px for a 0.4–1.7 scale: 0.5 steps are ~27 px apart.
+    const { acwr } = chart(days);
+    expect(acwr.opts.axes[1]!.space).toBeLessThanOrEqual(25);
   });
 
   it('shares one cursor between the panes, and none with another chart', () => {

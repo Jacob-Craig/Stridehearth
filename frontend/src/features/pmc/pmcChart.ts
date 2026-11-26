@@ -9,7 +9,13 @@ import 'uplot/dist/uPlot.min.css';
 import type { PmcDayDto } from '../../api/generated/types.gen';
 import type { ColorScheme } from '../../lib/colorScheme';
 import { AXIS_PALETTE } from '../charts/chartTheme';
-import { calendarDate, dayStartSeconds, SECONDS_PER_DAY } from '../charts/dateAxis';
+import {
+  calendarDate,
+  DATE_TICK_SPACE_PX,
+  dateTickLabels,
+  dayStartSeconds,
+  SECONDS_PER_DAY,
+} from '../charts/dateAxis';
 import { ACWR_CORRIDOR, FORM_ZONES } from './formZones';
 import { PMC_PALETTE, PMC_PANE_HEIGHT_PX } from './pmcPalette';
 import { type PmcRange, visibleWindow } from './pmcRange';
@@ -54,6 +60,11 @@ const ACWR_PADDING = 0.1;
 const Y_AXIS_SIZE = 50;
 /** The x-axis is labelled under the bottom pane only; the panes above keep its grid. */
 const UNLABELLED_X_AXIS_SIZE = 8;
+/**
+ * Least room between y ticks on the short ACWR pane. uPlot's default (30 px) leaves its ~70 px plot one
+ * tick on a 0.4–1.7 scale; 20 px lets it step by 0.5.
+ */
+const ACWR_Y_TICK_SPACE_PX = 20;
 
 let nextSyncKey = 0;
 
@@ -111,7 +122,12 @@ export function createPmcChart(options: PmcChartOptions): PmcChartHandle {
     height: number,
     series: uPlot.Series[],
     data: uPlot.AlignedData,
-    extra: { labelX: boolean; yRange?: uPlot.Scale.Range; drawClear?: (u: uPlot) => void },
+    extra: {
+      labelX: boolean;
+      yRange?: uPlot.Scale.Range;
+      yTickSpace?: number;
+      drawClear?: (u: uPlot) => void;
+    },
   ) => {
     const plot = new uPlot(
       {
@@ -126,9 +142,18 @@ export function createPmcChart(options: PmcChartOptions): PmcChartHandle {
         },
         axes: [
           extra.labelX
-            ? axis
+            ? // Days sit at midnight UTC (`dayStartSeconds`), so their labels are formatted in UTC.
+              {
+                ...axis,
+                space: DATE_TICK_SPACE_PX,
+                values: (_u, ticks) => dateTickLabels(ticks, 'UTC'),
+              }
             : { ...axis, size: UNLABELLED_X_AXIS_SIZE, values: (_u, ticks) => ticks.map(() => '') },
-          { ...axis, size: Y_AXIS_SIZE },
+          {
+            ...axis,
+            size: Y_AXIS_SIZE,
+            ...(extra.yTickSpace !== undefined && { space: extra.yTickSpace }),
+          },
         ],
         series: [{}, ...series],
         hooks: {
@@ -178,6 +203,7 @@ export function createPmcChart(options: PmcChartOptions): PmcChartHandle {
       [xs, days.map((day) => day.acwr)],
       {
         labelX: true,
+        yTickSpace: ACWR_Y_TICK_SPACE_PX,
         yRange: (_u, min, max) => [
           min == null ? ACWR_FLOOR : Math.min(min - ACWR_PADDING, ACWR_FLOOR),
           max == null ? ACWR_CEILING : Math.max(max + ACWR_PADDING, ACWR_CEILING),
