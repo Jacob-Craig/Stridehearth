@@ -60,6 +60,10 @@ stridehearth:
     recompute-pages-per-run: 10
   storage:
     temp-dir: ./temp-batches
+  # Where the Server writes a pg_dump before applying pending migrations, and how many it keeps (ADR-0010).
+  backup:
+    dir: ./backups
+    keep: 3
   import:
     concurrency: 6
     stream: stridehearth-import-stream

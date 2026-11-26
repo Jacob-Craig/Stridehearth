@@ -29,8 +29,11 @@ services:
       # Leave it unset when clients can reach the Server directly. See docs/self-hosting.md.
       # SERVER_FORWARD_HEADERS_STRATEGY: 'native'
     volumes:
-      # Import uploads are staged here; the app runs as uid 10001 and writes nowhere else.
+      # Import uploads are staged here; the app runs as uid 10001 and writes only here and to the backups volume.
       - 'import-temp:/app/temp-batches'
+      # Before applying pending migrations, the Server writes a pg_dump here and keeps the latest three (ADR-0010).
+      # Restoring one is described in docs/self-hosting.md.
+      - 'backups:/app/backups'
     depends_on:
       postgres:
         condition: service_healthy
@@ -67,6 +70,7 @@ services:
       retries: 5
 
 volumes:
+  backups:
   import-temp:
   postgres-data:
   redis-data:
