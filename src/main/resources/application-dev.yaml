@@ -20,3 +20,7 @@ springdoc:
 stridehearth:
   # Anyone may create an account locally (ADR-0011). A Server defaults to closed.
   registration-mode: open
+  # No pre-migration backup locally (ADR-0010): it needs a pg_dump on PATH at least as new as the compose
+  # PostgreSQL. Re-enable with --stridehearth.backup.enabled=true.
+  backup:
+    enabled: false

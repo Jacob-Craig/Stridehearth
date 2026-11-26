@@ -5,6 +5,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 /** Where and how the Server backs up its database before applying pending migrations (ADR-0010). */
 @ConfigurationProperties(prefix = "stridehearth.backup")
 data class BackupProperties(
+    /** Set false only for local development (the `dev` profile does), where a matching `pg_dump` may not be installed. */
+    val enabled: Boolean = true,
     /** The backups directory. The image mounts a volume here (`STRIDEHEARTH_BACKUP_DIR`). */
     val dir: String = "./backups",
     /** The `pg_dump` executable; the image bundles one. */
