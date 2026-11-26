@@ -219,6 +219,14 @@ export const ActivitySummaryDTOSchema = {
         hasProtectedMetrics: {
             type: 'boolean',
             description: 'True when the Protected Metrics are immutable and only title and sport may be edited'
+        },
+        workoutType: {
+            type: [
+                'string',
+                'null'
+            ],
+            $ref: '#/components/schemas/WorkoutType',
+            description: 'Workout Type of a Run; null for any other sport and for a Run not yet classified'
         }
     },
     required: [
@@ -232,7 +240,19 @@ export const ActivitySummaryDTOSchema = {
         'sport',
         'startedAt',
         'timeTakenSeconds',
-        'title'
+        'title',
+        'workoutType'
+    ]
+} as const;
+
+export const WorkoutTypeSchema = {
+    type: 'string',
+    enum: [
+        'EASY',
+        'LONG_RUN',
+        'TEMPO',
+        'INTERVALS',
+        'RACE'
     ]
 } as const;
 
@@ -2953,6 +2973,14 @@ export const ActivityDetailDTOSchema = {
             type: 'boolean',
             description: 'True when the Protected Metrics are immutable and only title and sport may be edited'
         },
+        workoutType: {
+            type: [
+                'string',
+                'null'
+            ],
+            $ref: '#/components/schemas/WorkoutType',
+            description: 'Workout Type of a Run; null for any other sport and for a Run not yet classified'
+        },
         ownerUsername: {
             type: 'string'
         },
@@ -3046,7 +3074,8 @@ export const ActivityDetailDTOSchema = {
         'timeTakenSeconds',
         'title',
         'trainingLoad',
-        'trainingLoadUnavailableReason'
+        'trainingLoadUnavailableReason',
+        'workoutType'
     ]
 } as const;
 

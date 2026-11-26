@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router';
 import type {
   ActivitySummaryDto,
   PagedResponseDtoActivitySummaryDto,
+  WorkoutType,
 } from '../api/generated/types.gen';
 import {
   formatDate,
@@ -10,17 +11,31 @@ import {
   formatOptional,
   formatPacePerKm,
   formatSport,
+  formatWorkoutType,
 } from '../lib/format';
+import { WorkoutTypeBadge } from './WorkoutTypeBadge';
 
 interface ActivityListProps {
   activityPage: PagedResponseDtoActivitySummaryDto;
   onPageChange: (page: number) => void;
   onDeleteRequest: (activity: ActivitySummaryDto) => void;
+  /** The Workout Type the list is filtered to, if any. */
+  workoutType?: WorkoutType | undefined;
 }
 
-export function ActivityList({ activityPage, onPageChange, onDeleteRequest }: ActivityListProps) {
+export function ActivityList({
+  activityPage,
+  onPageChange,
+  onDeleteRequest,
+  workoutType,
+}: ActivityListProps) {
   if (activityPage.totalElements === 0) {
-    return (
+    return workoutType ? (
+      <div className="rounded-lg border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-8 text-center text-slate-500 dark:text-slate-400">
+        <p className="text-lg">No {formatWorkoutType(workoutType)} runs</p>
+        <p className="mt-1 text-sm">Pick another type, or show all Activities.</p>
+      </div>
+    ) : (
       <div className="rounded-lg border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 p-8 text-center text-slate-500 dark:text-slate-400">
         <p className="text-lg">No activities yet</p>
         <p className="mt-1 text-sm">
@@ -41,6 +56,9 @@ export function ActivityList({ activityPage, onPageChange, onDeleteRequest }: Ac
               </th>
               <th scope="col" className="px-4 py-3">
                 Title
+              </th>
+              <th scope="col" className="px-4 py-3">
+                Type
               </th>
               <th scope="col" className="px-4 py-3">
                 Date
@@ -97,6 +115,9 @@ function ActivityRow({
         </span>
       </td>
       <td className="px-4 py-3 font-medium">{activity.title}</td>
+      <td className="px-4 py-3">
+        <WorkoutTypeBadge type={activity.workoutType} />
+      </td>
       <td className="px-4 py-3">
         <time dateTime={activity.startedAt} className="tabular-nums">
           {formatDate(activity.startedAt)}

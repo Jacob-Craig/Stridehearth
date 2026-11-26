@@ -397,7 +397,8 @@ class DerivedDataRecomputeWorker(
         derivedDataRefresh.refreshThresholdDependent(lockAndLoad(activityIds))
 
     /** Reclassifies the **Workout Type** of [activityIds] from their stored evidence; returns how many changed. */
-    private fun reclassifyPage(activityIds: List<Long>): Int = workoutTypeReclassifier.reclassify(activityDetailsRepository.lockActivities(activityIds))
+    private fun reclassifyPage(activityIds: List<Long>): Int =
+        workoutTypeReclassifier.reclassify(activityDetailsRepository.lockActivities(activityIds))
 
     private fun lockAndLoad(activityIds: List<Long>): List<Activity> {
         // Lock first, then read: under READ COMMITTED the reads below see whatever a concurrent writer committed

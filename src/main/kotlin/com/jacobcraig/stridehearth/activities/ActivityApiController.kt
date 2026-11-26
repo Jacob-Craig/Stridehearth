@@ -1,9 +1,9 @@
 package com.jacobcraig.stridehearth.activities
 
+import com.jacobcraig.stridehearth.analytics.WorkoutType
 import com.jacobcraig.stridehearth.api.ApiErrorResponse
 import com.jacobcraig.stridehearth.api.PagedResponseDTO
 import com.jacobcraig.stridehearth.api.toPagedResponse
-import com.jacobcraig.stridehearth.analytics.WorkoutType
 import com.jacobcraig.stridehearth.system.ActivitySport
 import com.jacobcraig.stridehearth.users.AppUserDetails
 import io.swagger.v3.oas.annotations.Parameter

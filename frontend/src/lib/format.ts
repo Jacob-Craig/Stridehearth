@@ -9,6 +9,7 @@ import type {
   TrainingLoadDto,
   TrainingLoadMethod,
   TrainingLoadUnavailableReason,
+  WorkoutType,
 } from '../api/generated/types.gen';
 
 export type ActivitySport = ActivitySummaryDto['sport'];
@@ -212,6 +213,22 @@ export const ACTIVITY_SPORTS = Object.keys(SPORT_LABELS) as readonly ActivitySpo
 /** The human-readable name of a sport, e.g. `Run`. */
 export function formatSport(sport: ActivitySport): string {
   return SPORT_LABELS[sport];
+}
+
+const WORKOUT_TYPE_LABELS: Readonly<Record<WorkoutType, string>> = {
+  EASY: 'Easy',
+  LONG_RUN: 'Long Run',
+  TEMPO: 'Tempo',
+  INTERVALS: 'Intervals',
+  RACE: 'Race',
+};
+
+/** Every **Workout Type**, in display order. */
+export const WORKOUT_TYPES = Object.keys(WORKOUT_TYPE_LABELS) as readonly WorkoutType[];
+
+/** The human-readable name of a **Workout Type**, e.g. `Long Run`. */
+export function formatWorkoutType(type: WorkoutType): string {
+  return WORKOUT_TYPE_LABELS[type];
 }
 
 /** Formats an optional measurement with its unit, e.g. `152 bpm`, or `—` when absent. */

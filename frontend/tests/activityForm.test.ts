@@ -124,6 +124,7 @@ describe('form values', () => {
       calories: null,
       source: 'MANUAL',
       hasProtectedMetrics: false,
+      workoutType: null,
     };
 
     const values = formValuesFromActivity(activity);
@@ -158,6 +159,7 @@ describe('form values', () => {
       calories: null,
       source: 'MANUAL',
       hasProtectedMetrics: false,
+      workoutType: null,
     });
 
     expect(values.startedAt).toBe('2026-01-09T06:05:37');

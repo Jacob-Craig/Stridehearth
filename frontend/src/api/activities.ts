@@ -15,6 +15,7 @@ import type {
   ActivityUpdateRequestDto,
   PagedResponseDtoActivitySummaryDto,
   SingleFileUploadResponseDto,
+  WorkoutType,
 } from './generated/types.gen';
 import {
   zCreateActivityResponse,
@@ -31,8 +32,10 @@ export const ACTIVITY_PAGE_SIZE = 10;
 export async function listActivities(
   page: number,
   size = ACTIVITY_PAGE_SIZE,
+  workoutType?: WorkoutType,
 ): Promise<PagedResponseDtoActivitySummaryDto> {
   const query = new URLSearchParams({ page: String(page), size: String(size) });
+  if (workoutType) query.set('workoutType', workoutType);
   return validatedFetch(zListActivitiesResponse, `/api/activities?${query}`);
 }
 
@@ -92,10 +95,14 @@ export async function uploadActivityFile(file: File): Promise<SingleFileUploadRe
 /** Every **Activity** query is keyed by the athlete so cached data never leaks between athletes. */
 export const activitiesKey = (userId: number | undefined) => ['activities', userId] as const;
 
-export const activitiesPageQueryOptions = (userId: number | undefined, page: number) =>
+export const activitiesPageQueryOptions = (
+  userId: number | undefined,
+  page: number,
+  workoutType?: WorkoutType,
+) =>
   queryOptions({
-    queryKey: [...activitiesKey(userId), 'page', page] as const,
-    queryFn: () => listActivities(page),
+    queryKey: [...activitiesKey(userId), 'page', page, workoutType ?? null] as const,
+    queryFn: () => listActivities(page, ACTIVITY_PAGE_SIZE, workoutType),
   });
 
 /**

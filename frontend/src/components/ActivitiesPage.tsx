@@ -4,7 +4,9 @@ import { useDeleteActivity } from '../api/activities';
 import type {
   ActivitySummaryDto,
   PagedResponseDtoActivitySummaryDto,
+  WorkoutType,
 } from '../api/generated/types.gen';
+import { formatWorkoutType, WORKOUT_TYPES } from '../lib/format';
 import { parseApiError } from '../utils/error';
 import { ActivityList } from './ActivityList';
 import { DeleteActivityDialog } from './DeleteActivityDialog';
@@ -13,9 +15,18 @@ interface ActivitiesPageProps {
   userId: number | undefined;
   activityPage: PagedResponseDtoActivitySummaryDto;
   onPageChange: (page: number) => void;
+  /** The Workout Type the list is filtered to, if any. */
+  workoutType?: WorkoutType | undefined;
+  onWorkoutTypeChange?: (workoutType: WorkoutType | undefined) => void;
 }
 
-export function ActivitiesPage({ userId, activityPage, onPageChange }: ActivitiesPageProps) {
+export function ActivitiesPage({
+  userId,
+  activityPage,
+  onPageChange,
+  workoutType,
+  onWorkoutTypeChange,
+}: ActivitiesPageProps) {
   const notice = useRouterState({ select: (state) => state.location.state.notice });
   const [pendingDelete, setPendingDelete] = useState<ActivitySummaryDto | null>(null);
   const deletion = useDeleteActivity(userId);
@@ -43,7 +54,31 @@ export function ActivitiesPage({ userId, activityPage, onPageChange }: Activitie
         </output>
       )}
 
+      {onWorkoutTypeChange && (
+        <div className="flex items-center gap-2 text-sm">
+          <label htmlFor="workout-type-filter" className="font-medium">
+            Workout Type
+          </label>
+          <select
+            id="workout-type-filter"
+            value={workoutType ?? ''}
+            onChange={(event) =>
+              onWorkoutTypeChange((event.target.value || undefined) as WorkoutType | undefined)
+            }
+            className="rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5"
+          >
+            <option value="">All</option>
+            {WORKOUT_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {formatWorkoutType(type)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <ActivityList
+        workoutType={workoutType}
         activityPage={activityPage}
         onPageChange={onPageChange}
         onDeleteRequest={(activity) => {

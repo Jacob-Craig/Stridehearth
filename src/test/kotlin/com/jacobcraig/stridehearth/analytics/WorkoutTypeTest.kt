@@ -113,8 +113,14 @@ class WorkoutTypeTest {
 
         assertEquals(WorkoutType.RACE, classify(everything, movingSeconds = 6000))
         assertEquals(WorkoutType.INTERVALS, classify(everything.copy(distanceMeters = 6_500.0), movingSeconds = 6000))
-        assertEquals(WorkoutType.LONG_RUN, classify(everything.copy(distanceMeters = 6_500.0, thresholdWorkIntervals = 2), movingSeconds = 6000))
-        assertEquals(WorkoutType.TEMPO, classify(everything.copy(distanceMeters = 6_500.0, thresholdWorkIntervals = 2), movingSeconds = 3000))
+        assertEquals(
+            WorkoutType.LONG_RUN,
+            classify(everything.copy(distanceMeters = 6_500.0, thresholdWorkIntervals = 2), movingSeconds = 6000),
+        )
+        assertEquals(
+            WorkoutType.TEMPO,
+            classify(everything.copy(distanceMeters = 6_500.0, thresholdWorkIntervals = 2), movingSeconds = 3000),
+        )
     }
 
     @Test
@@ -156,7 +162,8 @@ class WorkoutTypeTest {
         return WorkoutEvidence.of(details, gap, arrayOfNulls(seconds), intervals, thresholds)
     }
 
-    private val paceThresholds = ThresholdsOn(maxHr = null, restingHr = null, lthr = null, thresholdSpeedMps = 4.0, criticalPowerWatts = null)
+    private val paceThresholds =
+        ThresholdsOn(maxHr = null, restingHr = null, lthr = null, thresholdSpeedMps = 4.0, criticalPowerWatts = null)
 
     /** 10 min at 3.0 m/s, six 3 min reps at 4.45 m/s with 2 min jogs at 2.4 m/s, 10 min at 3.0 m/s. */
     private fun reps(s: Int): Double {

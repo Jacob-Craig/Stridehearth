@@ -36,6 +36,7 @@ const summary: ActivitySummaryDto = {
   calories: null,
   source: 'MANUAL',
   hasProtectedMetrics: false,
+  workoutType: null,
 };
 
 function importBatch(status: ImportBatchSummaryDto['status']): ImportBatchSummaryDto {

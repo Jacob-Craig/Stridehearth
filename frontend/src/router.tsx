@@ -144,13 +144,17 @@ export const dashboardRoute = createRoute({
 
 const activitiesSearchSchema = z.object({
   page: z.number().int().min(0).optional().catch(undefined),
+  workoutType: z
+    .enum(['EASY', 'LONG_RUN', 'TEMPO', 'INTERVALS', 'RACE'])
+    .optional()
+    .catch(undefined),
 });
 
 export const activitiesRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/activities',
   validateSearch: (search) => activitiesSearchSchema.parse(search),
-  loaderDeps: ({ search }) => ({ page: search.page ?? 0 }),
+  loaderDeps: ({ search }) => ({ page: search.page ?? 0, workoutType: search.workoutType }),
   loader: ({ context, deps }) =>
     context.queryClient.ensureQueryData(activitiesQueries(context.user.id, deps).activityPage),
   component: ActivitiesRoute,

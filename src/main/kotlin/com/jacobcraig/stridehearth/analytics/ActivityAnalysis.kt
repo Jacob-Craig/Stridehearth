@@ -85,7 +85,17 @@ class ActivityAnalysis private constructor(
                 } else {
                     null
                 }
-            return ActivityAnalysis(cleaned, gapSpeed, runMetrics, peakEfforts, trainingLoad, conditions, vo2max, detectedIntervals, workoutEvidence)
+            return ActivityAnalysis(
+                cleaned,
+                gapSpeed,
+                runMetrics,
+                peakEfforts,
+                trainingLoad,
+                conditions,
+                vo2max,
+                detectedIntervals,
+                workoutEvidence,
+            )
         }
 
         /** [power] with every sample outside 0..[MAX_RUN_POWER_WATTS] read as missing. */

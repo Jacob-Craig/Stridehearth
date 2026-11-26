@@ -88,6 +88,7 @@ function detail(overrides: Partial<ActivityDetailDto> = {}): ActivityDetailDto {
     calories: 480,
     source: 'FIT_UPLOAD',
     hasProtectedMetrics: true,
+    workoutType: null,
     ownerUsername: 'runner_bob',
     laps: [],
     history: [],
@@ -236,6 +237,7 @@ describe('/activities/$activityId loading', () => {
       calories: 480,
       source: 'FIT_UPLOAD',
       hasProtectedMetrics: true,
+      workoutType: null,
     };
     const requests = stubActivity(detail(), () => json(telemetry()), {
       'GET /api/activities': () =>
@@ -327,6 +329,21 @@ describe('/activities/$activityId summary', () => {
     expect(metric('Avg Pace')).toHaveTextContent('05:00 /km');
     expect(metric('Avg Heart Rate')).toHaveTextContent('158 bpm');
     expect(metric('Calories')).toHaveTextContent('480 kcal');
+  });
+
+  it("shows the Run's Workout Type next to its sport, and no badge without one", async () => {
+    stubActivity(detail({ workoutType: 'TEMPO' }));
+    renderApp('/activities/42');
+
+    expect(await screen.findByText('Tempo')).toHaveAttribute('data-workout-type', 'TEMPO');
+  });
+
+  it('shows no Workout Type badge for an Activity without one', async () => {
+    stubActivity(detail({ workoutType: null }));
+    renderApp('/activities/42');
+
+    await screen.findByRole('heading', { name: 'Track Session' });
+    expect(document.querySelector('[data-workout-type]')).toBeNull();
   });
 
   it('renders a manual Activity without Activity Details and reserves no visualization space', async () => {

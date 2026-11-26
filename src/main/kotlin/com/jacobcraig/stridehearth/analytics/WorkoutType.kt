@@ -132,8 +132,12 @@ private class ZoneSeconds(
             val useHeartRate = hrZones != null && heartRateSteps > 0 && heartRateSteps >= RunMetrics.MIN_COVERAGE * moving.size
             val seilerZoneOf: (Int) -> Int? =
                 when {
-                    useHeartRate -> { i -> cleaned.heartRate[i]?.let { bpm -> hrZones!!.last { it.lowerBpm == null || bpm >= it.lowerBpm }.seilerZone } }
-                    paceZones != null -> { i -> gapSpeed[i]?.let { v -> paceZones.last { it.lowerSpeedMps == null || v >= it.lowerSpeedMps }.seilerZone } }
+                    useHeartRate -> { i ->
+                        cleaned.heartRate[i]?.let { bpm -> hrZones!!.last { it.lowerBpm == null || bpm >= it.lowerBpm }.seilerZone }
+                    }
+                    paceZones != null -> { i ->
+                        gapSpeed[i]?.let { v -> paceZones.last { it.lowerSpeedMps == null || v >= it.lowerSpeedMps }.seilerZone }
+                    }
                     else -> return null
                 }
             var zone1 = 0
@@ -143,7 +147,11 @@ private class ZoneSeconds(
                 val seiler = seilerZoneOf(i) ?: continue
                 val dt = t[i] - t[i - 1]
                 placed += dt
-                if (seiler == 1) zone1 += dt else if (seiler == 2) zone2 += dt
+                if (seiler == 1) {
+                    zone1 += dt
+                } else if (seiler == 2) {
+                    zone2 += dt
+                }
             }
             return if (placed == 0) null else ZoneSeconds(zone1, zone2, placed)
         }

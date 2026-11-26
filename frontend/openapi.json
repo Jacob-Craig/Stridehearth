@@ -644,6 +644,14 @@
             "enum" : [ "MANUAL", "STRAVA", "GARMIN", "FIT_UPLOAD" ]
           }
         }, {
+          "name" : "workoutType",
+          "in" : "query",
+          "description" : "Only Runs of this Workout Type",
+          "required" : false,
+          "schema" : {
+            "$ref" : "#/components/schemas/WorkoutType"
+          }
+        }, {
           "name" : "page",
           "in" : "query",
           "description" : "Zero-based page index (ignored when size is 'all')",
@@ -2273,9 +2281,18 @@
           "hasProtectedMetrics" : {
             "type" : "boolean",
             "description" : "True when the Protected Metrics are immutable and only title and sport may be edited"
+          },
+          "workoutType" : {
+            "type" : [ "string", "null" ],
+            "$ref" : "#/components/schemas/WorkoutType",
+            "description" : "Workout Type of a Run; null for any other sport and for a Run not yet classified"
           }
         },
-        "required" : [ "averageHeartRate", "averagePaceKmh", "calories", "distance", "hasProtectedMetrics", "id", "source", "sport", "startedAt", "timeTakenSeconds", "title" ]
+        "required" : [ "averageHeartRate", "averagePaceKmh", "calories", "distance", "hasProtectedMetrics", "id", "source", "sport", "startedAt", "timeTakenSeconds", "title", "workoutType" ]
+      },
+      "WorkoutType" : {
+        "type" : "string",
+        "enum" : [ "EASY", "LONG_RUN", "TEMPO", "INTERVALS", "RACE" ]
       },
       "CreatedInviteDTO" : {
         "type" : "object",
@@ -4168,6 +4185,11 @@
             "type" : "boolean",
             "description" : "True when the Protected Metrics are immutable and only title and sport may be edited"
           },
+          "workoutType" : {
+            "type" : [ "string", "null" ],
+            "$ref" : "#/components/schemas/WorkoutType",
+            "description" : "Workout Type of a Run; null for any other sport and for a Run not yet classified"
+          },
           "ownerUsername" : {
             "type" : "string"
           },
@@ -4225,7 +4247,7 @@
             "description" : "The temperature, altitude and acclimation the Activity was done in; null until its derived data is computed"
           }
         },
-        "required" : [ "averageHeartRate", "averagePaceKmh", "bestEfforts", "calories", "conditions", "detectedIntervals", "distance", "hasProtectedMetrics", "history", "id", "laps", "minStaminaPct", "ownerUsername", "runMetrics", "source", "sport", "startedAt", "timeTakenSeconds", "title", "trainingLoad", "trainingLoadUnavailableReason" ]
+        "required" : [ "averageHeartRate", "averagePaceKmh", "bestEfforts", "calories", "conditions", "detectedIntervals", "distance", "hasProtectedMetrics", "history", "id", "laps", "minStaminaPct", "ownerUsername", "runMetrics", "source", "sport", "startedAt", "timeTakenSeconds", "title", "trainingLoad", "trainingLoadUnavailableReason", "workoutType" ]
       },
       "ActivityHistoryEntryDTO" : {
         "type" : "object",
