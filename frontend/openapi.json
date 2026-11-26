@@ -662,7 +662,7 @@
           "schema" : {
             "type" : "string",
             "default" : "20",
-            "example" : 20
+            "example" : "20"
           }
         } ],
         "responses" : {
@@ -2200,23 +2200,23 @@
             "type" : [ "number", "null" ],
             "format" : "double",
             "description" : "Distance in kilometers",
-            "minimum" : 0
+            "exclusiveMinimum" : 0
           },
           "timeTakenSeconds" : {
             "type" : [ "integer", "null" ],
             "format" : "int32",
-            "minimum" : 0
+            "exclusiveMinimum" : 0
           },
           "averagePaceKmh" : {
             "type" : [ "number", "null" ],
             "format" : "double",
             "description" : "Average speed in km/h",
-            "minimum" : 0
+            "exclusiveMinimum" : 0
           },
           "averageHeartRate" : {
             "type" : [ "integer", "null" ],
             "format" : "int32",
-            "minimum" : 0
+            "exclusiveMinimum" : 0
           },
           "calories" : {
             "type" : [ "integer", "null" ],
@@ -2303,6 +2303,7 @@
         "properties" : {
           "email" : {
             "type" : "string",
+            "format" : "email",
             "minLength" : 1
           },
           "password" : {
@@ -2319,7 +2320,8 @@
           "lastName" : {
             "type" : "string"
           }
-        }
+        },
+        "required" : [ "email", "password", "username" ]
       },
       "LoginRequestDTO" : {
         "type" : "object",
@@ -2394,23 +2396,23 @@
             "type" : "number",
             "format" : "double",
             "description" : "Distance in kilometers",
-            "minimum" : 0
+            "exclusiveMinimum" : 0
           },
           "timeTakenSeconds" : {
             "type" : "integer",
             "format" : "int32",
-            "minimum" : 0
+            "exclusiveMinimum" : 0
           },
           "averagePaceKmh" : {
             "type" : [ "number", "null" ],
             "format" : "double",
             "description" : "Average speed in km/h",
-            "minimum" : 0
+            "exclusiveMinimum" : 0
           },
           "averageHeartRate" : {
             "type" : [ "integer", "null" ],
             "format" : "int32",
-            "minimum" : 0
+            "exclusiveMinimum" : 0
           },
           "calories" : {
             "type" : [ "integer", "null" ],
@@ -4382,14 +4384,16 @@
             "type" : [ "array", "null" ],
             "description" : "Grade-Adjusted Pace as a speed in metres per second; null for sports without it. An element is null where cleaned speed is missing",
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "staminaPct" : {
             "type" : [ "array", "null" ],
             "description" : "Stamina: the D′ balance as a percentage of D′ (0-100, one decimal), against the Critical Speed model in effect on the Run's date; null unless the Activity is a Run with Grade-Adjusted Pace and that model exists",
             "items" : {
-              "type" : "number"
+              "type" : "number",
+              "format" : "double"
             }
           }
         },
@@ -4480,445 +4484,519 @@
           "routeIndex" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "heartRate" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "power" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "cadence" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "altitude" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "speed" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "distance" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "verticalOscillation" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "stanceTime" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "stanceTimePercent" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "stanceTimeBalance" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "stepLength" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "verticalRatio" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "enhancedSpeed" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "enhancedAltitude" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "enhancedRespirationRate" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "respirationRate" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "temperature" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "coreTemperature" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "fractionalCadence" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "calories" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "currentStress" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "batterySoc" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "gpsAccuracy" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "verticalSpeed" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "grade" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "resistance" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "timeFromCourse" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "cycleLength" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "cycles" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "totalCycles" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int64"
             }
           },
           "accumulatedPower" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int64"
             }
           },
           "leftRightBalance" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "leftTorqueEffectiveness" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "rightTorqueEffectiveness" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "leftPedalSmoothness" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "rightPedalSmoothness" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "combinedPedalSmoothness" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "time128" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "zone" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "ballSpeed" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "cadence256" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "deviceIndex" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "leftPco" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "rightPco" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "motorPower" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "cycleLength16" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "strokeType" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "absolutePressure" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int64"
             }
           },
           "depth" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "nextStopDepth" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "nextStopTime" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "timeToSurface" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "ndlTime" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "cnsLoad" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "n2Load" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "airTimeRemaining" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "pressureSac" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "volumeSac" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "rmv" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "ascentRate" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "po2" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "grit" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "flow" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "ebikeTravelRange" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "ebikeBatteryLevel" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "ebikeAssistMode" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "ebikeAssistLevelPercent" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "integer", "null" ]
+              "type" : [ "integer", "null" ],
+              "format" : "int32"
             }
           },
           "totalHemoglobinConc" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "totalHemoglobinConcMin" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "totalHemoglobinConcMax" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "saturatedHemoglobinPercent" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "saturatedHemoglobinPercentMin" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           },
           "saturatedHemoglobinPercentMax" : {
             "type" : [ "array", "null" ],
             "items" : {
-              "type" : [ "number", "null" ]
+              "type" : [ "number", "null" ],
+              "format" : "double"
             }
           }
         },

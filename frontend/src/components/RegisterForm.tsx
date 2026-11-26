@@ -1,9 +1,17 @@
 import { useForm } from '@tanstack/react-form';
 import { type ReactNode, useState } from 'react';
+import { z } from 'zod';
 import { registerUser } from '../api/auth';
 import type { UserFormDto, UserResponseDto } from '../api/generated/types.gen';
 import { zUserFormDto } from '../api/generated/zod.gen';
 import { getFieldError, parseApiError } from '../utils/error';
+
+/**
+ * The registration contract, except that the server alone judges an email address: Zod's email
+ * check rejects addresses its `@Email` accepts (such as `runner@localhost`), and this form-level
+ * result only enables Register, so a stricter check here would disable it without saying why.
+ */
+const registrationSchema = zUserFormDto.extend({ email: z.string().min(1) });
 
 interface RegisterFormProps {
   onRegisterSuccess: (user: UserResponseDto) => void;
@@ -33,7 +41,7 @@ export function RegisterForm({
     },
     validators: {
       onChange: ({ value }) => {
-        const result = zUserFormDto.safeParse(value);
+        const result = registrationSchema.safeParse(value);
         if (!result.success) {
           return result.error.issues[0]?.message;
         }
