@@ -13,6 +13,7 @@ export interface FakeChart {
   readonly options: TelemetryChartOptions;
   readonly setCursorTime: ReturnType<typeof vi.fn>;
   readonly setHighlight: ReturnType<typeof vi.fn>;
+  readonly setWorkIntervals: ReturnType<typeof vi.fn>;
   readonly setTheme: ReturnType<typeof vi.fn>;
   readonly setOverlayVisible: ReturnType<typeof vi.fn>;
   readonly destroy: ReturnType<typeof vi.fn>;
@@ -49,6 +50,7 @@ export const fakeUplotChartModule = {
       options,
       setCursorTime: vi.fn(),
       setHighlight: vi.fn(),
+      setWorkIntervals: vi.fn(),
       setTheme: vi.fn(),
       setOverlayVisible: vi.fn(),
       destroy: vi.fn(),

@@ -22,7 +22,7 @@ Replacing an Activity's stored Activity Details and Laps with ones decoded from 
 _Avoid_: Re-parse, migration
 
 **Backfill**:
-Filling in something an Activity lacks (Activity Details, their distance, Laps, Best Efforts, or derived data such as Grade-Adjusted Pace, Normalized Graded Pace, Peak Efforts, Training Load, VO2max Estimate or Ambient Temperature) without replacing anything it already has. Replacing derived data that is out of date is a Recompute.
+Filling in something an Activity lacks (Activity Details, their distance, Laps, Best Efforts, or derived data such as Grade-Adjusted Pace, Normalized Graded Pace, Peak Efforts, Detected Intervals, Training Load, VO2max Estimate or Ambient Temperature) without replacing anything it already has. Replacing derived data that is out of date is a Recompute.
 _Avoid_: Repair, fix-up
 
 **Recompute (derived data)**:
@@ -52,6 +52,11 @@ _Avoid_: Split, segment
 **Split**:
 A synthetic, uniform distance or time slice (such as every 1 km or 1 mile) calculated across continuous Activity Details, independent of device-recorded Laps.
 _Avoid_: Auto-lap, lap interval
+
+**Detected Interval**:
+A stretch of a Run's Moving Time that Stridehearth itself judges to be work (hard) or recovery (easy), found without any lap press: a step-change and hysteresis detector over the smoothed Grade-Adjusted speed, or over power when most of the Run has it. Stops standing still (a traffic stop) are not Moving Time, so they never make a Detected Interval, and a steady Run has none. The intervals tile the Run's Moving Time in order, each carrying its own average pace, heart rate, power and Aerobic Decoupling. Derived, so recomputed, never edited.
+It is neither a Lap (recorded by the device, so it exists only if the athlete or a workout made one) nor a Split (a uniform slice that ignores how hard the athlete was going).
+_Avoid_: Auto-interval, rep, segment, lap
 
 **Import Batch**:
 A grouped collection of activity files submitted together for asynchronous ingestion, tracked through its lifecycle.

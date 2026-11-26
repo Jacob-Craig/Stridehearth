@@ -14,6 +14,10 @@ import kotlin.math.sqrt
 internal class MovingSeries(
     val gap: DoubleArray,
     val heartRate: Array<Double?>,
+    /** The elapsed second (`t`) each moving second falls at: ascending, with a jump wherever a stop was dropped. */
+    val time: IntArray = IntArray(gap.size),
+    /** Power in W per moving second, null where missing; empty unless [of] was given a power stream. */
+    val power: Array<Double?> = arrayOfNulls(gap.size),
 ) {
     val size: Int get() = gap.size
 
@@ -23,6 +27,15 @@ internal class MovingSeries(
         to: Int,
     ): Boolean {
         val present = (from until to).count { heartRate[it] != null }
+        return present > 0 && present >= RunMetrics.MIN_COVERAGE * (to - from)
+    }
+
+    /** Whether power is present on at least [RunMetrics.MIN_COVERAGE] of the seconds in [from, to), and on any. */
+    fun powerCovers(
+        from: Int,
+        to: Int,
+    ): Boolean {
+        val present = (from until to).count { power[it] != null }
         return present > 0 && present >= RunMetrics.MIN_COVERAGE * (to - from)
     }
 
@@ -42,31 +55,39 @@ internal class MovingSeries(
     }
 
     companion object {
-        val EMPTY = MovingSeries(DoubleArray(0), arrayOfNulls(0))
+        val EMPTY = MovingSeries(DoubleArray(0), arrayOfNulls(0), IntArray(0), arrayOfNulls(0))
 
         /**
          * The moving series of [cleaned] with its Grade-Adjusted Pace [gapSpeed] (parallel to `cleaned.t`): within each
          * stretch of samples whose consecutive steps are at most [RunMetrics.RECORDING_PAUSE_SECONDS] apart, every whole
          * second from the stretch's first to its last sample, with GAP, cleaned speed and heart rate interpolated
          * linearly in time (a value next to a missing one stays missing). Seconds without GAP or with cleaned speed
-         * below [RunMetrics.MOVING_SPEED_MPS] are dropped and the rest concatenated.
+         * below [RunMetrics.MOVING_SPEED_MPS] are dropped and the rest concatenated. [power], if given, is parallel to
+         * `cleaned.t` and interpolated like the rest.
          */
         fun of(
             cleaned: CleanedTelemetry,
             gapSpeed: Array<Float?>,
+            power: Array<Short?>? = null,
         ): MovingSeries {
             val t = cleaned.t
             val gap = ArrayList<Double>(t.size)
             val heartRate = ArrayList<Double?>(t.size)
+            val time = ArrayList<Int>(t.size)
+            val watts = ArrayList<Double?>(t.size)
 
             fun keep(
+                second: Int,
                 gapValue: Double?,
                 speedValue: Double?,
                 heartRateValue: Double?,
+                powerValue: Double?,
             ) {
                 if (gapValue == null || speedValue == null || speedValue < RunMetrics.MOVING_SPEED_MPS) return
                 gap += gapValue
                 heartRate += heartRateValue
+                time += second
+                watts += powerValue
             }
 
             var previous = -1
@@ -79,6 +100,7 @@ internal class MovingSeries(
                         for (s in 1 until dt) {
                             val fraction = s.toDouble() / dt
                             keep(
+                                t[previous] + s,
                                 lerp(gapSpeed.at(previous), gapSpeed.at(i), fraction),
                                 lerp(cleaned.speed.at(previous), cleaned.speed.at(i), fraction),
                                 lerp(
@@ -86,14 +108,15 @@ internal class MovingSeries(
                                     cleaned.heartRate.getOrNull(i)?.toDouble(),
                                     fraction,
                                 ),
+                                lerp(power?.getOrNull(previous)?.toDouble(), power?.getOrNull(i)?.toDouble(), fraction),
                             )
                         }
                     }
                 }
-                keep(gapSpeed.at(i), cleaned.speed.at(i), cleaned.heartRate.getOrNull(i)?.toDouble())
+                keep(t[i], gapSpeed.at(i), cleaned.speed.at(i), cleaned.heartRate.getOrNull(i)?.toDouble(), power?.getOrNull(i)?.toDouble())
                 previous = i
             }
-            return MovingSeries(gap.toDoubleArray(), heartRate.toTypedArray())
+            return MovingSeries(gap.toDoubleArray(), heartRate.toTypedArray(), time.toIntArray(), watts.toTypedArray())
         }
 
         /** The trailing [RunMetrics.ROLLING_WINDOW_SECONDS] means of [gap] whose windows lie wholly in [from, to). */

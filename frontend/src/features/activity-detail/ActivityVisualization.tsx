@@ -2,6 +2,7 @@ import { type ReactNode, useMemo } from 'react';
 import type {
   ActivityBestEffortDto,
   ActivityTelemetryResponseDto,
+  DetectedIntervalDto,
 } from '../../api/generated/types.gen';
 import { ActivityRouteMap } from '../telemetry/ActivityRouteMap';
 import { parseRoute, type RouteTimeline } from '../telemetry/sampleLookup';
@@ -17,6 +18,8 @@ export interface ActivityVisualizationProps {
    * route and every chart; `null` when none is selected.
    */
   readonly selectedEffort: ActivityBestEffortDto | null;
+  /** The Run's **Detected Intervals**; the work ones are shaded on every chart. */
+  readonly detectedIntervals: readonly DetectedIntervalDto[];
 }
 
 /** Stands in for a panel the **Activity Details** have nothing to show in. */
@@ -28,7 +31,11 @@ function EmptyPanel({ children }: { readonly children: ReactNode }) {
  * The route map and synchronized sensor charts of an **Activity**, linked by one scrubber bus.
  * Map and chart panels have fixed heights, so nothing shifts as they render.
  */
-export function ActivityVisualization({ telemetry, selectedEffort }: ActivityVisualizationProps) {
+export function ActivityVisualization({
+  telemetry,
+  selectedEffort,
+  detectedIntervals,
+}: ActivityVisualizationProps) {
   const { route, telemetry: streams, derivedStreams } = telemetry;
   const timeline = useMemo<RouteTimeline | null>(() => {
     const coordinates = route && parseRoute(route.coordinates);
@@ -40,6 +47,10 @@ export function ActivityVisualization({ telemetry, selectedEffort }: ActivityVis
   );
   const bus = useTelemetryScrubber(timeline);
   const highlight = selectedEffort?.window ?? null;
+  const workIntervals = useMemo(
+    () => detectedIntervals.filter((interval) => interval.kind === 'WORK'),
+    [detectedIntervals],
+  );
 
   return (
     <section aria-label="Route map and sensor charts" className="space-y-3">
@@ -49,7 +60,13 @@ export function ActivityVisualization({ telemetry, selectedEffort }: ActivityVis
         <EmptyPanel>No route was recorded in this Activity's Activity Details.</EmptyPanel>
       )}
       {series.length > 0 ? (
-        <TelemetryChartGrid t={streams.t} series={series} bus={bus} highlight={highlight} />
+        <TelemetryChartGrid
+          t={streams.t}
+          series={series}
+          bus={bus}
+          highlight={highlight}
+          workIntervals={workIntervals}
+        />
       ) : (
         <EmptyPanel>
           No sensor readings were recorded in this Activity's Activity Details.

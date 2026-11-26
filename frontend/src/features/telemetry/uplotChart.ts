@@ -9,7 +9,7 @@ import 'uplot/dist/uPlot.min.css';
 import type { ColorScheme } from '../../lib/colorScheme';
 import { formatDuration } from '../../lib/format';
 import { AXIS_PALETTE } from '../charts/chartTheme';
-import { BEST_EFFORT_HIGHLIGHT_COLOR } from './bestEffortHighlight';
+import { BEST_EFFORT_HIGHLIGHT_COLOR, WORK_INTERVAL_COLOR } from './bestEffortHighlight';
 import { CHART_PLOT_HEIGHT_PX } from './chartLayout';
 import type { XySeries } from './lttb';
 import { sampleIndexAtTime, type TimeWindow } from './sampleLookup';
@@ -17,7 +17,7 @@ import type { ScrubbableChart } from './scrubberBus';
 import { readingAt, sensorDropouts } from './sensorDropouts';
 import type { ChartOverlay, ChartSeries } from './sensorStreams';
 
-/** The **Best Effort** band is the highlight colour, translucent over the series. */
+/** A **Best Effort** or **Detected Interval** band is its highlight colour, translucent over the series. */
 const HIGHLIGHT_BAND_ALPHA = 0.22;
 
 const HIDDEN_CURSOR = { left: -10, top: -10 };
@@ -51,6 +51,8 @@ export interface TelemetryChartOptions {
 export interface TelemetryChartHandle extends ScrubbableChart {
   /** Shades a **Best Effort** window, or clears the shading with `null`. */
   setHighlight(window: TimeWindow | null): void;
+  /** Shades the work **Detected Intervals** of a Run, or clears the shading with an empty list. */
+  setWorkIntervals(windows: readonly TimeWindow[]): void;
   /** Restyles the live chart for a colour scheme, keeping its cursor and reading. */
   setTheme(theme: ColorScheme): void;
   /** Shows or hides the overlay and its reading in place; does nothing on a chart without one. */
@@ -80,6 +82,7 @@ export function createTelemetryChart(options: TelemetryChartOptions): TelemetryC
   const { container, readout, series, data, samples, onScrub, overlay } = options;
   let theme = options.theme;
   let highlight: TimeWindow | null = null;
+  let workIntervals: readonly TimeWindow[] = [];
   let overlayVisible = overlay?.visible ?? false;
   let readingSeconds: number | null = null;
   // The plotted line breaks at the plotted series' dropouts; the reading follows the full samples.
@@ -127,18 +130,23 @@ export function createTelemetryChart(options: TelemetryChartOptions): TelemetryC
     return left == null || left < 0 ? null : u.posToVal(left, 'x');
   };
 
-  const drawHighlight = (u: uPlot) => {
-    if (!highlight) return;
-    const x0 = u.valToPos(highlight.startTimeSeconds, 'x', true);
-    const x1 = u.valToPos(highlight.endTimeSeconds, 'x', true);
+  const drawBand = (u: uPlot, band: TimeWindow, color: string) => {
+    const x0 = u.valToPos(band.startTimeSeconds, 'x', true);
+    const x1 = u.valToPos(band.endTimeSeconds, 'x', true);
     const left = Math.max(u.bbox.left, Math.min(x0, x1));
     const right = Math.min(u.bbox.left + u.bbox.width, Math.max(x0, x1));
     if (right <= left) return;
     u.ctx.save();
     u.ctx.globalAlpha = HIGHLIGHT_BAND_ALPHA;
-    u.ctx.fillStyle = BEST_EFFORT_HIGHLIGHT_COLOR[theme];
+    u.ctx.fillStyle = color;
     u.ctx.fillRect(left, u.bbox.top, right - left, u.bbox.height);
     u.ctx.restore();
+  };
+
+  // The work intervals sit under a selected Best Effort, so the selection stays the most visible.
+  const drawHighlight = (u: uPlot) => {
+    for (const interval of workIntervals) drawBand(u, interval, WORK_INTERVAL_COLOR[theme]);
+    if (highlight) drawBand(u, highlight, BEST_EFFORT_HIGHLIGHT_COLOR[theme]);
   };
 
   // Strokes are read from `theme` on every draw, so a colour-scheme change is a redraw, not a rebuild.
@@ -224,6 +232,10 @@ export function createTelemetryChart(options: TelemetryChartOptions): TelemetryC
     },
     setHighlight(window) {
       highlight = window;
+      plot.redraw(false);
+    },
+    setWorkIntervals(windows) {
+      workIntervals = windows;
       plot.redraw(false);
     },
     setTheme(next) {

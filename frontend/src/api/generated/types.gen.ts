@@ -843,6 +843,10 @@ export type ActivityDetailDto = {
      */
     bestEfforts: Array<ActivityBestEffortDto>;
     /**
+     * Detected Intervals of a Run in order, tiling its Moving Time; empty for a steady Run and any other sport
+     */
+    detectedIntervals: Array<DetectedIntervalDto>;
+    /**
      * Derived Run metrics; null for any sport but Run and for a Run whose derived data is not computed yet
      */
     runMetrics: RunMetricsDto | null;
@@ -887,6 +891,44 @@ export type ActivityLapDto = {
 };
 
 export type DecouplingUnavailableReason = 'NO_PACE_DATA' | 'NO_HEART_RATE' | 'TOO_SHORT' | 'HEART_RATE_GAP_IN_HALF' | 'NOT_STEADY';
+
+export type DetectedIntervalDto = {
+    /**
+     * 1-based position in the Run
+     */
+    intervalNumber: number;
+    kind: DetectedIntervalKind;
+    startIndex: number;
+    endIndex: number;
+    startTimeSeconds: number;
+    endTimeSeconds: number;
+    /**
+     * Seconds of Moving Time in the interval
+     */
+    movingSeconds: number;
+    /**
+     * Distance covered, in metres
+     */
+    distanceMeters: number | null;
+    /**
+     * Mean Grade-Adjusted Pace speed, in m/s
+     */
+    averageGapMetersPerSecond: number;
+    /**
+     * Mean heart rate, in bpm
+     */
+    averageHeartRate: number | null;
+    /**
+     * Mean power, in W
+     */
+    averagePowerWatts: number | null;
+    /**
+     * The interval's own Aerobic Decoupling in percent; only for a work interval of two minutes or more
+     */
+    decouplingPct: number | null;
+};
+
+export type DetectedIntervalKind = 'WORK' | 'RECOVERY';
 
 export type EffortWindowDto = {
     startIndex: number;

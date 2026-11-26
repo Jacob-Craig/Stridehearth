@@ -31,6 +31,7 @@ class ActivityService(
     private val acclimationRollup: AcclimationRollup,
     private val athleteTimeZone: AthleteTimeZone,
     private val athleteFitnessService: AthleteFitnessService,
+    private val detectedIntervalRepository: ActivityDetectedIntervalRepository,
 ) {
     /** Logs a `MANUAL` **Activity** for [userId], recording its creation as an **Activity History Entry**. */
     @Transactional
@@ -83,6 +84,7 @@ class ActivityService(
             laps = activityLapRepository.findByActivityIdOrderByLapNumberAsc(id),
             history = activityHistory.entriesFor(id),
             bestEfforts = activityBestEffortRepository.findByActivityId(id).sortedBy { it.benchmarkDistance.distanceMeters },
+            detectedIntervals = if (isRun) detectedIntervalRepository.findByActivityId(id) else emptyList(),
             runMetrics = if (isRun) derivedMetricsRepository.findRunMetrics(id) else null,
             trainingLoad = derivedMetricsRepository.findTrainingLoad(id),
             minStaminaPct = staminaService.stamina(id, userId)?.min,

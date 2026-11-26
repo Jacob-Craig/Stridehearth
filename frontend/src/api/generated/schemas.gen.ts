@@ -2977,6 +2977,13 @@ export const ActivityDetailDTOSchema = {
                 $ref: '#/components/schemas/ActivityBestEffortDTO'
             }
         },
+        detectedIntervals: {
+            type: 'array',
+            description: 'Detected Intervals of a Run in order, tiling its Moving Time; empty for a steady Run and any other sport',
+            items: {
+                $ref: '#/components/schemas/DetectedIntervalDTO'
+            }
+        },
         runMetrics: {
             type: [
                 'object',
@@ -3024,6 +3031,7 @@ export const ActivityDetailDTOSchema = {
         'bestEfforts',
         'calories',
         'conditions',
+        'detectedIntervals',
         'distance',
         'hasProtectedMetrics',
         'history',
@@ -3126,6 +3134,100 @@ export const DecouplingUnavailableReasonSchema = {
         'TOO_SHORT',
         'HEART_RATE_GAP_IN_HALF',
         'NOT_STEADY'
+    ]
+} as const;
+
+export const DetectedIntervalDTOSchema = {
+    type: 'object',
+    properties: {
+        intervalNumber: {
+            type: 'integer',
+            format: 'int32',
+            description: '1-based position in the Run'
+        },
+        kind: {
+            $ref: '#/components/schemas/DetectedIntervalKind'
+        },
+        startIndex: {
+            type: 'integer',
+            format: 'int32'
+        },
+        endIndex: {
+            type: 'integer',
+            format: 'int32'
+        },
+        startTimeSeconds: {
+            type: 'number',
+            format: 'double'
+        },
+        endTimeSeconds: {
+            type: 'number',
+            format: 'double'
+        },
+        movingSeconds: {
+            type: 'integer',
+            format: 'int32',
+            description: 'Seconds of Moving Time in the interval'
+        },
+        distanceMeters: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Distance covered, in metres'
+        },
+        averageGapMetersPerSecond: {
+            type: 'number',
+            format: 'double',
+            description: 'Mean Grade-Adjusted Pace speed, in m/s'
+        },
+        averageHeartRate: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Mean heart rate, in bpm'
+        },
+        averagePowerWatts: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'Mean power, in W'
+        },
+        decouplingPct: {
+            type: [
+                'number',
+                'null'
+            ],
+            format: 'double',
+            description: 'The interval\'s own Aerobic Decoupling in percent; only for a work interval of two minutes or more'
+        }
+    },
+    required: [
+        'averageGapMetersPerSecond',
+        'averageHeartRate',
+        'averagePowerWatts',
+        'decouplingPct',
+        'distanceMeters',
+        'endIndex',
+        'endTimeSeconds',
+        'intervalNumber',
+        'kind',
+        'movingSeconds',
+        'startIndex',
+        'startTimeSeconds'
+    ]
+} as const;
+
+export const DetectedIntervalKindSchema = {
+    type: 'string',
+    enum: [
+        'WORK',
+        'RECOVERY'
     ]
 } as const;
 

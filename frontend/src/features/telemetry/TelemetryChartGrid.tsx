@@ -24,6 +24,8 @@ interface TelemetryChartGridProps {
   readonly bus: TelemetryScrubberBus;
   /** The selected **Best Effort**'s window, shaded on every chart; `null` when none is selected. */
   readonly highlight: TimeWindow | null;
+  /** The work **Detected Intervals** to shade on every chart. */
+  readonly workIntervals: readonly TimeWindow[];
 }
 
 /** The points one chart plots. */
@@ -42,7 +44,13 @@ const plotOf = (chartData: ChartData, index: number): SeriesPlot =>
     .exhaustive();
 
 /** One synchronized uPlot chart per recorded sensor stream of the **Activity Details**. */
-export function TelemetryChartGrid({ t, series, bus, highlight }: TelemetryChartGridProps) {
+export function TelemetryChartGrid({
+  t,
+  series,
+  bus,
+  highlight,
+  workIntervals,
+}: TelemetryChartGridProps) {
   const chartData = useChartData(t, series);
 
   return (
@@ -55,6 +63,7 @@ export function TelemetryChartGrid({ t, series, bus, highlight }: TelemetryChart
           plot={plotOf(chartData, index)}
           bus={bus}
           highlight={highlight}
+          workIntervals={workIntervals}
           belowFold={index >= CHARTS_ABOVE_FOLD}
         />
       ))}
@@ -69,6 +78,8 @@ interface TelemetryChartCardProps {
   readonly plot: SeriesPlot;
   readonly bus: TelemetryScrubberBus;
   readonly highlight: TimeWindow | null;
+  /** The work **Detected Intervals** to shade on every chart. */
+  readonly workIntervals: readonly TimeWindow[];
   readonly belowFold: boolean;
 }
 
@@ -78,6 +89,7 @@ function TelemetryChartCard({
   plot,
   bus,
   highlight,
+  workIntervals,
   belowFold,
 }: TelemetryChartCardProps) {
   const theme = useColorScheme();
@@ -144,6 +156,9 @@ function TelemetryChartCard({
   useEffect(() => {
     liveChart?.setHighlight(highlight);
   }, [liveChart, highlight]);
+  useEffect(() => {
+    liveChart?.setWorkIntervals(workIntervals);
+  }, [liveChart, workIntervals]);
   useEffect(() => {
     liveChart?.setTheme(theme);
   }, [liveChart, theme]);

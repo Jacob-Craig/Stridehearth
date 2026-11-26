@@ -59,6 +59,11 @@ data class ActivityDetailDTO(
     val bestEfforts: List<ActivityBestEffortDTO>,
     @field:Schema(
         requiredMode = Schema.RequiredMode.REQUIRED,
+        description = "Detected Intervals of a Run in order, tiling its Moving Time; empty for a steady Run and any other sport",
+    )
+    val detectedIntervals: List<DetectedIntervalDTO>,
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
         types = ["object", "null"],
         description = "Derived Run metrics; null for any sport but Run and for a Run whose derived data is not computed yet",
     )
@@ -88,6 +93,63 @@ data class ActivityDetailDTO(
     )
     val conditions: ActivityConditionsDTO?,
 )
+
+/** Whether a **Detected Interval** is a hard (work) or an easy (recovery) stretch. */
+@Schema(enumAsRef = true)
+enum class DetectedIntervalKind { WORK, RECOVERY }
+
+/**
+ * One **Detected Interval** of a Run (#47), unrounded SI values. [startIndex] and [endIndex] are samples of its Activity
+ * Details; [startTimeSeconds] and [endTimeSeconds] are elapsed seconds (end exclusive), so a chart can shade the
+ * interval as it does a Best Effort window. A traffic stop inside the interval is inside its span but not its
+ * [movingSeconds].
+ */
+data class DetectedIntervalDTO(
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "1-based position in the Run")
+    val intervalNumber: Int,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+    val kind: DetectedIntervalKind,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+    val startIndex: Int,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+    val endIndex: Int,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+    val startTimeSeconds: Double,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+    val endTimeSeconds: Double,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Seconds of Moving Time in the interval")
+    val movingSeconds: Int,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = ["number", "null"], description = "Distance covered, in metres")
+    val distanceMeters: Double?,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Mean Grade-Adjusted Pace speed, in m/s")
+    val averageGapMetersPerSecond: Double,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = ["number", "null"], description = "Mean heart rate, in bpm")
+    val averageHeartRate: Double?,
+    @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, types = ["number", "null"], description = "Mean power, in W")
+    val averagePowerWatts: Double?,
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
+        types = ["number", "null"],
+        description = "The interval's own Aerobic Decoupling in percent; only for a work interval of two minutes or more",
+    )
+    val decouplingPct: Double?,
+)
+
+fun StoredDetectedInterval.toDto(): DetectedIntervalDTO =
+    DetectedIntervalDTO(
+        intervalNumber = intervalNumber,
+        kind = if (interval.isWork) DetectedIntervalKind.WORK else DetectedIntervalKind.RECOVERY,
+        startIndex = interval.startIndex,
+        endIndex = interval.endIndex,
+        startTimeSeconds = interval.startTimeSeconds,
+        endTimeSeconds = interval.endTimeSeconds,
+        movingSeconds = interval.movingSeconds,
+        distanceMeters = interval.distanceMeters,
+        averageGapMetersPerSecond = interval.avgGap,
+        averageHeartRate = interval.avgHr,
+        averagePowerWatts = interval.avgPower,
+        decouplingPct = interval.decouplingPct,
+    )
 
 /**
  * The heat and altitude an Activity was done in, from its own Activity Details (ADR-0017), and the athlete's
@@ -278,6 +340,7 @@ fun Activity.toDetailDto(
     laps: List<ActivityLap>,
     history: List<HistoryEntry>,
     bestEfforts: List<ActivityBestEffort>,
+    detectedIntervals: List<StoredDetectedInterval> = emptyList(),
     runMetrics: RunMetrics? = null,
     trainingLoad: TrainingLoadResult? = null,
     minStaminaPct: Float? = null,
@@ -302,6 +365,7 @@ fun Activity.toDetailDto(
             laps = laps.map { it.toDto() },
             history = history.map { it.toDto() },
             bestEfforts = bestEfforts.map { it.toDto() },
+            detectedIntervals = detectedIntervals.takeIf { sport == ActivitySport.RUN }.orEmpty().map { it.toDto() },
             runMetrics = runMetrics?.takeIf { sport == ActivitySport.RUN }?.toDto(vo2max, correctionFactor),
             trainingLoad = (trainingLoad as? TrainingLoadResult.Scored)?.let { TrainingLoadDTO(it.value, it.method) },
             trainingLoadUnavailableReason = (trainingLoad as? TrainingLoadResult.Unavailable)?.reason,
