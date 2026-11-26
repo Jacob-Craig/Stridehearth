@@ -1,6 +1,7 @@
 package com.jacobcraig.stridehearth.activities
 
 import com.jacobcraig.stridehearth.analytics.ActivityAnalysis
+import com.jacobcraig.stridehearth.analytics.ActivityConditions
 import com.jacobcraig.stridehearth.analytics.ThresholdDependentMetrics
 import com.jacobcraig.stridehearth.analytics.TrainingLoadResult
 import com.jacobcraig.stridehearth.analytics.TrainingLoadUnavailableReason
@@ -15,6 +16,7 @@ import com.jacobcraig.stridehearth.athlete.ThresholdHistory
 import com.jacobcraig.stridehearth.athlete.ThresholdsOn
 import com.jacobcraig.stridehearth.system.ActivitySport
 import com.jacobcraig.stridehearth.system.fit.FitTelemetry
+import com.jacobcraig.stridehearth.weather.ActivityWeatherRepository
 import jakarta.persistence.EntityManager
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Propagation
@@ -79,6 +81,7 @@ class DerivedDataRefresh(
     private val athleteRollups: AthleteRollups,
     private val thresholdRepository: AthleteThresholdRepository,
     private val analyticsStateRepository: AthleteAnalyticsStateRepository,
+    private val weatherRepository: ActivityWeatherRepository,
 ) {
     /**
      * Recomputes [activity]'s derived data from [details] (or its stored Activity Details) if it still exists, and
@@ -167,7 +170,7 @@ class DerivedDataRefresh(
             analysis?.gapSpeed,
             analysis?.runMetrics,
             analysis?.thresholdDependent ?: noActivityDetails(activity),
-            analysis?.conditions,
+            analysis?.conditions?.withCachedWeather(activityId),
             workoutType(activity, analysis),
         )
         val userId = checkNotNull(activity.user.id)
@@ -191,6 +194,17 @@ class DerivedDataRefresh(
         val movingSeconds = analysis.runMetrics?.movingSeconds ?: return null
         val (median, runs) = workoutTypeRepository.findMedianMovingSeconds(checkNotNull(activity.user.id), activity.startedAt)
         return WorkoutTypeClassifier.classify(evidence, movingSeconds, median, runs)
+    }
+
+    /**
+     * These conditions, with the Ambient Temperature of the Activity's cached external weather (ADR-0017, #83) when the
+     * device recorded no temperature. A device temperature always wins; the weather is air temperature, so it takes
+     * no Wrist-Heat Correction.
+     */
+    private fun ActivityConditions.withCachedWeather(activityId: Long): ActivityConditions {
+        if (ambientTemperatureC != null) return this
+        val weather = weatherRepository.findTemperatureC(activityId) ?: return this
+        return copy(ambientTemperatureC = weather)
     }
 
     /** [activity]'s analysis from [details] or its stored Activity Details, or null when it has none. */

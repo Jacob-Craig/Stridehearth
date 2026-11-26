@@ -52,6 +52,9 @@ jobs:
       - name: Run ktlintCheck
         run: ./gradlew ktlintCheck
 
+      - name: PostgreSQL client major matches the compose PostGIS major
+        run: .github/scripts/check-postgres-client-major.sh
+
   frontend:
     name: Frontend Lint, Typecheck & Tests
     runs-on: ubuntu-latest

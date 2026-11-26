@@ -58,6 +58,10 @@ stridehearth:
     recompute-interval-ms: 15000
     recompute-initial-delay-ms: 15000
     recompute-pages-per-run: 10
+  # External weather is an Operator opt-in (ADR-0017). `none` (the default) makes no outbound call and builds no HTTP
+  # client; `open-meteo` looks up Activities without a device temperature in the Open-Meteo ERA5 archive.
+  weather:
+    provider: none
   storage:
     temp-dir: ./temp-batches
   # Where the Server writes a pg_dump before applying pending migrations, and how many it keeps (ADR-0010).

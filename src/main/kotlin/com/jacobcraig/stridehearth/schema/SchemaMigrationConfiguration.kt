@@ -3,6 +3,7 @@ package com.jacobcraig.stridehearth.schema
 import org.flywaydb.core.Flyway
 import org.flywaydb.core.api.MigrationState
 import org.flywaydb.core.api.pattern.ValidatePattern
+import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.flyway.autoconfigure.FlywayConfigurationCustomizer
 import org.springframework.boot.flyway.autoconfigure.FlywayMigrationStrategy
@@ -48,6 +49,10 @@ class SchemaMigrationConfiguration {
         properties: BackupProperties,
         connectionDetails: JdbcConnectionDetails,
     ) {
+        if (!properties.enabled) {
+            log.warn("stridehearth.backup.enabled is false: migrating without a pre-migration backup.")
+            return
+        }
         val info = flyway.info()
         val from = info.current()?.version?.version ?: return
         val to =
@@ -62,6 +67,7 @@ class SchemaMigrationConfiguration {
     }
 
     private companion object {
+        val log = LoggerFactory.getLogger(SchemaMigrationConfiguration::class.java)
         val FUTURE_STATES = setOf(MigrationState.FUTURE_SUCCESS, MigrationState.FUTURE_FAILED)
     }
 }

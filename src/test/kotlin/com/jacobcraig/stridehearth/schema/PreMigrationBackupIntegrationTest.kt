@@ -108,6 +108,24 @@ class PreMigrationBackupIntegrationTest {
     }
 
     @Test
+    fun `with the backup disabled, pending migrations run without calling pg_dump`() {
+        SpringApplicationBuilder(StridehearthApplication::class.java)
+            .run(
+                "--spring.datasource.url=${postgres.jdbcUrl}",
+                "--spring.datasource.username=${postgres.username}",
+                "--spring.datasource.password=${postgres.password}",
+                "--spring.data.redis.host=redis.invalid",
+                "--server.port=0",
+                "--stridehearth.backup.dir=$backups",
+                "--stridehearth.backup.enabled=false",
+                "--stridehearth.backup.pg-dump-command=${fakePgDump("exit 1")}",
+            ).close()
+
+        assertTrue(currentVersion()!! > 5)
+        assertEquals(emptyList(), dumps())
+    }
+
+    @Test
     fun `an unwritable backups directory stops the Server before any migration runs`() {
         val notADirectory = backups.resolve("file").also { it.writeText("x") }
 

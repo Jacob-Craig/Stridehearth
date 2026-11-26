@@ -8,6 +8,8 @@ import com.jacobcraig.stridehearth.system.fit.FitActivityParser
 import com.jacobcraig.stridehearth.testutils.SampleRunGenerator
 import com.jacobcraig.stridehearth.users.User
 import com.jacobcraig.stridehearth.users.UserRepository
+import com.jacobcraig.stridehearth.weather.OpenMeteoClient
+import com.jacobcraig.stridehearth.weather.WeatherLookupStage
 import com.jayway.jsonpath.JsonPath
 import org.hamcrest.Matchers.closeTo
 import org.junit.jupiter.api.AfterEach
@@ -34,8 +36,9 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * Weather comes from the device (ADR-0017): no Operator has a weather provider to enable yet, so the application makes
- * no outbound HTTP call at all, and an imported Activity's conditions come only from its own file.
+ * Weather comes from the device unless an Operator opts in (ADR-0017). With `stridehearth.weather.provider` at its
+ * default `none`, the application holds no HTTP client, no main source outside the `weather` package refers to one, and
+ * an imported Activity's conditions come only from its own file. [WeatherLookupStageTest] covers `open-meteo`.
  */
 @SpringBootTest
 @Import(TestcontainersConfiguration::class)
@@ -66,7 +69,9 @@ class NoOutboundWeatherCallsTest {
     }
 
     @Test
-    fun `the application holds no HTTP client`() {
+    fun `the application holds no HTTP client or weather lookup`() {
+        assertEquals(emptyList(), applicationContext.getBeanNamesForType(OpenMeteoClient::class.java).toList())
+        assertEquals(emptyList(), applicationContext.getBeanNamesForType(WeatherLookupStage::class.java).toList())
         val clients =
             listOf(
                 "org.springframework.web.client.RestTemplate",
@@ -81,7 +86,7 @@ class NoOutboundWeatherCallsTest {
     }
 
     @Test
-    fun `no main source refers to an HTTP client`() {
+    fun `no main source outside the weather package refers to an HTTP client`() {
         val forbidden =
             listOf(
                 "java.net.http",
@@ -93,7 +98,10 @@ class NoOutboundWeatherCallsTest {
         val sources = File("src/main/kotlin").walkTopDown().filter { it.isFile && it.extension == "kt" }.toList()
         assertTrue(sources.size > 100, "the scan reads the main sources")
 
-        val offenders = sources.flatMap { file -> forbidden.filter { it in file.readText() }.map { "${file.name}: $it" } }
+        val offenders =
+            sources.filterNot { it.parentFile.name == "weather" }.flatMap { file ->
+                forbidden.filter { it in file.readText() }.map { "${file.name}: $it" }
+            }
 
         assertEquals(emptyList(), offenders)
     }
