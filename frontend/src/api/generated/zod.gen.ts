@@ -53,6 +53,14 @@ export const zActivityUpdateRequestDto = z.object({
     calories: z.int().gte(0).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).nullish()
 });
 
+export const zWorkoutType = z.enum([
+    'EASY',
+    'LONG_RUN',
+    'TEMPO',
+    'INTERVALS',
+    'RACE'
+]);
+
 export const zActivitySummaryDto = z.object({
     id: z.coerce.bigint().min(BigInt('-9223372036854775808'), { error: 'Invalid value: Expected int64 to be >= -9223372036854775808' }).max(BigInt('9223372036854775807'), { error: 'Invalid value: Expected int64 to be <= 9223372036854775807' }),
     title: z.string(),
@@ -76,7 +84,8 @@ export const zActivitySummaryDto = z.object({
         'GARMIN',
         'FIT_UPLOAD'
     ]),
-    hasProtectedMetrics: z.boolean()
+    hasProtectedMetrics: z.boolean(),
+    workoutType: zWorkoutType.nullable()
 });
 
 export const zCreatedInviteDto = z.object({
@@ -888,6 +897,7 @@ export const zActivityDetailDto = z.object({
         'FIT_UPLOAD'
     ]),
     hasProtectedMetrics: z.boolean(),
+    workoutType: zWorkoutType.nullable(),
     ownerUsername: z.string(),
     laps: z.array(zActivityLapDto),
     history: z.array(zActivityHistoryEntryDto),
@@ -1168,6 +1178,7 @@ export const zListActivitiesQuery = z.object({
         'GARMIN',
         'FIT_UPLOAD'
     ]).optional(),
+    workoutType: zWorkoutType.optional(),
     page: z.int().gte(0).max(2147483647, { error: 'Invalid value: Expected int32 to be <= 2147483647' }).optional().default(0),
     size: z.string().optional().default('20')
 });

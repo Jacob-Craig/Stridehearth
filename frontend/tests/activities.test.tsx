@@ -33,6 +33,7 @@ function activity(overrides: Partial<ActivitySummaryDto> = {}): ActivitySummaryD
     calories: 640,
     source: 'MANUAL',
     hasProtectedMetrics: false,
+    workoutType: null,
     ...overrides,
   };
 }
@@ -188,6 +189,57 @@ describe('/activities', () => {
     const hikeRow = screen.getByText('Hill Hike').closest('tr')!;
     expect(within(hikeRow).getByText('Hike')).toBeInTheDocument();
     expect(within(hikeRow).getAllByText('—')).toHaveLength(3);
+  });
+
+  it("shows a Run's Workout Type as a badge, and nothing for an Activity without one", async () => {
+    stubApi({
+      'GET /api/activities': () =>
+        json(
+          pageOf(
+            [
+              activity({ id: 7, title: 'Track Night', workoutType: 'INTERVALS' }),
+              activity({ id: 8, title: 'Sunday Long', workoutType: 'LONG_RUN' }),
+              activity({ id: 9, title: 'Hill Hike', sport: 'HIKE', workoutType: null }),
+            ],
+            0,
+            3,
+          ),
+        ),
+    });
+    renderApp('/activities');
+
+    const track = (await screen.findByText('Track Night')).closest('tr')!;
+    expect(within(track).getByText('Intervals')).toHaveAttribute('data-workout-type', 'INTERVALS');
+    const long = screen.getByText('Sunday Long').closest('tr')!;
+    expect(within(long).getByText('Long Run')).toBeInTheDocument();
+    const hike = screen.getByText('Hill Hike').closest('tr')!;
+    expect(hike.querySelector('[data-workout-type]')).toBeNull();
+  });
+
+  it('filters the list by Workout Type through the API and the URL', async () => {
+    const requests = stubApi({
+      'GET /api/activities': ({ search }) =>
+        search.get('workoutType') === 'TEMPO'
+          ? json(pageOf([activity({ id: 3, title: 'Tempo Run', workoutType: 'TEMPO' })], 0, 1))
+          : json(pageOf([activity({ id: 1, title: 'Any Run' })], 0, 1)),
+    });
+    const { router } = renderApp('/activities');
+    await screen.findByText('Any Run');
+
+    await userEvent.selectOptions(screen.getByLabelText('Workout Type'), 'Tempo');
+
+    expect(await screen.findByText('Tempo Run')).toBeInTheDocument();
+    expect(requests.some((request) => request.search.get('workoutType') === 'TEMPO')).toBe(true);
+    expect(router.state.location.search).toMatchObject({ workoutType: 'TEMPO', page: 0 });
+  });
+
+  it('starts on the filter named in the URL and says when no Run has the type', async () => {
+    const requests = stubApi({ 'GET /api/activities': () => json(pageOf([], 0, 0)) });
+    renderApp('/activities?workoutType=RACE');
+
+    expect(await screen.findByText('No Race runs')).toBeInTheDocument();
+    expect(screen.getByLabelText('Workout Type')).toHaveValue('RACE');
+    expect(requests[0]?.search.get('workoutType')).toBe('RACE');
   });
 
   it('pages through activities with next and previous controls', async () => {
@@ -472,6 +524,7 @@ describe('/activities/$activityId/edit', () => {
       title: 'Imported Run',
       source: 'FIT_UPLOAD',
       hasProtectedMetrics: true,
+      workoutType: null,
     });
     const requests = stubApi({
       'GET /api/activities/13': () => json(detailOf(imported)),

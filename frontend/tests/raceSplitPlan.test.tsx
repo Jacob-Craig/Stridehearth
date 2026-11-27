@@ -34,6 +34,7 @@ const COURSE: ActivityDetailDto = {
   calories: 480,
   source: 'FIT_UPLOAD',
   hasProtectedMetrics: true,
+  workoutType: null,
   ownerUsername: 'runner_bob',
   laps: [],
   history: [],

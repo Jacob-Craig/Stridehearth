@@ -15,6 +15,7 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import jakarta.persistence.UniqueConstraint
+import org.hibernate.annotations.Formula
 import java.time.Instant
 import kotlin.reflect.KProperty1
 
@@ -60,6 +61,14 @@ class Activity(
     @Column(name = "external_id")
     var externalId: String? = null,
 ) {
+    /**
+     * The stored **Workout Type** (a [com.jacobcraig.stridehearth.analytics.WorkoutType] name) of this Run, read from its
+     * derived data when the Activity is loaded and null for any other Activity or before it is classified. Read-only: the
+     * derived-data refresh is its only writer, so it is stale for an Activity edited in the same transaction.
+     */
+    @Formula("(SELECT m.workout_type FROM activity_derived_metrics m WHERE m.activity_id = id)")
+    var storedWorkoutType: String? = null
+
     /**
      * True when this Activity's **Protected Metrics** are immutable: it was sourced from an external
      * file (any non-`MANUAL` **Activity Source**) or is backed by recorded **Activity Details**.

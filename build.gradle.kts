@@ -109,6 +109,10 @@ tasks.withType<Test> {
 // `performanceTest` runs only it. Its ~300-Activity smoke version is an ordinary test and runs in `check`.
 tasks.named<Test>("test") {
     useJUnitPlatform { excludeTags("performance") }
+    // Spring's test context cache holds up to 32 contexts (each with its own bean definitions, Hikari pool and
+    // containers), about 15 MB each: the suite fills it, which overran Gradle's default 512 MB test heap and OOMed the
+    // job (#107). Raise the heap rather than split or evict contexts, which would re-pay their startup.
+    maxHeapSize = "1g"
 }
 
 tasks.register<Test>("performanceTest") {

@@ -82,7 +82,10 @@ class ActivityAnalysisTest {
         )
         // 120 s of Moving Time without heart rate.
         assertEquals(Vo2maxResult.Unavailable(Vo2maxUnavailableReason.NO_HEART_RATE), analysis.vo2max)
-        assertEquals(ThresholdDependentMetrics(analysis.trainingLoad, analysis.vo2max), analysis.thresholdDependent)
+        assertEquals(
+            ThresholdDependentMetrics(analysis.trainingLoad, analysis.vo2max, analysis.workoutEvidence),
+            analysis.thresholdDependent,
+        )
     }
 
     @ParameterizedTest

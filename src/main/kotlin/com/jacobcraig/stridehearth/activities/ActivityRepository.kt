@@ -44,7 +44,7 @@ interface ActivityRepository :
         filter: ActivityFilter,
         pageable: Pageable,
     ): Page<Activity> {
-        val (titleContains, sport, source) = filter
+        val (titleContains, sport, source, workoutType) = filter
         val spec =
             Specification<Activity> { root, _, cb ->
                 val predicates = mutableListOf<jakarta.persistence.criteria.Predicate>()
@@ -64,6 +64,9 @@ interface ActivityRepository :
                 }
                 if (source != null) {
                     predicates.add(cb.equal(root.get<ActivitySource>("source"), source))
+                }
+                if (workoutType != null) {
+                    predicates.add(cb.equal(root.get<String>("storedWorkoutType"), workoutType.name))
                 }
                 cb.and(*predicates.toTypedArray())
             }

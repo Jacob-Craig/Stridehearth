@@ -21,7 +21,9 @@ import com.jacobcraig.stridehearth.system.fit.FitTelemetry
  * **VO2max Estimate** ([Vo2maxEstimator]) or why there is none, exists for a Run only, against the same Thresholds.
  * Both depend on the Thresholds, so [thresholdDependent] groups them for a recompute after a Threshold change.
  * [detectedIntervals] ([IntervalDetector]), the **Detected Intervals** of a Run, are read from the same GAP stream and
- * plausible power; a steady Run, a Run without GAP, and every other sport have none.
+ * plausible power; a steady Run, a Run without GAP, and every other sport have none. [workoutEvidence] ([WorkoutEvidence])
+ * is what a Run's **Workout Type** is classified from, against the same Thresholds, so it belongs to
+ * [thresholdDependent] too; it exists for a Run with GAP only.
  *
  * No Spring and no I/O.
  */
@@ -34,9 +36,10 @@ class ActivityAnalysis private constructor(
     val conditions: ActivityConditions,
     val vo2max: Vo2maxResult?,
     val detectedIntervals: List<DetectedInterval>,
+    val workoutEvidence: WorkoutEvidence?,
 ) {
     /** The derived data that depends on the Thresholds in force on the Activity's date. */
-    val thresholdDependent: ThresholdDependentMetrics get() = ThresholdDependentMetrics(trainingLoad, vo2max)
+    val thresholdDependent: ThresholdDependentMetrics get() = ThresholdDependentMetrics(trainingLoad, vo2max, workoutEvidence)
 
     companion object {
         /**
@@ -76,7 +79,23 @@ class ActivityAnalysis private constructor(
             val vo2max = if (sport == ActivitySport.RUN) Vo2maxEstimator.estimate(cleaned, gapSpeed, thresholds, conditions) else null
             val detectedIntervals =
                 if (sport == ActivitySport.RUN && gapSpeed != null) IntervalDetector.detect(cleaned, gapSpeed, power) else emptyList()
-            return ActivityAnalysis(cleaned, gapSpeed, runMetrics, peakEfforts, trainingLoad, conditions, vo2max, detectedIntervals)
+            val workoutEvidence =
+                if (sport == ActivitySport.RUN && gapSpeed != null) {
+                    WorkoutEvidence.of(cleaned, gapSpeed, power, detectedIntervals, thresholds)
+                } else {
+                    null
+                }
+            return ActivityAnalysis(
+                cleaned,
+                gapSpeed,
+                runMetrics,
+                peakEfforts,
+                trainingLoad,
+                conditions,
+                vo2max,
+                detectedIntervals,
+                workoutEvidence,
+            )
         }
 
         /** [power] with every sample outside 0..[MAX_RUN_POWER_WATTS] read as missing. */

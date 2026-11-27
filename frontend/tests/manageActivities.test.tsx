@@ -26,6 +26,7 @@ function activity(overrides: Partial<ActivitySummaryDto> = {}): ActivitySummaryD
     calories: 640,
     source: 'MANUAL',
     hasProtectedMetrics: false,
+    workoutType: null,
     ...overrides,
   };
 }

@@ -32,6 +32,7 @@ class ActivityService(
     private val athleteTimeZone: AthleteTimeZone,
     private val athleteFitnessService: AthleteFitnessService,
     private val detectedIntervalRepository: ActivityDetectedIntervalRepository,
+    private val workoutTypeRepository: WorkoutTypeRepository,
 ) {
     /** Logs a `MANUAL` **Activity** for [userId], recording its creation as an **Activity History Entry**. */
     @Transactional
@@ -140,7 +141,8 @@ class ActivityService(
                 request.toProtectedMetrics()
             }
         applyEdit(existingActivity, request.title!!, request.sport!!, metrics)
-        return existingActivity.toSummaryDto(hasDetails)
+        // Not the Activity's own value: it was loaded before the edit's refresh reclassified it.
+        return existingActivity.toSummaryDto(hasDetails, workoutTypeRepository.findType(id))
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.jacobcraig.stridehearth.activities
 
+import com.jacobcraig.stridehearth.analytics.WorkoutType
 import com.jacobcraig.stridehearth.api.RequestValidationException
 import com.jacobcraig.stridehearth.system.ActivitySport
 import io.swagger.v3.oas.annotations.media.Schema
@@ -41,9 +42,18 @@ data class ActivitySummaryDTO(
         description = "True when the Protected Metrics are immutable and only title and sport may be edited",
     )
     val hasProtectedMetrics: Boolean,
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
+        types = ["string", "null"],
+        description = "Workout Type of a Run; null for any other sport and for a Run not yet classified",
+    )
+    val workoutType: WorkoutType?,
 )
 
-fun Activity.toSummaryDto(hasActivityDetails: Boolean): ActivitySummaryDTO =
+fun Activity.toSummaryDto(
+    hasActivityDetails: Boolean,
+    workoutType: WorkoutType? = WorkoutType.fromStored(storedWorkoutType),
+): ActivitySummaryDTO =
     ActivitySummaryDTO(
         id = id!!,
         title = title,
@@ -56,6 +66,7 @@ fun Activity.toSummaryDto(hasActivityDetails: Boolean): ActivitySummaryDTO =
         calories = calories,
         source = source,
         hasProtectedMetrics = hasProtectedMetrics(hasActivityDetails),
+        workoutType = workoutType.takeIf { sport == ActivitySport.RUN },
     )
 
 /** Validation messages shared by the create and edit request bodies, so both report identical errors. */

@@ -6,6 +6,7 @@ import type {
   ActivityTelemetryResponseDto,
 } from '../../api/generated/types.gen';
 import { DeleteActivityDialog } from '../../components/DeleteActivityDialog';
+import { WorkoutTypeBadge } from '../../components/WorkoutTypeBadge';
 import {
   formatDate,
   formatDistanceKm,
@@ -72,6 +73,7 @@ export function ActivityDetailPage({ userId, activity, telemetry }: ActivityDeta
             <span className="rounded-full bg-blue-100 dark:bg-blue-900 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:text-blue-200">
               {formatSport(activity.sport)}
             </span>
+            <WorkoutTypeBadge type={activity.workoutType} />
           </div>
           <p className="mt-1 flex flex-wrap gap-x-2 text-slate-600 dark:text-slate-400">
             <time dateTime={activity.startedAt} className="tabular-nums">

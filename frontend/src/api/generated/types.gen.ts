@@ -65,7 +65,13 @@ export type ActivitySummaryDto = {
      * True when the Protected Metrics are immutable and only title and sport may be edited
      */
     hasProtectedMetrics: boolean;
+    /**
+     * Workout Type of a Run; null for any other sport and for a Run not yet classified
+     */
+    workoutType: WorkoutType | null;
 };
+
+export type WorkoutType = 'EASY' | 'LONG_RUN' | 'TEMPO' | 'INTERVALS' | 'RACE';
 
 export type CreatedInviteDto = {
     id: number;
@@ -829,6 +835,10 @@ export type ActivityDetailDto = {
      * True when the Protected Metrics are immutable and only title and sport may be edited
      */
     hasProtectedMetrics: boolean;
+    /**
+     * Workout Type of a Run; null for any other sport and for a Run not yet classified
+     */
+    workoutType: WorkoutType | null;
     ownerUsername: string;
     /**
      * Device-recorded Laps in lap order
@@ -1613,6 +1623,10 @@ export type ListActivitiesData = {
          * Only Activities from this Activity Source
          */
         source?: 'MANUAL' | 'STRAVA' | 'GARMIN' | 'FIT_UPLOAD';
+        /**
+         * Only Runs of this Workout Type
+         */
+        workoutType?: WorkoutType;
         /**
          * Zero-based page index (ignored when size is 'all')
          */

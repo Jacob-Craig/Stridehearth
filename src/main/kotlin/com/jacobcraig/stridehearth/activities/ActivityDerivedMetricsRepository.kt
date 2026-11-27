@@ -9,6 +9,7 @@ import com.jacobcraig.stridehearth.analytics.TrainingLoadResult
 import com.jacobcraig.stridehearth.analytics.TrainingLoadUnavailableReason
 import com.jacobcraig.stridehearth.analytics.Vo2maxResult
 import com.jacobcraig.stridehearth.analytics.Vo2maxUnavailableReason
+import com.jacobcraig.stridehearth.analytics.WorkoutType
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Repository
 import java.sql.Types
@@ -40,6 +41,7 @@ class ActivityDerivedMetricsRepository(
         runMetrics: RunMetrics? = null,
         thresholdDependent: ThresholdDependentMetrics? = null,
         conditions: ActivityConditions? = null,
+        workoutType: WorkoutType? = null,
     ) {
         jdbcClient
             .sql(
@@ -47,10 +49,12 @@ class ActivityDerivedMetricsRepository(
                 INSERT INTO activity_derived_metrics (activity_id, algorithm_version, gap_speed, moving_seconds, ngp_mps,
                     efficiency_factor, aerobic_decoupling_pct, decoupling_unavailable_reason, training_load,
                     training_load_method, training_load_unavailable_reason, device_temperature_c, ambient_temperature_c,
-                    mean_altitude_m, vo2max_raw, vo2max_unavailable_reason, computed_at)
+                    mean_altitude_m, vo2max_raw, vo2max_unavailable_reason, workout_type, wt_threshold_work_intervals,
+                    wt_tempo_seconds, wt_easy_share, wt_race_intensity, wt_distance_meters, computed_at)
                 VALUES (:activityId, :version, :gapSpeed::real[], :movingSeconds, :ngpMps, :efficiencyFactor,
                     :aerobicDecouplingPct, :reason, :trainingLoad, :trainingLoadMethod, :trainingLoadReason,
-                    :deviceTemperatureC, :ambientTemperatureC, :meanAltitudeM, :vo2maxRaw, :vo2maxReason, now())
+                    :deviceTemperatureC, :ambientTemperatureC, :meanAltitudeM, :vo2maxRaw, :vo2maxReason, :workoutType,
+                    :wtWorkIntervals, :wtTempoSeconds, :wtEasyShare, :wtRaceIntensity, :wtDistanceMeters, now())
                 ON CONFLICT (activity_id) DO UPDATE
                 SET algorithm_version = EXCLUDED.algorithm_version,
                     gap_speed = EXCLUDED.gap_speed,
@@ -67,6 +71,12 @@ class ActivityDerivedMetricsRepository(
                     mean_altitude_m = EXCLUDED.mean_altitude_m,
                     vo2max_raw = EXCLUDED.vo2max_raw,
                     vo2max_unavailable_reason = EXCLUDED.vo2max_unavailable_reason,
+                    workout_type = EXCLUDED.workout_type,
+                    wt_threshold_work_intervals = EXCLUDED.wt_threshold_work_intervals,
+                    wt_tempo_seconds = EXCLUDED.wt_tempo_seconds,
+                    wt_easy_share = EXCLUDED.wt_easy_share,
+                    wt_race_intensity = EXCLUDED.wt_race_intensity,
+                    wt_distance_meters = EXCLUDED.wt_distance_meters,
                     computed_at = EXCLUDED.computed_at
                 """.trimIndent(),
             ).param("activityId", activityId)
@@ -77,7 +87,7 @@ class ActivityDerivedMetricsRepository(
             .param("efficiencyFactor", runMetrics?.efficiencyFactor, Types.DOUBLE)
             .param("aerobicDecouplingPct", runMetrics?.aerobicDecouplingPct, Types.DOUBLE)
             .param("reason", runMetrics?.decouplingUnavailableReason?.name, Types.VARCHAR)
-            .thresholdDependentParams(thresholdDependent)
+            .thresholdDependentParams(thresholdDependent, workoutType)
             .param("deviceTemperatureC", conditions?.deviceTemperatureC, Types.REAL)
             .param("ambientTemperatureC", conditions?.ambientTemperatureC, Types.REAL)
             .param("meanAltitudeM", conditions?.meanAltitudeM, Types.REAL)
@@ -95,6 +105,7 @@ class ActivityDerivedMetricsRepository(
         activityId: Long,
         version: Short,
         metrics: ThresholdDependentMetrics,
+        workoutType: WorkoutType? = null,
     ): Boolean =
         jdbcClient
             .sql(
@@ -105,16 +116,37 @@ class ActivityDerivedMetricsRepository(
                     training_load_unavailable_reason = :trainingLoadReason,
                     vo2max_raw = :vo2maxRaw,
                     vo2max_unavailable_reason = :vo2maxReason,
+                    workout_type = :workoutType,
+                    wt_threshold_work_intervals = :wtWorkIntervals,
+                    wt_tempo_seconds = :wtTempoSeconds,
+                    wt_easy_share = :wtEasyShare,
+                    wt_race_intensity = :wtRaceIntensity,
+                    wt_distance_meters = :wtDistanceMeters,
                     computed_at = now()
                 WHERE activity_id = :activityId AND algorithm_version = :version
                 """.trimIndent(),
             ).param("activityId", activityId)
             .param("version", version)
-            .thresholdDependentParams(metrics)
+            .thresholdDependentParams(metrics, workoutType)
             .update() > 0
 
-    private fun JdbcClient.StatementSpec.thresholdDependentParams(metrics: ThresholdDependentMetrics?): JdbcClient.StatementSpec =
-        trainingLoadParams(metrics?.trainingLoad)
+    private fun JdbcClient.StatementSpec.thresholdDependentParams(
+        metrics: ThresholdDependentMetrics?,
+        workoutType: WorkoutType?,
+    ): JdbcClient.StatementSpec {
+        val evidence = metrics?.workoutEvidence
+        return trainingLoadParams(metrics?.trainingLoad)
+            .param("workoutType", workoutType?.name, Types.VARCHAR)
+            .param("wtWorkIntervals", evidence?.thresholdWorkIntervals, Types.INTEGER)
+            .param("wtTempoSeconds", evidence?.tempoSeconds, Types.INTEGER)
+            .param("wtEasyShare", evidence?.easyShare, Types.DOUBLE)
+            .param("wtRaceIntensity", evidence?.raceIntensity, Types.DOUBLE)
+            .param("wtDistanceMeters", evidence?.distanceMeters, Types.DOUBLE)
+            .vo2maxParams(metrics)
+    }
+
+    private fun JdbcClient.StatementSpec.vo2maxParams(metrics: ThresholdDependentMetrics?): JdbcClient.StatementSpec =
+        this
             .param("vo2maxRaw", (metrics?.vo2max as? Vo2maxResult.Estimate)?.raw, Types.DOUBLE)
             .param("vo2maxReason", (metrics?.vo2max as? Vo2maxResult.Unavailable)?.reason?.name, Types.VARCHAR)
 

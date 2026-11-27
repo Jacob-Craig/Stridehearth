@@ -11,6 +11,7 @@ import com.jacobcraig.stridehearth.analytics.TrainingLoadResult
 import com.jacobcraig.stridehearth.analytics.TrainingLoadUnavailableReason
 import com.jacobcraig.stridehearth.analytics.Vo2maxResult
 import com.jacobcraig.stridehearth.analytics.Vo2maxUnavailableReason
+import com.jacobcraig.stridehearth.analytics.WorkoutType
 import com.jacobcraig.stridehearth.athlete.AcclimationRow
 import com.jacobcraig.stridehearth.system.ActivitySport
 import io.swagger.v3.oas.annotations.media.Schema
@@ -49,6 +50,12 @@ data class ActivityDetailDTO(
         description = "True when the Protected Metrics are immutable and only title and sport may be edited",
     )
     val hasProtectedMetrics: Boolean,
+    @field:Schema(
+        requiredMode = Schema.RequiredMode.REQUIRED,
+        types = ["string", "null"],
+        description = "Workout Type of a Run; null for any other sport and for a Run not yet classified",
+    )
+    val workoutType: WorkoutType?,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED)
     val ownerUsername: String,
     @field:Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Device-recorded Laps in lap order")
@@ -361,6 +368,7 @@ fun Activity.toDetailDto(
             calories = summary.calories,
             source = summary.source,
             hasProtectedMetrics = summary.hasProtectedMetrics,
+            workoutType = summary.workoutType,
             ownerUsername = user.username,
             laps = laps.map { it.toDto() },
             history = history.map { it.toDto() },
